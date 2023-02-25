@@ -1,0 +1,34 @@
+name: Tag and publish
+on:
+  push:
+    branches:
+      - main
+# Remove line 10 to enable automated semantic version bumps.
+# Requires that svc-aindscicomp be added as an admin to repo.
+jobs:
+  tag:
+    if: ${{github.event.repository.name == 'aind-library-template'}}
+    uses: AllenNeuralDynamics/aind-github-actions/.github/workflows/tag.yml@main
+    secrets:
+      SERVICE_TOKEN: ${{ secrets.SERVICE_TOKEN }}
+# Uncomment the following step block to publish to PYPI.
+#  publish:
+#    needs: tag
+#    runs-on: ubuntu-latest
+#    steps:
+#      - uses: actions/checkout@v3
+#      - name: Pull latest changes
+#        run: git pull origin main
+#      - name: Set up Python 3.8
+#        uses: actions/setup-python@v2
+#        with:
+#          python-version: 3.8
+#      - name: Install dependencies
+#        run: |
+#          pip install --upgrade setuptools wheel twine build
+#          python -m build
+#          twine check dist/*
+#      - name: Publish on PyPI
+#        uses: pypa/gh-action-pypi-publish@release/v1
+#        with:
+#          password: ${{ secrets.AIND_PYPI_TOKEN }}
