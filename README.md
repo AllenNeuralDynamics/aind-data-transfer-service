@@ -1,10 +1,10 @@
-# aind-library-template
+# aind-data-transfer-gui
 
 [![License](https://img.shields.io/badge/license-MIT-brightgreen)](LICENSE)
 ![Code Style](https://img.shields.io/badge/code%20style-black-black)
 [![semantic-release: angular](https://img.shields.io/badge/semantic--release-angular-e10079?logo=semantic-release)](https://github.com/semantic-release/semantic-release)
 
-Template for a minimal, basic repository for an AIND library.
+Generated from aind-library-template
 
 ## Usage
  - To use this template, click the green `Use this template` button and `Create new repository`.
