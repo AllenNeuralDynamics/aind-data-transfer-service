@@ -17,6 +17,7 @@ readme = "README.md"
 dynamic = ["version"]
 
 dependencies = [
+    'screeninfo==0.8.1'
 ]
 
 [project.optional-dependencies]
