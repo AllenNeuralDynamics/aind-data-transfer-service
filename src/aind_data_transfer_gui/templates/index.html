@@ -1,0 +1,65 @@
+{% extends 'base.html' %}
+
+{% block content %}
+    <h1>{% block title %} Add a New Upload Job {% endblock %}</h1>
+
+    <form method="POST" action="/">
+        {{ form.csrf_token }}
+        <p>
+            {{ form.experiment_type.label }}
+            {{ form.experiment_type(size=20) }}
+        </p>
+
+        {% if form.experiment_type.errors %}
+            <ul class="errors">
+                {% for error in form.experiment_type.errors %}
+                    <li>{{ error }}</li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+
+        <p>
+            {{ form.acquisition_datetime.label }}
+        </p>
+        {{ form.acquisition_datetime() }}
+
+        {% if form.acquisition_datetime.errors %}
+            <ul class="errors">
+                {% for error in form.acquisition_datetime.errors %}
+                    <li>{{ error }}</li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+
+        <p>
+            {{ form.modality.label }}
+            {{ form.modality(size=20) }}
+        </p>
+
+        {% if form.modality.errors %}
+            <ul class="errors">
+                {% for error in form.modality.errors %}
+                    <li>{{ error }}</li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+
+        <p>
+            {{ form.source.label }}
+            {{ form.source() }}
+        </p>
+
+        {% if form.source.errors %}
+            <ul class="errors">
+                {% for error in form.source.errors %}
+                    <li>{{ error }}</li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+
+        <p>
+            <input type="submit" value="Add">
+        </p>
+    </form>
+
+{% endblock %}
