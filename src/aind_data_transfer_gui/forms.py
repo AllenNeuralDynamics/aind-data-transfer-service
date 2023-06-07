@@ -1,13 +1,13 @@
-from flask_wtf import FlaskForm
 from wtforms import (StringField, DateTimeLocalField, FileField)
-from wtforms.validators import InputRequired
+from starlette_wtf import StarletteForm
+from wtforms.validators import DataRequired
 
 
-class UploadJobForm(FlaskForm):
+class UploadJobForm(StarletteForm):
     experiment_type = StringField('Experiment Type',
-                                  validators=[InputRequired()])
+                                  validators=[DataRequired()])
     acquisition_datetime = DateTimeLocalField("Acquisition Datetime",
-                                         validators=[InputRequired()])
+                                              validators=[DataRequired()])
     modality = StringField('Modality',
-                           validators=[InputRequired()])
-    source = FileField('Source', validators=[InputRequired()])
+                           validators=[DataRequired()])
+    source = FileField('Source', validators=[DataRequired()])
