@@ -4,18 +4,21 @@ from wtforms.widgets import TextInput
 
 
 class DirectoryInput(TextInput):
-    input_type = 'file'
+    """Custom widget to select directory"""
+    input_type = "file"
     directory_only = True
 
     def __call__(self, field, **kwargs):
-        kwargs.setdefault('type', self.input_type)
+        """enables directory selection in browser"""
+        kwargs.setdefault("type", self.input_type)
         if self.directory_only:
-            kwargs['webkitdirectory'] = True
-            kwargs['mozdirectory'] = True
-            kwargs['directory'] = True
+            kwargs["webkitdirectory"] = True
+            kwargs["mozdirectory"] = True
+            kwargs["directory"] = True
         return super().__call__(field, **kwargs)
 
 
 class DirectoryField(StringField):
+    """Custom Field that will store selected directory
+    path as a string."""
     widget = DirectoryInput()
-
