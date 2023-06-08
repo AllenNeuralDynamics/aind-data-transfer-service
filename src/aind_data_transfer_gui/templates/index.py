@@ -1,6 +1,9 @@
+"""Defines html index template"""
+
 from jinja2 import Template
 
 template = Template('''
+
 <html>
 <head>
     <meta charset="UTF-8">
@@ -19,25 +22,25 @@ template = Template('''
     <form method="post" novalidate>
       {{ form.csrf_token }}
       <div>
-        {{ form.experiment_type(placeholder='Experiment Type') }}
+        {{ form.experiment_type.label }} {{ form.experiment_type(placeholder='Experiment Type') }}
         {% if form.experiment_type.errors -%}
         <span>{{ form.experiment_type.errors[0] }}</span>
         {%- endif %}
       </div>
             <div>
-        {{ form.acquisition_datetime(placeholder='Acquisition Datetime') }}
+        {{ form.acquisition_datetime.label }} {{ form.acquisition_datetime(placeholder='Acquisition Datetime') }}
         {% if form.acquisition_datetime.errors -%}
         <span>{{ form.acquisition_datetime.errors[0] }}</span>
         {%- endif %}
       </div>
                   <div>
-        {{ form.modality(placeholder='modality') }}
+        {{ form.modality.label }} {{ form.modality(placeholder='modality') }}
         {% if form.modality.errors -%}
         <span>{{ form.modality.errors[0] }}</span>
         {%- endif %}
       </div>
                         <div>
-        {{ form.source(placeholder='source') }}
+        {{form.label}} {{ form.source(placeholder='source') }}
         {% if form.source.errors -%}
         <span>{{ form.source.errors[0] }}</span>
         {%- endif %}
