@@ -1,6 +1,7 @@
-from wtforms import (StringField, DateTimeLocalField, FileField)
+from wtforms import (StringField, DateTimeLocalField)
 from starlette_wtf import StarletteForm
 from wtforms.validators import DataRequired
+from aind_data_transfer_gui.directory_field import DirectoryField
 
 
 class UploadJobForm(StarletteForm):
@@ -10,4 +11,4 @@ class UploadJobForm(StarletteForm):
                                               validators=[DataRequired()])
     modality = StringField('Modality',
                            validators=[DataRequired()])
-    source = FileField('Source', validators=[DataRequired()])
+    source = DirectoryField('Source', validators=[DataRequired()])

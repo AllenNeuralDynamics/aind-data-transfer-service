@@ -36,6 +36,12 @@ template = Template('''
         <span>{{ form.modality.errors[0] }}</span>
         {%- endif %}
       </div>
+                        <div>
+        {{ form.source(placeholder='source') }}
+        {% if form.source.errors -%}
+        <span>{{ form.source.errors[0] }}</span>
+        {%- endif %}
+      </div>
       <button type="submit">Submit</button>
     </form>
   </body>
