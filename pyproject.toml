@@ -21,6 +21,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
+    'aind-data-transfer-gui[server]',
     'black',
     'coverage',
     'flake8',
@@ -28,6 +29,10 @@ dev = [
     'isort',
     'Sphinx',
     'furo'
+]
+
+server = [
+    'fastapi',
 ]
 
 [tool.setuptools.packages.find]
