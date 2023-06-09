@@ -18,6 +18,7 @@ modality_choices = [
 
 class UploadJobForm(StarletteForm):
     """Form to add a new upload job."""
+
     experiment_type = SelectField(
         "Experiment Type",
         choices=experiment_type_choices,

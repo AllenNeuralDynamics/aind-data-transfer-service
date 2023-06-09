@@ -1,17 +1,14 @@
 """Example test template."""
 
+import asyncio
 import os
 import unittest
-import asyncio
+
+from bs4 import BeautifulSoup
 from fastapi.testclient import TestClient
 from starlette.config import environ
-from unittest.mock import patch
-from starlette_wtf import csrf
-from bs4 import BeautifulSoup
 
 from aind_data_transfer_gui.server import app
-from aind_data_transfer_gui.forms import UploadJobForm
-
 
 # Set the secret keys for testing
 environ["SECRET_KEY"] = os.urandom(32).hex()
@@ -30,16 +27,20 @@ class TestServer(unittest.TestCase):
 
     def test_submit_form(self):
         """Tests that form submits as expected."""
+
         async def submit_form_async():
+            """async test of submit form to get form data and csrf token"""
             response = client.get("/")  # Fetch the form to get the CSRF token
             soup = BeautifulSoup(response.text, "html.parser")
-            csrf_token = soup.find("input", attrs={"name": "csrf_token"})["value"]
+            csrf_token = soup.find("input", attrs={"name": "csrf_token"})[
+                "value"
+            ]
 
             form_data = {
                 "experiment_type": "MESOSPIM",
                 "acquisition_datetime": "2023-06-05T14:04:00",
                 "modality": "ECEPHYS",
-                "source": "/some/source/path"
+                "source": "/some/source/path",
             }
 
             headers = {"X-CSRF-Token": csrf_token}

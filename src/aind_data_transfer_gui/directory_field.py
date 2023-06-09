@@ -5,6 +5,7 @@ from wtforms.widgets import TextInput
 
 class DirectoryInput(TextInput):
     """Custom widget to select directory"""
+
     input_type = "file"
     directory_only = True
 
@@ -19,4 +20,5 @@ class DirectoryInput(TextInput):
 
 
 class DirectoryField(StringField):
+    """Gets source path as string"""
     widget = DirectoryInput()

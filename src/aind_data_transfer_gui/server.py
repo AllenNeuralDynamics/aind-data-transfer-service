@@ -1,7 +1,5 @@
 """Starts and Runs Starlette Service"""
 
-import os
-
 from fastapi import FastAPI, Request
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.responses import HTMLResponse, PlainTextResponse
