@@ -19,6 +19,4 @@ class DirectoryInput(TextInput):
 
 
 class DirectoryField(StringField):
-    """Custom Field that will store selected directory
-    path as a string."""
     widget = DirectoryInput()
