@@ -32,7 +32,13 @@ dev = [
 ]
 
 server = [
+    'aind-data-schema==0.13.50',
     'fastapi',
+    'httpx',
+    'jinja2',
+    'starlette',
+    'starlette_wtf',
+    'wtforms'
 ]
 
 [tool.setuptools.packages.find]
