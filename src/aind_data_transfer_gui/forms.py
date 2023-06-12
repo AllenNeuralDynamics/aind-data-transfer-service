@@ -2,10 +2,9 @@
 
 from aind_data_schema.data_description import ExperimentType, Modality
 from starlette_wtf import StarletteForm
-from wtforms import DateTimeLocalField, SelectField
+from wtforms import DateTimeLocalField, SelectField, StringField
 from wtforms.validators import DataRequired
 
-from aind_data_transfer_gui.directory_field import DirectoryField
 
 experiment_type_choices = [
     (experiment_type.name, experiment_type.value)
@@ -25,9 +24,11 @@ class UploadJobForm(StarletteForm):
         validators=[DataRequired()],
     )
     acquisition_datetime = DateTimeLocalField(
-        "Acquisition Datetime", validators=[DataRequired()]
+        "Acquisition Datetime",
+        validators=[DataRequired()],
+        format='%Y-%m-%dT%H:%M'
     )
     modality = SelectField(
         "Modality", choices=modality_choices, validators=[DataRequired()]
     )
-    source = DirectoryField("Source", validators=[DataRequired()])
+    source = StringField("Source", validators=[DataRequired()])
