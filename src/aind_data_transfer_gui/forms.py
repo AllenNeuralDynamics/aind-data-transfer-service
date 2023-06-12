@@ -5,7 +5,6 @@ from starlette_wtf import StarletteForm
 from wtforms import DateTimeLocalField, SelectField, StringField
 from wtforms.validators import DataRequired
 
-
 experiment_type_choices = [
     (experiment_type.name, experiment_type.value)
     for experiment_type in ExperimentType
@@ -26,7 +25,7 @@ class UploadJobForm(StarletteForm):
     acquisition_datetime = DateTimeLocalField(
         "Acquisition Datetime",
         validators=[DataRequired()],
-        format='%Y-%m-%dT%H:%M'
+        format="%Y-%m-%dT%H:%M",
     )
     modality = SelectField(
         "Modality", choices=modality_choices, validators=[DataRequired()]

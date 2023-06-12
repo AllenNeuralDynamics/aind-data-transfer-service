@@ -2,7 +2,8 @@
 
 from jinja2 import Template
 
-template = Template("""
+template = Template(
+    """
 <html>
 <head>
     <meta charset="UTF-8">
@@ -14,7 +15,6 @@ template = Template("""
             margin-left: 50px;
             text-decoration: none;
         }
-    
     </style>
 </head>
 <h1> Add a New Upload Job </h1>
@@ -53,4 +53,5 @@ template = Template("""
 </form>
 </body>
 </html>
-""")
+"""
+)
