@@ -38,7 +38,7 @@ class TestServer(unittest.TestCase):
 
             form_data = {
                 "experiment_type": "MESOSPIM",
-                "acquisition_datetime": "2023-06-05T14:04:00",
+                "acquisition_datetime": "2023-05-12T04:12",
                 "modality": "ECEPHYS",
                 "source": "/some/source/path",
             }
