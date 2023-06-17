@@ -17,6 +17,7 @@ modality_choices = [
 class UploadJobForm(StarletteForm):
     """Form to add a new upload job."""
 
+    source = StringField("Source", validators=[DataRequired()])
     experiment_type = SelectField(
         "Experiment Type",
         choices=experiment_type_choices,
@@ -30,4 +31,3 @@ class UploadJobForm(StarletteForm):
     modality = SelectField(
         "Modality", choices=modality_choices, validators=[DataRequired()]
     )
-    source = StringField("Source", validators=[DataRequired()])
