@@ -1,25 +1,26 @@
-"""Example test template."""
+"""Server test"""
 
 import asyncio
 import os
 import unittest
-from fastapi import FastAPI
+
 from bs4 import BeautifulSoup
 from fastapi.testclient import TestClient
 from starlette.config import environ
-from starlette.middleware.sessions import SessionMiddleware
-from starlette_wtf import CSRFProtectMiddleware, csrf_protect
-from fastapi.templating import Jinja2Templates
 
 from aind_data_transfer_gui.server import app
 
-SECRET_KEY = "test-secret-key"
-CSRF_SECRET_KEY = "test-csrf-secret-key"
-
-app.add_middleware(SessionMiddleware, secret_key=SECRET_KEY)
-app.add_middleware(CSRFProtectMiddleware, csrf_secret=CSRF_SECRET_KEY)
-templates = Jinja2Templates(directory="src/aind_data_transfer_gui/templates")
+# Set the secret keys for testing
+environ["SECRET_KEY"] = os.urandom(32).hex()
+environ["CSRF_SECRET_KEY"] = os.urandom(32).hex()
 client = TestClient(app)
+
+test_directory = os.path.dirname(os.path.abspath(__file__))
+templates_directory = os.path.join(
+    test_directory, "src/aind_data_transfer_gui/templates"
+)
+
+jobs = []
 
 
 class TestServer(unittest.TestCase):
@@ -27,15 +28,9 @@ class TestServer(unittest.TestCase):
 
     def test_index(self):
         """Tests that form renders as expected."""
-        valid_data = {
-            "source": "example_source",
-            "experiment_type": "MESOSPIM",
-            "acquisition_datetime": "2023-05-12T04:12",
-            "modality": "ECEPHYS",
-        }
-        response = client.post("/", data=valid_data)
-        assert response.status_code == 200
-        assert "Add a New Upload Job" in response.text
+        response = client.get("/")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("Add a New Upload Job", response.text)
 
     def test_submit_form(self):
         """Tests that form submits as expected."""
@@ -49,17 +44,17 @@ class TestServer(unittest.TestCase):
             ]
 
             form_data = {
+                "source": "/some/source/path",
                 "experiment_type": "MESOSPIM",
                 "acquisition_datetime": "2023-05-12T04:12",
                 "modality": "ECEPHYS",
-                "source": "/some/source/path",
             }
 
             headers = {"X-CSRF-Token": csrf_token}
             response = client.post("/", json=form_data, headers=headers)
 
-            assert response.status_code == 200
-            assert response.text == "SUCCESS"
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response.template.name, "jobs.html")
 
         loop = asyncio.get_event_loop()
         loop.run_until_complete(submit_form_async())
