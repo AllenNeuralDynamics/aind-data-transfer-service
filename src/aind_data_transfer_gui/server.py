@@ -26,6 +26,7 @@ jobs = []
 @app.route("/", methods=["GET", "POST"])
 @csrf_protect
 async def index(request: Request):
+    """GET|POST /: form handler"""
     form = await UploadJobForm.from_formdata(request)
     if await form.validate():
         job = {
