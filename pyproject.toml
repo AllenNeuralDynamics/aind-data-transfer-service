@@ -38,7 +38,8 @@ server = [
     'jinja2',
     'starlette',
     'starlette_wtf',
-    'wtforms'
+    'wtforms',
+    'sqlite_utils'
 ]
 
 [tool.setuptools.packages.find]
