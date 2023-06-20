@@ -24,25 +24,6 @@
     </style>
 </head>
 <body>
-    <h2>Jobs Panel</h2>
-    <table>
-        <tr>
-            <th>Job ID</th>
-            <th>Source</th>
-            <th>Experiment Type</th>
-            <th>Acquisition Datetime</th>
-            <th>Modality</th>
-        </tr>
-        {% for job in jobs %}
-        <tr>
-            <td>{{ loop.index }}</td>
-            <td>{{ job.source }}</td>
-            <td>{{ job.experiment_type }}</td>
-            <td>{{ job.acquisition_datetime }}</td>
-            <td>{{ job.modality }}</td>
-        </tr>
-        {% endfor %}
-    </table>
     <h2>Add a New Upload Job</h2>
 <form method="POST" novalidate>
     {{ form.csrf_token }}
@@ -77,5 +58,29 @@
     <button type="submit">Add Job</button>
     <div></div>
 </form>
+    <form>
+    <h2>Jobs Panel</h2>
+        <form method="POST" novalidate>
+    {{ form.csrf_token }}
+    <table>
+        <tr>
+            <th>Job ID</th>
+            <th>Source</th>
+            <th>Experiment Type</th>
+            <th>Acquisition Datetime</th>
+            <th>Modality</th>
+        </tr>
+        {% for job in submit_jobs_form.jobs %}
+        <tr>
+            <td>{{ loop.index }}</td>
+            <td>{{ job.source }}</td>
+            <td>{{ job.experiment_type }}</td>
+            <td>{{ job.acquisition_datetime }}</td>
+            <td>{{ job.modality }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+        </form>
 </body>
 </html>
+

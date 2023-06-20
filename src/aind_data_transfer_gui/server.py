@@ -6,8 +6,7 @@ from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 from starlette_wtf import CSRFProtectMiddleware, csrf_protect
 
-from aind_data_transfer_gui.forms import UploadJobForm
-from aind_data_transfer_gui.jobs_manager import ManageJobsDatabase
+from aind_data_transfer_gui.forms import SubmitJobsForm, UploadJobForm
 
 SECRET_KEY = "secret key"
 CSRF_SECRET_KEY = "csrf secret key"
@@ -20,7 +19,6 @@ templates = Jinja2Templates(directory=template_directory)
 
 app.add_middleware(SessionMiddleware, secret_key=SECRET_KEY)
 app.add_middleware(CSRFProtectMiddleware, csrf_secret=CSRF_SECRET_KEY)
-app.jobs_db = ManageJobsDatabase()
 
 
 @app.route("/", methods=["GET", "POST"])
@@ -28,6 +26,7 @@ app.jobs_db = ManageJobsDatabase()
 async def index(request: Request):
     """GET|POST /: form handler"""
     form = await UploadJobForm.from_formdata(request)
+    submit_jobs_form = SubmitJobsForm(request)
     if await form.validate():
         job = {
             "source": form.source.data,
@@ -35,10 +34,13 @@ async def index(request: Request):
             "acquisition_datetime": form.acquisition_datetime.data,
             "modality": form.modality.data,
         }
-        app.jobs_db.insert_job(job)
-
-    jobs = app.jobs_db.retrieve_all_jobs()
+        submit_jobs_form.jobs.append(job)
 
     return templates.TemplateResponse(
-        "jobs.html", {"request": request, "jobs": jobs, "form": form}
+        "jobs.html",
+        {
+            "request": request,
+            "form": form,
+            "submit_jobs_form": submit_jobs_form,
+        },
     )

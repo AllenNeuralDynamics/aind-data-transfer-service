@@ -31,3 +31,9 @@ class UploadJobForm(StarletteForm):
     modality = SelectField(
         "Modality", choices=modality_choices, validators=[DataRequired()]
     )
+
+
+class SubmitJobsForm(StarletteForm):
+    """Form to submit multiple upload jobs."""
+
+    jobs = []
