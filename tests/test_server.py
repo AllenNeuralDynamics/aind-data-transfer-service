@@ -9,7 +9,7 @@ from bs4 import BeautifulSoup
 from fastapi.testclient import TestClient
 from starlette.config import environ
 
-from aind_data_transfer_gui.jobs_manager import JobsManager
+from aind_data_transfer_gui.jobs_manager import ManageJobsDatabase
 from aind_data_transfer_gui.server import app
 
 # Set the secret keys for testing
@@ -28,7 +28,7 @@ class TestServer(unittest.TestCase):
 
     def test_index(self):
         """Tests that form renders at startup as expected."""
-        mock_jobs_db = mock.Mock(spec=JobsManager)
+        mock_jobs_db = mock.Mock(spec=ManageJobsDatabase)
         mock_jobs_db.retrieve_all_jobs.return_value = []
         with mock.patch.object(app, "jobs_db", mock_jobs_db):
             response = client.get("/")
@@ -40,7 +40,7 @@ class TestServer(unittest.TestCase):
 
         async def submit_form_async():
             """async test of submit form to get form data and csrf token"""
-            mock_jobs_db = mock.Mock(spec=JobsManager)
+            mock_jobs_db = mock.Mock(spec=ManageJobsDatabase)
             form_data = {
                 "source": "/some/source/path",
                 "experiment_type": "MESOSPIM",

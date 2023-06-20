@@ -2,7 +2,7 @@
 import sqlite_utils
 
 
-class JobsManager:
+class ManageJobsDatabase:
     """Manages SQLite database for jobs."""
 
     def __init__(self):

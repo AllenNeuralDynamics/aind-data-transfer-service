@@ -2,18 +2,18 @@
 
 import unittest
 
-from aind_data_transfer_gui.jobs_manager import JobsManager
+from aind_data_transfer_gui.jobs_manager import ManageJobsDatabase
 
 
-class TestJobsManager(unittest.TestCase):
+class TestManageJobsDatabase(unittest.TestCase):
     """Tests Job Manager."""
     def setUp(self):
         """Initializes manager"""
-        self.manager = JobsManager()
+        self.jobs_db = ManageJobsDatabase()
 
     def test_create_jobs_table(self):
         """Tests that Jobs table is created as expected."""
-        self.assertTrue("jobs" in self.manager.db.table_names())
+        self.assertTrue("jobs" in self.jobs_db.db.table_names())
 
     def test_insert_job(self):
         """Tests that job is inserted into table as expected."""
@@ -23,8 +23,8 @@ class TestJobsManager(unittest.TestCase):
             "acquisition_datetime": "2023-05-12T04:12",
             "modality": "ECEPHYS",
         }
-        self.manager.insert_job(job)
-        jobs = self.manager.retrieve_all_jobs()
+        self.jobs_db.insert_job(job)
+        jobs = self.jobs_db.retrieve_all_jobs()
         self.assertEqual(len(jobs), 1)
         self.assertEqual(jobs[0], job)
 
@@ -45,9 +45,9 @@ class TestJobsManager(unittest.TestCase):
             },
         ]
         for job in jobs:
-            self.manager.insert_job(job)
+            self.jobs_db.insert_job(job)
 
-        retrieved_jobs = self.manager.retrieve_all_jobs()
+        retrieved_jobs = self.jobs_db.retrieve_all_jobs()
         self.assertEqual(len(retrieved_jobs), 2)
         self.assertEqual(retrieved_jobs, jobs)
 
