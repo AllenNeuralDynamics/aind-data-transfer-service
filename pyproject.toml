@@ -39,7 +39,6 @@ server = [
     'starlette',
     'starlette_wtf',
     'wtforms',
-    'sqlite_utils'
 ]
 
 [tool.setuptools.packages.find]
