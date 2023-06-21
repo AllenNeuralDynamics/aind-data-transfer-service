@@ -1,4 +1,4 @@
-"""Example test template."""
+"""Tests server module."""
 
 import asyncio
 import os
@@ -15,39 +15,43 @@ environ["SECRET_KEY"] = os.urandom(32).hex()
 environ["CSRF_SECRET_KEY"] = os.urandom(32).hex()
 client = TestClient(app)
 
+test_directory = os.path.dirname(os.path.abspath(__file__))
+templates_directory = os.path.join(
+    test_directory, "src/aind_data_transfer_gui/templates"
+)
+
 
 class TestServer(unittest.TestCase):
-    """Server Test Class"""
+    """Tests main server."""
 
     def test_index(self):
-        """Tests that form renders as expected."""
+        """Tests that form renders at startup as expected."""
         response = client.get("/")
-        assert response.status_code == 200
-        assert "Add a New Upload Job" in response.text
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("Add a New Upload Job", response.text)
 
     def test_submit_form(self):
         """Tests that form submits as expected."""
 
         async def submit_form_async():
             """async test of submit form to get form data and csrf token"""
+            form_data = {
+                "source": "/some/source/path",
+                "experiment_type": "MESOSPIM",
+                "acquisition_datetime": "2023-05-12T04:12",
+                "modality": "ECEPHYS",
+            }
             response = client.get("/")  # Fetch the form to get the CSRF token
             soup = BeautifulSoup(response.text, "html.parser")
             csrf_token = soup.find("input", attrs={"name": "csrf_token"})[
                 "value"
             ]
 
-            form_data = {
-                "experiment_type": "MESOSPIM",
-                "acquisition_datetime": "2023-05-12T04:12",
-                "modality": "ECEPHYS",
-                "source": "/some/source/path",
-            }
-
             headers = {"X-CSRF-Token": csrf_token}
             response = client.post("/", json=form_data, headers=headers)
 
-            assert response.status_code == 200
-            assert response.text == "SUCCESS"
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response.template.name, "jobs.html")
 
         loop = asyncio.get_event_loop()
         loop.run_until_complete(submit_form_async())
