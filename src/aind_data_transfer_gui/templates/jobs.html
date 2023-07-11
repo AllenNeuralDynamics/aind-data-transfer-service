@@ -27,13 +27,6 @@
     <h2>Add a New Upload Job</h2>
 <form method="POST" novalidate>
     {{ form.csrf_token }}
-        <div>
-        {{form.source.label}}
-        {{ form.source(placeholder='source') }}
-        {% if form.source.errors -%}
-        <span>{{ form.source.errors[0] }}</span>
-        {%- endif %}
-    </div>
     <div>
         {{ form.experiment_type.label }}
         {{ form.experiment_type(placeholder='Experiment Type') }}
@@ -48,13 +41,21 @@
         <span>{{ form.acquisition_datetime.errors[0] }}</span>
         {%- endif %}
     </div>
-    <div>
-        {{ form.modality.label }}
-        {{ form.modality(placeholder='modality') }}
-        {% if form.modality.errors -%}
-        <span>{{ form.modality.errors[0] }}</span>
-        {%- endif %}
-    </div>
+    <div id="upload_pairs">
+    {% for pair in form.upload_pairs %}
+      <div class="pair">
+        <label for="{{ pair.modality.id }}">{{ pair.modality.label }}:</label>
+        {{ pair.modality(class="form-control") }}
+        <br>
+
+        <label for="{{ pair.source.id }}">{{ pair.source.label.text }}:</label>
+        {{ pair.source(class="form-control") }}
+        <br>
+      </div>
+    {% endfor %}
+  </div>
+  <button type="button" id="add_pair">Add Pair</button>
+  <br>
     <button type="submit">Add Job</button>
     <div></div>
 </form>
@@ -65,22 +66,61 @@
     <table>
         <tr>
             <th>Job ID</th>
-            <th>Source</th>
             <th>Experiment Type</th>
             <th>Acquisition Datetime</th>
-            <th>Modality</th>
         </tr>
         {% for job in submit_jobs_form.jobs %}
         <tr>
             <td>{{ loop.index }}</td>
-            <td>{{ job.source }}</td>
             <td>{{ job.experiment_type }}</td>
             <td>{{ job.acquisition_datetime }}</td>
-            <td>{{ job.modality }}</td>
         </tr>
         {% endfor %}
     </table>
         </form>
 </body>
+<script>
+  var pairCount = {{ form.upload_pairs.entries|length }};
+  var uploadPairsDiv = document.getElementById('upload_pairs');
+  var addPairButton = document.getElementById('add_pair');
+
+  addPairButton.addEventListener('click', function() {
+    var pairDiv = document.createElement('div');
+    pairDiv.className = 'pair';
+
+    var modalityLabel = document.createElement('label');
+    modalityLabel.htmlFor = 'upload_pairs-' + pairCount + '-modality';
+    modalityLabel.textContent = 'Modality:';
+
+    var modalityInput = document.createElement('select');
+    modalityInput.name = 'upload_pairs-' + pairCount + '-modality';
+
+    {% for choice in modality_choices %}
+      var option = document.createElement('option');
+      option.value = '{{ choice[0] }}';
+      option.textContent = '{{ choice[1] }}';
+      modalityInput.appendChild(option);
+    {% endfor %}
+
+    var sourceLabel = document.createElement('label');
+    sourceLabel.htmlFor = 'upload_pairs-' + pairCount + '-source';
+    sourceLabel.textContent = 'Source:';
+
+    var sourceInput = document.createElement('input');
+    sourceInput.type = 'text';
+    sourceInput.name = 'upload_pairs-' + pairCount + '-source';
+
+    pairDiv.appendChild(modalityLabel);
+    pairDiv.appendChild(modalityInput);
+    pairDiv.appendChild(document.createElement('br'));
+    pairDiv.appendChild(sourceLabel);
+    pairDiv.appendChild(sourceInput);
+    pairDiv.appendChild(document.createElement('br'));
+
+    uploadPairsDiv.appendChild(pairDiv);
+
+    pairCount++;
+  });
+</script>
 </html>
 
