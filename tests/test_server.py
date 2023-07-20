@@ -62,7 +62,9 @@ class TestServer(unittest.TestCase):
             self.assertNotIn("csrf_token", job)
 
             invalid_form_data = {}
-            response = client.post("/", json=invalid_form_data, headers=headers)
+            response = client.post(
+                "/", json=invalid_form_data, headers=headers
+            )
             self.assertEqual(response.status_code, 400)
 
         loop = asyncio.get_event_loop()
