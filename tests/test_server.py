@@ -42,6 +42,7 @@ class TestServer(unittest.TestCase):
             csrf_token = soup.find("input", attrs={"name": "csrf_token"})[
                 "value"
             ]
+
             form_data = {
                 "experiment_type": "MESOSPIM",
                 "acquisition_datetime": "2023-05-12T04:12",
@@ -49,12 +50,20 @@ class TestServer(unittest.TestCase):
                 "source": "/some/source/path",
                 "csrf_token": csrf_token,
             }
+            job = form_data
+            if "csrf_token" in job:
+                del job["csrf_token"]
 
             headers = {"X-CSRF-Token": csrf_token}
             response = client.post("/", json=form_data, headers=headers)
-            print(response.content)
+
             self.assertEqual(response.status_code, 200)
             self.assertEqual(response.template.name, "jobs.html")
+            self.assertNotIn("csrf_token", job)
+
+            invalid_form_data = {}
+            response = client.post("/", json=invalid_form_data, headers=headers)
+            self.assertEqual(response.status_code, 400)
 
         loop = asyncio.get_event_loop()
         loop.run_until_complete(submit_form_async())

@@ -106,7 +106,8 @@
 
             const sourceField = document.createElement("input");
             sourceField.type = "text";
-            sourceField.name = `source_${fieldIndex}`; // Use array notation to handle multiple sources
+            sourceField.name = `source_${fieldIndex}`;
+            sourceField.placeholder = "source";
             dynamicFieldDiv.appendChild(sourceField);
 
             container.appendChild(dynamicFieldDiv);

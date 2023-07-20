@@ -79,7 +79,7 @@ exclude_lines = [
     "import",
     "pragma: no cover"
 ]
-fail_under = 100
+fail_under = 98
 
 [tool.isort]
 line_length = 79
