@@ -35,21 +35,24 @@ class TestServer(unittest.TestCase):
 
         async def submit_form_async():
             """async test of submit form to get form data and csrf token"""
-            form_data = {
-                "source": "/some/source/path",
-                "experiment_type": "MESOSPIM",
-                "acquisition_datetime": "2023-05-12T04:12",
-                "modality": "ECEPHYS",
-            }
             response = client.get("/")  # Fetch the form to get the CSRF token
+            self.assertEqual(response.status_code, 200)
+
             soup = BeautifulSoup(response.text, "html.parser")
             csrf_token = soup.find("input", attrs={"name": "csrf_token"})[
                 "value"
             ]
+            form_data = {
+                "experiment_type": "MESOSPIM",
+                "acquisition_datetime": "2023-05-12T04:12",
+                "modality": "ECEPHYS",
+                "source": "/some/source/path",
+                "csrf_token": csrf_token,
+            }
 
             headers = {"X-CSRF-Token": csrf_token}
             response = client.post("/", json=form_data, headers=headers)
-
+            print(response.content)
             self.assertEqual(response.status_code, 200)
             self.assertEqual(response.template.name, "jobs.html")
 

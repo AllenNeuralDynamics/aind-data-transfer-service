@@ -21,10 +21,12 @@
         th {
             background-color: #f2f2f2;
         }
+
+
     </style>
 </head>
 <body>
-    <h2>Add a New Upload Job</h2>
+<h2>Add a New Upload Job</h2>
 <form method="POST" novalidate>
     {{ form.csrf_token }}
     <div>
@@ -41,87 +43,78 @@
         <span>{{ form.acquisition_datetime.errors[0] }}</span>
         {%- endif %}
     </div>
-    <div id="upload_pairs">
-    {% for pair in form.upload_pairs %}
-      <div class="pair">
-        <label for="{{ pair.modality.id }}">{{ pair.modality.label }}:</label>
-        {{ pair.modality(class="form-control") }}
-        <br>
-
-        <label for="{{ pair.source.id }}">{{ pair.source.label.text }}:</label>
-        {{ pair.source(class="form-control") }}
-        <br>
-      </div>
-    {% endfor %}
-  </div>
-  <button type="button" id="add_pair">Add Pair</button>
-  <br>
+    <div id="dynamic-fields-container">
+        <div>
+            {{ form.modality.label }}
+            {{ form.modality(placeholder='Modality') }}
+            {% if form.modality.errors -%}
+            <span>{{ form.modality.errors[0] }}</span>
+            {%- endif %}
+        </div>
+        <div>
+            {{ form.source.label }}
+            {{ form.source(placeholder='Source') }}
+            {% if form.source.errors -%}
+            <span>{{ form.source.errors[0] }}</span>
+            {%- endif %}
+        </div>
+    </div>
+    <button type="button" id="add-field-button">Add Another Modality and Source</button>
     <button type="submit">Add Job</button>
     <div></div>
 </form>
-    <h2>Jobs Panel</h2>
-        <form method="POST" novalidate>
+<h2>Jobs Panel</h2>
+<form method="POST" novalidate>
     {{ form.csrf_token }}
+    {% if submit_jobs_form.jobs %}
     <table>
         <tr>
             <th>Job ID</th>
-            <th>Experiment Type</th>
-            <th>Acquisition Datetime</th>
-            <th>Source/Modality Pairs</th>
+            {% for key in submit_jobs_form.jobs[0].keys() %}
+            <th>{{ key|title }}</th>
+            {% endfor %}
         </tr>
         {% for job in submit_jobs_form.jobs %}
         <tr>
             <td>{{ loop.index }}</td>
-            <td>{{ job.experiment_type }}</td>
-            <td>{{ job.acquisition_datetime }}</td>
-            <td>{{ job.upload_pairs }}</td>
+            {% for value in job.values() %}
+            <td>{{ value }}</td>
+            {% endfor %}
         </tr>
         {% endfor %}
     </table>
-        </form>
+    {% else %}
+    <p>Please enter an upload job.</p>
+    {% endif %}
+</form>
 </body>
 <script>
-  var pairCount = 1;
-  var uploadPairsDiv = document.getElementById('upload_pairs');
-  var addPairButton = document.getElementById('add_pair');
+    document.addEventListener("DOMContentLoaded", function () {
+        const addButton = document.getElementById("add-field-button");
+        const container = document.getElementById("dynamic-fields-container");
+        let fieldIndex = 1;
 
-  addPairButton.addEventListener('click', function() {
-    var pairDiv = document.createElement('div');
-    pairDiv.className = 'pair';
+        addButton.addEventListener("click", function () {
+            const dynamicFieldDiv = document.createElement("div");
+            dynamicFieldDiv.className = "dynamic-field";
 
-    var modalityLabel = document.createElement('label');
-    modalityLabel.htmlFor = 'upload_pairs-' + pairCount + '-modality';
-    modalityLabel.textContent = 'Modality:';
+            const modalityField = document.createElement("select");
+            modalityField.name = `modality_${fieldIndex}`;
+            modalityField.innerHTML = `{% for choice in form.modality.choices %}
+            <option value="{{ choice[0] }}">{{ choice[1] }}</option>{% endfor %}`;
+            dynamicFieldDiv.appendChild(modalityField);
 
-    var modalityInput = document.createElement('select');
-    modalityInput.name = 'upload_pairs-' + pairCount + '-modality';
+            const sourceField = document.createElement("input");
+            sourceField.type = "text";
+            sourceField.name = `source_${fieldIndex}`; // Use array notation to handle multiple sources
+            dynamicFieldDiv.appendChild(sourceField);
 
-    {% for choice in modality_choices %}
-      var option = document.createElement('option');
-      option.value = '{{ choice[0] }}';
-      option.textContent = '{{ choice[1] }}';
-      modalityInput.appendChild(option);
-    {% endfor %}
+            container.appendChild(dynamicFieldDiv);
 
-    var sourceLabel = document.createElement('label');
-    sourceLabel.htmlFor = 'upload_pairs-' + pairCount + '-source';
-    sourceLabel.textContent = 'Source:';
+            fieldIndex++;
+        });
+    });
 
-    var sourceInput = document.createElement('input');
-    sourceInput.type = 'text';
-    sourceInput.name = 'upload_pairs-' + pairCount + '-source';
-
-    pairDiv.appendChild(modalityLabel);
-    pairDiv.appendChild(modalityInput);
-    pairDiv.appendChild(document.createElement('br'));
-    pairDiv.appendChild(sourceLabel);
-    pairDiv.appendChild(sourceInput);
-    pairDiv.appendChild(document.createElement('br'));
-
-    uploadPairsDiv.appendChild(pairDiv);
-
-    pairCount++;
-  });
 </script>
 </html>
 
