@@ -59,7 +59,6 @@
     <button type="submit">Add Job</button>
     <div></div>
 </form>
-    <form>
     <h2>Jobs Panel</h2>
         <form method="POST" novalidate>
     {{ form.csrf_token }}
@@ -68,19 +67,21 @@
             <th>Job ID</th>
             <th>Experiment Type</th>
             <th>Acquisition Datetime</th>
+            <th>Source/Modality Pairs</th>
         </tr>
         {% for job in submit_jobs_form.jobs %}
         <tr>
             <td>{{ loop.index }}</td>
             <td>{{ job.experiment_type }}</td>
             <td>{{ job.acquisition_datetime }}</td>
+            <td>{{ job.upload_pairs }}</td>
         </tr>
         {% endfor %}
     </table>
         </form>
 </body>
 <script>
-  var pairCount = {{ form.upload_pairs.entries|length }};
+  var pairCount = 1;
   var uploadPairsDiv = document.getElementById('upload_pairs');
   var addPairButton = document.getElementById('add_pair');
 

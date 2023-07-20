@@ -6,7 +6,7 @@ from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 from starlette_wtf import CSRFProtectMiddleware, csrf_protect
 
-from aind_data_transfer_gui.forms import SubmitJobsForm, UploadJobForm
+from aind_data_transfer_gui.forms import SubmitJobsForm, UploadJobForm, modality_choices
 
 SECRET_KEY = "secret key"
 CSRF_SECRET_KEY = "csrf secret key"
@@ -29,10 +29,9 @@ async def index(request: Request):
     submit_jobs_form = SubmitJobsForm(request)
     if await form.validate():
         job = {
-            "source": form.source.data,
             "experiment_type": form.experiment_type.data,
             "acquisition_datetime": form.acquisition_datetime.data,
-            "modality": form.modality.data,
+            "upload_pairs": form.upload_pairs.data,
         }
         submit_jobs_form.jobs.append(job)
 
@@ -42,5 +41,6 @@ async def index(request: Request):
             "request": request,
             "form": form,
             "submit_jobs_form": submit_jobs_form,
+            "modality_choices": modality_choices,
         },
     )

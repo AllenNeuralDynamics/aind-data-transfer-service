@@ -9,6 +9,7 @@ experiment_type_choices = [
     (experiment_type.name, experiment_type.value)
     for experiment_type in ExperimentType
 ]
+
 modality_choices = [
     (modality.name, modality.value.name) for modality in Modality
 ]
@@ -45,5 +46,6 @@ class UploadJobForm(StarletteForm):
 
 class SubmitJobsForm(StarletteForm):
     """Form to submit multiple upload jobs."""
-
     jobs = []
+
+
