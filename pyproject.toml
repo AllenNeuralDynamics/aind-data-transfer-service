@@ -32,7 +32,7 @@ dev = [
 ]
 
 server = [
-    'aind-data-schema==0.13.50',
+    'aind-data-schema==0.13.68',
     'fastapi',
     'httpx',
     'jinja2',
