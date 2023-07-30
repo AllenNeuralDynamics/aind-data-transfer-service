@@ -27,95 +27,41 @@
 </head>
 <body>
 <h2>Add a New Upload Job</h2>
-<form method="POST" novalidate>
-    {{ form.csrf_token }}
+<form action="" method="POST" novalidate>
+    {{ form.csrf_token() }}
     <div>
         {{ form.experiment_type.label }}
         {{ form.experiment_type(placeholder='Experiment Type') }}
         {% if form.experiment_type.errors -%}
-        <span>{{ form.experiment_type.errors[0] }}</span>
+          <span>{{ form.experiment_type.errors[0] }}</span>
         {%- endif %}
     </div>
     <div>
         {{ form.acquisition_datetime.label }}
         {{ form.acquisition_datetime(placeholder='Acquisition Datetime') }}
         {% if form.acquisition_datetime.errors -%}
-        <span>{{ form.acquisition_datetime.errors[0] }}</span>
+          <span>{{ form.acquisition_datetime.errors[0] }}</span>
         {%- endif %}
     </div>
-    <div id="dynamic-fields-container">
-        <div>
-            {{ form.modality.label }}
-            {{ form.modality(placeholder='Modality') }}
-            {% if form.modality.errors -%}
-            <span>{{ form.modality.errors[0] }}</span>
-            {%- endif %}
-        </div>
-        <div>
-            {{ form.source.label }}
-            {{ form.source(placeholder='Source') }}
-            {% if form.source.errors -%}
-            <span>{{ form.source.errors[0] }}</span>
-            {%- endif %}
-        </div>
-    </div>
-    <button type="button" id="add-field-button">Add Another Modality and Source</button>
-    <button type="submit">Add Job</button>
+    {% for modality_form in form.modalities %}
+      <div>
+        {{ modality_form.modality.label }}
+        {{ modality_form.modality(placeholder='Modality Type') }}
+        {% if modality_form.modality.errors -%}
+          <span>{{ modality_form.modality.errors[0] }}</span>
+        {%- endif %}
+      </div>
+      <div>
+        {{ modality_form.source.label }}
+        {{ modality_form.source(placeholder='Modality Source') }}
+        {% if modality_form.modality.errors -%}
+          <span>{{ modality_form.source.errors[0] }}</span>
+        {%- endif %}
+      </div>
+    {% endfor %}
+    {{ form.add_modality() }}
+    {{ form.submit_jobs() }}
     <div></div>
 </form>
-<h2>Jobs Panel</h2>
-<form method="POST" novalidate>
-    {{ form.csrf_token }}
-    {% if submit_jobs_form.jobs %}
-    <table>
-        <tr>
-            <th>Job ID</th>
-            {% for key in submit_jobs_form.jobs[0].keys() %}
-            <th>{{ key|title }}</th>
-            {% endfor %}
-        </tr>
-        {% for job in submit_jobs_form.jobs %}
-        <tr>
-            <td>{{ loop.index }}</td>
-            {% for value in job.values() %}
-            <td>{{ value }}</td>
-            {% endfor %}
-        </tr>
-        {% endfor %}
-    </table>
-    {% else %}
-    <p>Please enter an upload job.</p>
-    {% endif %}
-</form>
 </body>
-<script>
-    document.addEventListener("DOMContentLoaded", function () {
-        const addButton = document.getElementById("add-field-button");
-        const container = document.getElementById("dynamic-fields-container");
-        let fieldIndex = 1;
-
-        addButton.addEventListener("click", function () {
-            const dynamicFieldDiv = document.createElement("div");
-            dynamicFieldDiv.className = "dynamic-field";
-
-            const modalityField = document.createElement("select");
-            modalityField.name = `modality_${fieldIndex}`;
-            modalityField.innerHTML = `{% for choice in form.modality.choices %}
-            <option value="{{ choice[0] }}">{{ choice[1] }}</option>{% endfor %}`;
-            dynamicFieldDiv.appendChild(modalityField);
-
-            const sourceField = document.createElement("input");
-            sourceField.type = "text";
-            sourceField.name = `source_${fieldIndex}`;
-            sourceField.placeholder = "source";
-            dynamicFieldDiv.appendChild(sourceField);
-
-            container.appendChild(dynamicFieldDiv);
-
-            fieldIndex++;
-        });
-    });
-
-</script>
 </html>
-

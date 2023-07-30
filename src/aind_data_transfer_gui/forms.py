@@ -2,7 +2,8 @@
 
 from aind_data_schema.data_description import ExperimentType, Modality
 from starlette_wtf import StarletteForm
-from wtforms import DateTimeLocalField, SelectField, StringField
+from wtforms import Form
+from wtforms import DateTimeLocalField, SelectField, StringField, SubmitField, FieldList, FormField
 from wtforms.validators import DataRequired
 
 experiment_type_choices = [
@@ -15,7 +16,18 @@ modality_choices = [
 ]
 
 
-class UploadJobForm(StarletteForm):
+class JobListForm(Form):
+    jobs = []
+
+
+class ModalityForm(Form):
+    modality = SelectField(
+        "Modality", choices=modality_choices, validators=[DataRequired()]
+    )
+    source = StringField("Source", validators=[DataRequired()])
+
+
+class JobManifestForm(StarletteForm):
     """Form to add a new upload job."""
 
     experiment_type = SelectField(
@@ -28,13 +40,6 @@ class UploadJobForm(StarletteForm):
         validators=[DataRequired()],
         format="%Y-%m-%dT%H:%M",
     )
-    modality = SelectField(
-        "Modality", choices=modality_choices, validators=[DataRequired()]
-    )
-    source = StringField("Source", validators=[DataRequired()])
-
-
-class SubmitJobsForm(StarletteForm):
-    """Form to submit multiple upload jobs."""
-
-    jobs = []
+    modalities = FieldList(FormField(ModalityForm), min_entries=1)
+    add_modality = SubmitField('add_modality')
+    submit_jobs = SubmitField('submit_jobs')
