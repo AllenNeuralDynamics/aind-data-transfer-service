@@ -60,6 +60,13 @@
       </div>
     {% endfor %}
     {{ form.add_modality() }}
+    {{ form.add_job() }}
+    <div>Jobs</div>
+    {% for job in form.jobs %}
+      <div>
+          <span>{{ job }}</span>
+      </div>
+    {% endfor %}
     {{ form.submit_jobs() }}
     <div></div>
 </form>
