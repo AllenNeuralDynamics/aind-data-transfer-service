@@ -16,10 +16,6 @@ modality_choices = [
 ]
 
 
-class JobListForm(Form):
-    jobs = []
-
-
 class ModalityForm(Form):
     modality = SelectField(
         "Modality", choices=modality_choices, validators=[DataRequired()]
@@ -41,5 +37,6 @@ class JobManifestForm(StarletteForm):
         format="%Y-%m-%dT%H:%M",
     )
     modalities = FieldList(FormField(ModalityForm), min_entries=1)
+    jobs = StringField()
     add_modality = SubmitField('add_modality')
     submit_jobs = SubmitField('submit_jobs')

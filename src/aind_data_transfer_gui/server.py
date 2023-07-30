@@ -32,9 +32,9 @@ async def index(request: Request):
     """GET|POST /: form handler"""
     job_manifest_form = await JobManifestForm.from_formdata(request)
     logging.warning("STARTING")
-    if await job_manifest_form.is_submitted() and job_manifest_form.data.add_modality:
+    if await job_manifest_form.validate() and job_manifest_form.data.get("add_modality"):
         logging.warning(f"M: {job_manifest_form.data}")
-    if await job_manifest_form.validate() and job_manifest_form.data.submt_jobs:
+    if await job_manifest_form.validate() and job_manifest_form.data.get("submit_jobs"):
         logging.warning(f"J: {job_manifest_form.data}")
     logging.warning("OUTSIDE IF")
     return templates.TemplateResponse(
