@@ -3,7 +3,7 @@ requires = ["setuptools", "setuptools-scm"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "aind-data-transfer-gui"
+name = "aind-data-transfer-service"
 description = "Generated from aind-library-template"
 license = {text = "MIT"}
 requires-python = ">=3.7"
@@ -21,7 +21,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-    'aind-data-transfer-gui[server]',
+    'aind-data-transfer-service[server]',
     'black',
     'coverage',
     'flake8',
@@ -33,6 +33,7 @@ dev = [
 
 server = [
     'aind-data-schema==0.13.50',
+    'pydantic<2.0',
     'fastapi',
     'httpx',
     'jinja2',
@@ -45,7 +46,7 @@ server = [
 where = ["src"]
 
 [tool.setuptools.dynamic]
-version = {attr = "aind_data_transfer_gui.__version__"}
+version = {attr = "aind_data_transfer_service.__version__"}
 
 [tool.black]
 line-length = 79
@@ -70,7 +71,7 @@ exclude = '''
 
 [tool.coverage.run]
 omit = ["*__init__*"]
-source = ["aind_data_transfer_gui", "tests"]
+source = ["aind_data_transfer_service", "tests"]
 
 [tool.coverage.report]
 exclude_lines = [

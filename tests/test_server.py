@@ -8,7 +8,7 @@ from bs4 import BeautifulSoup
 from fastapi.testclient import TestClient
 from starlette.config import environ
 
-from aind_data_transfer_gui.server import app
+from aind_data_transfer_service.server import app
 
 # Set the secret keys for testing
 environ["SECRET_KEY"] = os.urandom(32).hex()
@@ -17,7 +17,7 @@ client = TestClient(app)
 
 test_directory = os.path.dirname(os.path.abspath(__file__))
 templates_directory = os.path.join(
-    test_directory, "src/aind_data_transfer_gui/templates"
+    test_directory, "src/aind_data_transfer_service/templates"
 )
 
 
