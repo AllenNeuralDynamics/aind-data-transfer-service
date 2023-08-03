@@ -50,6 +50,5 @@ async def upload_csv(request: Request, file: UploadFile = File(...)):
     except Exception as e:
         return JSONResponse(content={"error": f"Error processing CSV: {e}"}, status_code=400)
 
-app = FastAPI()
 app.routes.append(Route("/", index, methods=["GET"]))
 app.routes.append(Route("/upload/", upload_csv, methods=["POST"]))
