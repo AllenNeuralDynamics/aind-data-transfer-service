@@ -23,22 +23,26 @@ templates = Jinja2Templates(directory=template_directory)
 
 
 @csrf_protect
-async def index(request: Request):
+async def index(request):
     """GET|POST /: form handler"""
     job_manifest_form = await JobManifestForm.from_formdata(request)
+
     if job_manifest_form.is_submitted():
-        if job_manifest_form.data.get("add_modality"):
+        add_modality = job_manifest_form.data.get("add_modality")
+        add_job = job_manifest_form.data.get("add_job")
+        submit_jobs = job_manifest_form.data.get("submit_jobs")
+
+        if add_modality:
             job_manifest_form.modalities.append_entry()
-        elif await job_manifest_form.validate() and job_manifest_form.data.get(
-            "add_job"
-        ):
-            job_manifest_form.jobs.append(job_manifest_form.to_job_string())
-        elif await job_manifest_form.validate() and job_manifest_form.data.get(
-            "submit_jobs"
-        ):
-            logging.info(
-                f"Will send the following to the HPC: {job_manifest_form.jobs}"
-            )
+
+        if add_job:
+            if await job_manifest_form.validate():
+                job_manifest_form.jobs.append(job_manifest_form.to_job_string())
+
+        if submit_jobs:
+            if await job_manifest_form.validate():
+                logging.info(f"Will send the following to the HPC: {job_manifest_form.jobs}")
+
     return templates.TemplateResponse(
         name="jobs.html",
         context=({"request": request, "form": job_manifest_form}),
