@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+     <meta charset="UTF-8">
+    <title>{% block title %} {% endblock %} AIND Data Transfer Service</title>
+     <style>
+        nav a {
+            color: #d64161;
+            font-size: 2em;
+            margin-left: 50px;
+            text-decoration: none;
+        }
+                table {
+            border-collapse: collapse;
+            width: 75%%;
+        }
+        th, td {
+            border: 1px solid black;
+            padding: 4px;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+    </style>
+</head>
+<body>
+    <h1>Upload Job CSV File</h1>
+    <form action="/upload/" method="post" enctype="multipart/form-data">
+        <input type="file" name="file" accept=".csv" onchange="this.form.submit()">
+        <div></div>
+         <button type="submit">Submit Jobs</button>
+        <div></div>
+         <div>Jobs</div>
+<span id="json-display">{{ csv_data }}</span>
+        <div></div>
+    </form>
+</body>
+</html>
