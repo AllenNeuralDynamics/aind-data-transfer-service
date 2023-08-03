@@ -6,7 +6,7 @@ from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 from starlette_wtf import CSRFProtectMiddleware, csrf_protect
 
-from aind_data_transfer_gui.forms import SubmitJobsForm, UploadJobForm
+from aind_data_transfer_service.forms import SubmitJobsForm, UploadJobForm
 
 SECRET_KEY = "secret key"
 CSRF_SECRET_KEY = "csrf secret key"
