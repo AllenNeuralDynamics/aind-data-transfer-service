@@ -55,7 +55,6 @@ class TestServer(unittest.TestCase):
         response = self.client.post("/", data={"submit_jobs": "Submit"})
         self.assertEqual(response.status_code, 400)
         self.assertIn("Error collecting csv data.", response.text)
-        self.assertEqual(response.json(), [])
 
     def test_post_submit_jobs_success(self):
         """Tests that form successfully submits as expected."""

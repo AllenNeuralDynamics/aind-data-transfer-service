@@ -6,9 +6,11 @@ import os
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
+from fastapi.templating import Jinja2Templates
+from starlette.middleware.sessions import SessionMiddleware
+from starlette_wtf import CSRFProtectMiddleware, csrf_protect
 
 from aind_data_transfer_service.forms import JobManifestForm
-
 
 SECRET_KEY = "secret key"
 CSRF_SECRET_KEY = "csrf secret key"
@@ -21,6 +23,7 @@ templates = Jinja2Templates(directory=template_directory)
 
 app.add_middleware(SessionMiddleware, secret_key=SECRET_KEY)
 app.add_middleware(CSRFProtectMiddleware, csrf_secret=CSRF_SECRET_KEY)
+
 
 @csrf_protect
 @app.route("/", methods=["GET", "POST"])
@@ -67,4 +70,3 @@ async def index(request: Request):
             }
         ),
     )
-  
