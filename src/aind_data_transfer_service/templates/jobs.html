@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>{% block title %} {% endblock %} AIND Data Transfer Service</title>
+    <style>
+        nav a {
+            color: #d64161;
+            font-size: 2em;
+            margin-left: 50px;
+            text-decoration: none;
+        }
+                table {
+            border-collapse: collapse;
+            width: 75%%;
+        }
+        th, td {
+            border: 1px solid black;
+            padding: 4px;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+    </style>
+</head>
+<body>
+    <h2>Add a New Upload Job</h2>
+<form method="POST" novalidate>
+    {{ form.csrf_token }}
+        <div>
+        {{form.source.label}}
+        {{ form.source(placeholder='source') }}
+        {% if form.source.errors -%}
+        <span>{{ form.source.errors[0] }}</span>
+        {%- endif %}
+    </div>
+    <div>
+        {{ form.experiment_type.label }}
+        {{ form.experiment_type(placeholder='Experiment Type') }}
+        {% if form.experiment_type.errors -%}
+        <span>{{ form.experiment_type.errors[0] }}</span>
+        {%- endif %}
+    </div>
+    <div>
+        {{ form.acquisition_datetime.label }}
+        {{ form.acquisition_datetime(placeholder='Acquisition Datetime') }}
+        {% if form.acquisition_datetime.errors -%}
+        <span>{{ form.acquisition_datetime.errors[0] }}</span>
+        {%- endif %}
+    </div>
+    <div>
+        {{ form.modality.label }}
+        {{ form.modality(placeholder='modality') }}
+        {% if form.modality.errors -%}
+        <span>{{ form.modality.errors[0] }}</span>
+        {%- endif %}
+    </div>
+    <button type="submit">Add Job</button>
+    <div></div>
+</form>
+    <form>
+    <h2>Jobs Panel</h2>
+        <form method="POST" novalidate>
+    {{ form.csrf_token }}
+    <table>
+        <tr>
+            <th>Job ID</th>
+            <th>Source</th>
+            <th>Experiment Type</th>
+            <th>Acquisition Datetime</th>
+            <th>Modality</th>
+        </tr>
+        {% for job in submit_jobs_form.jobs %}
+        <tr>
+            <td>{{ loop.index }}</td>
+            <td>{{ job.source }}</td>
+            <td>{{ job.experiment_type }}</td>
+            <td>{{ job.acquisition_datetime }}</td>
+            <td>{{ job.modality }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+        </form>
+</body>
+</html>
+
