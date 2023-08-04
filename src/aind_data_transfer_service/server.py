@@ -27,28 +27,24 @@ app.add_middleware(CSRFProtectMiddleware, csrf_secret=CSRF_SECRET_KEY)
 @app.route("/", methods=["GET", "POST"])
 async def index(request: Request):
     """GET|POST /: form handler"""
-    return templates.TemplateResponse("index.html", {"request": request, "json_data": ""})
+    if request.method == "POST":
+        try:
+            form_data = await request.form()
+            file = form_data["file"]
+            content = await file.read()
+            data = content.decode("utf-8")
 
+            csv_data = []
+            csv_reader = csv.DictReader(io.StringIO(data))
+            for row in csv_reader:
+                csv_data.append(row)
 
-@app.post("/upload/")
-async def upload_csv(request: Request, file: UploadFile = File(...)):
-    """POST /: csv handler"""
-    try:
-        content = await file.read()
-        data = content.decode("utf-8")
+            return templates.TemplateResponse(
+                name="index.html",
+                context={"request": request, "csv_data": csv_data},
+            )
 
-        csv_data = []
-        csv_reader = csv.DictReader(io.StringIO(data))
-        for row in csv_reader:
-            csv_data.append(row)
+        except Exception as e:
+            return JSONResponse(content={"error": f"Error processing CSV: {e}"}, status_code=400)
 
-        return templates.TemplateResponse(
-            name="index.html",
-            context=({"request": request, "csv_data": csv_data}),
-        )
-
-    except Exception as e:
-        return JSONResponse(content={"error": f"Error processing CSV: {e}"}, status_code=400)
-
-app.routes.append(Route("/", index, methods=["GET"]))
-app.routes.append(Route("/upload/", upload_csv, methods=["POST"]))
+    return templates.TemplateResponse("index.html", {"request": request, "csv_data": ""})
