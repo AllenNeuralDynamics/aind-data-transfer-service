@@ -27,12 +27,12 @@
     <h1>Upload Job</h1>
     <form action="/" method="post" enctype="multipart/form-data">
         <label for="file">Please select a CSV file:</label>
-        <input type="file" name="file" accept=".csv" onchange="this.form.submit()">
+        {{ form.upload_csv() }}
         <div></div>
-<span id="json-display">{{ csv_data }}</span>
+         <div>Jobs</div>
+        <span id="json-display">{{ csv_data }}</span>
         <div></div>
-         <button type="submit">Submit Jobs</button>
-        <div></div>
+        {{ form.submit_jobs() }}
     </form>
 </body>
 </html>
