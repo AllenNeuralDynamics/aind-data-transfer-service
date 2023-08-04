@@ -1,14 +1,13 @@
 """Starts and Runs Starlette Service"""
+import csv
+import io
 import os
 
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 from starlette_wtf import CSRFProtectMiddleware, csrf_protect
-from starlette.routing import Route
-from fastapi import FastAPI, File, UploadFile, Request
-from fastapi.responses import JSONResponse
-import csv
-import io
 
 SECRET_KEY = "secret key"
 CSRF_SECRET_KEY = "csrf secret key"
@@ -45,6 +44,11 @@ async def index(request: Request):
             )
 
         except Exception as e:
-            return JSONResponse(content={"error": f"Error processing CSV: {e}"}, status_code=400)
+            return JSONResponse(
+                content={"error": f"Error processing CSV: {e}"},
+                status_code=400,
+            )
 
-    return templates.TemplateResponse("index.html", {"request": request, "csv_data": ""})
+    return templates.TemplateResponse(
+        "index.html", {"request": request, "csv_data": ""}
+    )

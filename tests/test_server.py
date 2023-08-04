@@ -1,11 +1,11 @@
 """Tests server module."""
 
-import asyncio
+import csv
+import io
 import os
 import unittest
-import io
+from unittest.mock import patch
 
-from bs4 import BeautifulSoup
 from fastapi.testclient import TestClient
 from starlette.config import environ
 
@@ -25,7 +25,7 @@ class TestServer(unittest.TestCase):
     """Tests main server."""
 
     client = TestClient(app)
-    with open(test_directory+"/resources/sample.csv", "r") as file:
+    with open(test_directory + "/resources/sample.csv", "r") as file:
         csv_content = file.read()
 
     def test_index(self):
@@ -34,18 +34,42 @@ class TestServer(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn("Upload Job", response.text)
 
-        response = self.client.post("/", files={"file": ("resources/sample.csv", io.BytesIO(self.csv_content.encode("utf-8")), "text/csv")})
+    def test_valid_csv(self):
+        """Tests that valid csv is read as expected."""
+        response = self.client.post(
+            "/",
+            files={
+                "file": (
+                    "resources/sample.csv",
+                    io.BytesIO(self.csv_content.encode("utf-8")),
+                    "text/csv",
+                )
+            },
+        )
         self.assertEqual(response.status_code, 200)
         self.assertIn("text/html", response.headers["content-type"])
         self.assertIn("modality", response.text)
         self.assertIn("some_bucket", response.text)
         self.assertIn("/aind/data/transfer/endpoints", response.text)
 
-        invalid_csv = "invalid,csv\n123,456"  # Invalid CSV content
-        response = self.client.post("/", files={"file": ("test.csv", io.BytesIO(invalid_csv.encode("utf-8")), "text/csv")})
-        self.assertEqual(response.status_code, 400)
-        assert "application/json" in response.headers["content-type"]
-        assert "Error processing CSV" in response.json()["error"]
+    def test_invalid_csv(self):
+        """Tests that error response is returned as expected."""
+        with patch(
+            "csv.DictReader", side_effect=csv.Error("Error processing CSV.")
+        ):
+            response = self.client.post(
+                "/",
+                files={
+                    "file": (
+                        "test.csv",
+                        io.BytesIO(self.csv_content.encode("utf-8")),
+                        "text/csv",
+                    )
+                },
+            )
+            self.assertEqual(response.status_code, 400)
+            self.assertIn("application/json", response.headers["content-type"])
+            self.assertIn("Error processing CSV.", response.json()["error"])
 
 
 if __name__ == "__main__":
