@@ -68,7 +68,7 @@ class TestServer(unittest.TestCase):
                     "text/csv",
                 )
             },
-            data={"submit_jobs": "Submit"}
+            data={"submit_jobs": "Submit"},
         )
         self.assertEqual(response.status_code, 200)
         self.assertIn("Successfully submitted job.", response.text)

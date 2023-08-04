@@ -1,15 +1,16 @@
 """Starts and Runs Starlette Service"""
 import csv
 import io
+import logging
 import os
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
-from aind_data_transfer_service.forms import JobManifestForm
 from starlette_wtf import CSRFProtectMiddleware, csrf_protect
-import logging
+
+from aind_data_transfer_service.forms import JobManifestForm
 
 SECRET_KEY = "secret key"
 CSRF_SECRET_KEY = "csrf secret key"
@@ -47,8 +48,10 @@ async def index(request: Request):
             if csv_data:
                 logging.info(f"Will send the following to the HPC: {csv_data}")
                 return JSONResponse(
-                    content={"message": f"Successfully submitted job.",
-                             "data": csv_data},
+                    content={
+                        "message": "Successfully submitted job.",
+                        "data": csv_data,
+                    },
                     status_code=200,
                 )
             else:
@@ -59,6 +62,11 @@ async def index(request: Request):
 
     return templates.TemplateResponse(
         name="index.html",
-        context=({"request": request, "form": job_manifest_form, "csv_data": csv_data}),
+        context=(
+            {
+                "request": request,
+                "form": job_manifest_form,
+                "csv_data": csv_data,
+            }
+        ),
     )
-
