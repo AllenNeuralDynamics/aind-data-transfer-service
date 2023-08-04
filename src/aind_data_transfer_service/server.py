@@ -9,6 +9,7 @@ from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 from aind_data_transfer_service.forms import JobManifestForm
 from starlette_wtf import CSRFProtectMiddleware, csrf_protect
+import logging
 
 SECRET_KEY = "secret key"
 CSRF_SECRET_KEY = "csrf secret key"
@@ -34,7 +35,6 @@ async def index(request: Request):
         submit_jobs = job_manifest_form.data.get("submit_jobs")
 
         if upload_csv:
-
             file = job_manifest_form["upload_csv"].data
             content = await file.read()
             data = content.decode("utf-8")
@@ -44,7 +44,18 @@ async def index(request: Request):
                 csv_data.append(row)
 
         if submit_jobs:
-            return JSONResponse(csv_data)
+            if csv_data:
+                logging.info(f"Will send the following to the HPC: {csv_data}")
+                return JSONResponse(
+                    content={"message": f"Successfully submitted job.",
+                             "data": csv_data},
+                    status_code=200,
+                )
+            else:
+                return JSONResponse(
+                    content={"error": "Error collecting csv data."},
+                    status_code=400,
+                )
 
     return templates.TemplateResponse(
         name="index.html",

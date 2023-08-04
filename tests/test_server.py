@@ -1,10 +1,8 @@
 """Tests server module."""
 
-import csv
 import io
 import os
 import unittest
-from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 from starlette.config import environ
@@ -34,12 +32,12 @@ class TestServer(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn("Upload Job", response.text)
 
-    def test_valid_csv(self):
-        """Tests that valid csv is read as expected."""
+    def test_post_upload_csv(self):
+        """Tests that valid csv is posted as expected."""
         response = self.client.post(
             "/",
             files={
-                "file": (
+                "upload_csv": (
                     "resources/sample.csv",
                     io.BytesIO(self.csv_content.encode("utf-8")),
                     "text/csv",
@@ -52,24 +50,29 @@ class TestServer(unittest.TestCase):
         self.assertIn("some_bucket", response.text)
         self.assertIn("/aind/data/transfer/endpoints", response.text)
 
-    def test_invalid_csv(self):
-        """Tests that error response is returned as expected."""
-        with patch(
-            "csv.DictReader", side_effect=csv.Error("Error processing CSV.")
-        ):
-            response = self.client.post(
-                "/",
-                files={
-                    "file": (
-                        "test.csv",
-                        io.BytesIO(self.csv_content.encode("utf-8")),
-                        "text/csv",
-                    )
-                },
-            )
-            self.assertEqual(response.status_code, 400)
-            self.assertIn("application/json", response.headers["content-type"])
-            self.assertIn("Error processing CSV.", response.json()["error"])
+    def test_post_submit_jobs_failure(self):
+        """Tests that form fails to submit when there's no data as expected."""
+        response = self.client.post("/", data={"submit_jobs": "Submit"})
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("Error collecting csv data.", response.text)
+        self.assertEqual(response.json(), [])
+
+    def test_post_submit_jobs_success(self):
+        """Tests that form successfully submits as expected."""
+        response = self.client.post(
+            "/",
+            files={
+                "upload_csv": (
+                    "resources/sample.csv",
+                    io.BytesIO(self.csv_content.encode("utf-8")),
+                    "text/csv",
+                )
+            },
+            data={"submit_jobs": "Submit"}
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("Successfully submitted job.", response.text)
+        self.assertIn("modality", response.text)
 
 
 if __name__ == "__main__":
