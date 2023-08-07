@@ -4,6 +4,7 @@ import io
 import os
 import unittest
 
+from bs4 import BeautifulSoup
 from fastapi.testclient import TestClient
 from starlette.config import environ
 
@@ -26,6 +27,12 @@ class TestServer(unittest.TestCase):
     with open(test_directory + "/resources/sample.csv", "r") as file:
         csv_content = file.read()
 
+    response = client.get("/")  # Fetch the form to get the CSRF token
+    soup = BeautifulSoup(response.text, "html.parser")
+    csrf_token = soup.find("input", attrs={"name": "csrf_token"})["value"]
+
+    headers = {"X-CSRF-Token": csrf_token}
+
     def test_index(self):
         """Tests that form renders at startup as expected."""
         response = self.client.get("/")
@@ -43,6 +50,7 @@ class TestServer(unittest.TestCase):
                     "text/csv",
                 )
             },
+            headers=self.headers,
         )
         self.assertEqual(response.status_code, 200)
         self.assertIn("text/html", response.headers["content-type"])
@@ -52,7 +60,9 @@ class TestServer(unittest.TestCase):
 
     def test_post_submit_jobs_failure(self):
         """Tests that form fails to submit when there's no data as expected."""
-        response = self.client.post("/", data={"submit_jobs": "Submit"})
+        response = self.client.post(
+            "/", data={"submit_jobs": "Submit"}, headers=self.headers
+        )
         self.assertEqual(response.status_code, 400)
         self.assertIn("Error collecting csv data.", response.text)
 
@@ -68,6 +78,7 @@ class TestServer(unittest.TestCase):
                 )
             },
             data={"submit_jobs": "Submit"},
+            headers=self.headers,
         )
         self.assertEqual(response.status_code, 200)
         self.assertIn("Successfully submitted job.", response.text)
