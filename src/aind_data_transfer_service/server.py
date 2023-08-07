@@ -4,10 +4,12 @@ import io
 import logging
 import os
 
-from fastapi import FastAPI, Request
+from fastapi import Request
 from fastapi.responses import JSONResponse
 from fastapi.templating import Jinja2Templates
+from starlette.applications import Starlette
 from starlette.middleware.sessions import SessionMiddleware
+from starlette.routing import Route
 from starlette_wtf import CSRFProtectMiddleware, csrf_protect
 
 from aind_data_transfer_service.forms import JobManifestForm
@@ -15,18 +17,14 @@ from aind_data_transfer_service.forms import JobManifestForm
 SECRET_KEY = "secret key"
 CSRF_SECRET_KEY = "csrf secret key"
 
-app = FastAPI()
+
 template_directory = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "templates")
 )
 templates = Jinja2Templates(directory=template_directory)
 
-app.add_middleware(SessionMiddleware, secret_key=SECRET_KEY)
-app.add_middleware(CSRFProtectMiddleware, csrf_secret=CSRF_SECRET_KEY)
-
 
 @csrf_protect
-@app.route("/", methods=["GET", "POST"])
 async def index(request: Request):
     """GET|POST /: form handler"""
     job_manifest_form = await JobManifestForm.from_formdata(request)
@@ -70,3 +68,10 @@ async def index(request: Request):
             }
         ),
     )
+
+
+routes = [Route("/", endpoint=index, methods=["GET", "POST"])]
+
+app = Starlette(routes=routes)
+app.add_middleware(SessionMiddleware, secret_key=SECRET_KEY)
+app.add_middleware(CSRFProtectMiddleware, csrf_secret=CSRF_SECRET_KEY)
