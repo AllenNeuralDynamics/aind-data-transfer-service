@@ -3,31 +3,34 @@ on:
   push:
     branches:
       - main
-# Remove line 10 to enable automated semantic version bumps.
-# Requires that svc-aindscicomp be added as an admin to repo.
 jobs:
   tag:
     uses: AllenNeuralDynamics/aind-github-actions/.github/workflows/tag.yml@main
     secrets:
       SERVICE_TOKEN: ${{ secrets.SERVICE_TOKEN }}
-# Uncomment the following step block to publish to PYPI.
-#  publish:
-#    needs: tag
-#    runs-on: ubuntu-latest
-#    steps:
-#      - uses: actions/checkout@v3
-#      - name: Pull latest changes
-#        run: git pull origin main
-#      - name: Set up Python 3.8
-#        uses: actions/setup-python@v2
-#        with:
-#          python-version: 3.8
-#      - name: Install dependencies
-#        run: |
-#          pip install --upgrade setuptools wheel twine build
-#          python -m build
-#          twine check dist/*
-#      - name: Publish on PyPI
-#        uses: pypa/gh-action-pypi-publish@release/v1
-#        with:
-#          password: ${{ secrets.AIND_PYPI_TOKEN }}
+  publish:
+    runs-on: ubuntu-latest
+    needs: tag
+    if: false  # Change to true or remove line to publish to docker
+    steps:
+      - uses: actions/checkout@v3
+      - name: Pull latest changes
+        run: git pull origin main
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@v2
+      - name: Login to Github Packages
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build image and push to GitHub Container Registry
+        uses: docker/build-push-action@v3
+        with:
+          # relative path to the place where source code with Dockerfile is located
+          context: .
+          push: true
+          tags: |
+            ghcr.io/allenneuraldynamics/aind-data-transfer-service:${{ needs.tag.outputs.new_version }}
+            ghcr.io/allenneuraldynamics/aind-data-transfer-service:latest
