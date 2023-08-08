@@ -1,6 +1,6 @@
 """Tests server module."""
 
-import asyncio
+import io
 import os
 import unittest
 
@@ -13,7 +13,6 @@ from aind_data_transfer_service.server import app
 # Set the secret keys for testing
 environ["SECRET_KEY"] = os.urandom(32).hex()
 environ["CSRF_SECRET_KEY"] = os.urandom(32).hex()
-client = TestClient(app)
 
 test_directory = os.path.dirname(os.path.abspath(__file__))
 templates_directory = os.path.join(
@@ -24,37 +23,66 @@ templates_directory = os.path.join(
 class TestServer(unittest.TestCase):
     """Tests main server."""
 
+    client = TestClient(app)
+    with open(test_directory + "/resources/sample.csv", "r") as file:
+        csv_content = file.read()
+
+    response = client.get("/")  # Fetch the form to get the CSRF token
+    soup = BeautifulSoup(response.text, "html.parser")
+    csrf_token = soup.find("input", attrs={"name": "csrf_token"})["value"]
+
+    headers = {"X-CSRF-Token": csrf_token}
+
     def test_index(self):
         """Tests that form renders at startup as expected."""
-        response = client.get("/")
+        response = self.client.get("/")
         self.assertEqual(response.status_code, 200)
-        self.assertIn("Add a New Upload Job", response.text)
+        self.assertIn("Upload Job", response.text)
 
-    def test_submit_form(self):
-        """Tests that form submits as expected."""
+    def test_post_upload_csv(self):
+        """Tests that valid csv is posted as expected."""
+        response = self.client.post(
+            "/",
+            files={
+                "upload_csv": (
+                    "resources/sample.csv",
+                    io.BytesIO(self.csv_content.encode("utf-8")),
+                    "text/csv",
+                )
+            },
+            headers=self.headers,
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("text/html", response.headers["content-type"])
+        self.assertIn("modality", response.text)
+        self.assertIn("some_bucket", response.text)
+        self.assertIn("/aind/data/transfer/endpoints", response.text)
 
-        async def submit_form_async():
-            """async test of submit form to get form data and csrf token"""
-            form_data = {
-                "source": "/some/source/path",
-                "experiment_type": "MESOSPIM",
-                "acquisition_datetime": "2023-05-12T04:12",
-                "modality": "ECEPHYS",
-            }
-            response = client.get("/")  # Fetch the form to get the CSRF token
-            soup = BeautifulSoup(response.text, "html.parser")
-            csrf_token = soup.find("input", attrs={"name": "csrf_token"})[
-                "value"
-            ]
+    def test_post_submit_jobs_failure(self):
+        """Tests that form fails to submit when there's no data as expected."""
+        response = self.client.post(
+            "/", data={"submit_jobs": "Submit"}, headers=self.headers
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("Error collecting csv data.", response.text)
 
-            headers = {"X-CSRF-Token": csrf_token}
-            response = client.post("/", json=form_data, headers=headers)
-
-            self.assertEqual(response.status_code, 200)
-            self.assertEqual(response.template.name, "jobs.html")
-
-        loop = asyncio.get_event_loop()
-        loop.run_until_complete(submit_form_async())
+    def test_post_submit_jobs_success(self):
+        """Tests that form successfully submits as expected."""
+        response = self.client.post(
+            "/",
+            files={
+                "upload_csv": (
+                    "resources/sample.csv",
+                    io.BytesIO(self.csv_content.encode("utf-8")),
+                    "text/csv",
+                )
+            },
+            data={"submit_jobs": "Submit"},
+            headers=self.headers,
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("Successfully submitted job.", response.text)
+        self.assertIn("modality", response.text)
 
 
 if __name__ == "__main__":

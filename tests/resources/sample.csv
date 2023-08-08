@@ -1,0 +1,3 @@
+data-source, s3-bucket, subject-id, modality, experiment_type, acq-date, acq-time, aws_param_store_name
+dir/data_set_1, some_bucket, 123454, ECEPHYS, ecephys, 2020-10-10, 14-10-10, /aind/data/transfer/endpoints
+dir/data_set_2, some_bucket2, 123456, OPHYS, Other, 2020-10-11, 13-10-10, /aind/data/transfer/endpoints

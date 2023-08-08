@@ -39,6 +39,7 @@ server = [
     'jinja2',
     'starlette',
     'starlette_wtf',
+    'uvicorn[standard]',
     'wtforms',
 ]
 
