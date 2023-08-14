@@ -14,7 +14,10 @@ from aind_data_schema.data_description import (
 from aind_data_schema.processing import ProcessName
 from pydantic import BaseSettings, Field, PrivateAttr, validator
 
-from aind_data_transfer_service.configs.server_configs import EndpointConfigs
+from aind_data_transfer_service.configs.server_configs import (
+    EndpointConfigs,
+    ServerConfigs,
+)
 
 
 class ModalityConfigs(BaseSettings):
@@ -308,6 +311,19 @@ class BasicUploadJobConfigs(BaseSettings):
     def from_csv_row(
         cls, row: dict, endpoints: Optional[EndpointConfigs] = None
     ):
+        """
+        Creates a job config object from a csv row.
+        Parameters
+        ----------
+        row : dict
+          The row parsed from the csv file
+        endpoints : Optional[EndpointConfigs]
+          Optional EndpointConfigs file to pass location of temp directory
+
+        Returns
+        -------
+
+        """
         cleaned_row = {
             k.strip().replace("-", "_"): cls._clean_csv_entry(
                 k.strip().replace("-", "_"), v
@@ -319,3 +335,41 @@ class BasicUploadJobConfigs(BaseSettings):
         if endpoints:
             cleaned_row["temp_directory"] = endpoints.staging_directory
         return cls(**cleaned_row)
+
+
+class HpcConfigs(BaseSettings):
+    """Class to contain settings for hpc resources"""
+
+    hpc_n_tasks: int = Field(default=1, description="Number of tasks")
+    hpc_timeout: int = Field(default=360, description="Timeout in minutes")
+    hpc_node_memory: int = Field(
+        default=50, description="Memory requested in GB"
+    )
+    hpc_partition: str = Field(
+        ..., description="Partition to submit tasks to (also known as a queue)"
+    )
+    job_configs: BasicUploadJobConfigs = Field(
+        ..., description="Upload job configs"
+    )
+
+    @classmethod
+    def from_job_and_server_configs(
+        cls, job_configs: BasicUploadJobConfigs, server_configs: ServerConfigs
+    ):
+        """
+        Calculate hpc configs from other configs
+        Parameters
+        ----------
+        job_configs : BasicUploadJobConfigs
+          We can compute optimal hpc configurations based on the job the user
+          is submitting
+        server_configs : ServerConfigs
+          We can extract the default partition from an env var stored on the
+          server
+        """
+        # We add a method to calculate hpc configs here
+        hpc_partition = server_configs.hpc_partition
+        return cls(
+            hpc_partition=hpc_partition,
+            job_configs=job_configs,
+        )

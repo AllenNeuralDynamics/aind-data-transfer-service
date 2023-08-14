@@ -1,3 +1,5 @@
+"""Module for basic server configurations"""
+
 import json
 from pathlib import Path
 from typing import Optional
@@ -7,6 +9,9 @@ from pydantic import BaseSettings, Field, SecretStr
 
 
 class ServerConfigs(BaseSettings):
+    """Class for configs that can be stored as env vars on the server running
+    this service."""
+
     hpc_username: str = Field(
         ..., description="User with permissions to run jobs on the hpc"
     )
@@ -21,6 +26,9 @@ class ServerConfigs(BaseSettings):
         description=(
             "JSON web token for the hpc user that can run jobs via REST"
         ),
+    )
+    hpc_partition: str = Field(
+        ..., description="Partition where jobs will be submitted to"
     )
     aws_access_key: str = Field(
         ...,
@@ -64,9 +72,10 @@ class ServerConfigs(BaseSettings):
 
 
 class EndpointConfigs(BaseSettings):
+    """Class for basic job endpoints. Can be pulled from aws param store."""
+
     codeocean_api_token: Optional[SecretStr] = Field(None)
     video_encryption_password: Optional[SecretStr] = Field(None)
-
     codeocean_domain: str = Field(...)
     codeocean_trigger_capsule_id: str = Field(...)
     codeocean_trigger_capsule_version: Optional[str] = Field(None)
@@ -117,6 +126,12 @@ class EndpointConfigs(BaseSettings):
 
     @classmethod
     def from_server_configs(cls, server_configs: ServerConfigs):
+        """
+        Construct endpoints from env vars stored on the server
+        Parameters
+        ----------
+        server_configs : ServerConfigs
+        """
         params = cls.get_parameter(
             server_configs.aws_endpoints_param_store_name
         )

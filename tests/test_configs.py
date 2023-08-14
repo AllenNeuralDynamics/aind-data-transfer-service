@@ -1,3 +1,5 @@
+"""Module to test configs"""
+
 import csv
 import json
 import os
@@ -11,6 +13,7 @@ from aind_data_schema.processing import ProcessName
 
 from aind_data_transfer_service.configs.job_configs import (
     BasicUploadJobConfigs,
+    HpcConfigs,
     ModalityConfigs,
 )
 from aind_data_transfer_service.configs.server_configs import (
@@ -23,10 +26,13 @@ SAMPLE_FILE = RESOURCES_DIR / "sample.csv"
 
 
 class TestServerConfigs(unittest.TestCase):
+    """Tests ServerConfigs class"""
+
     EXAMPLE_ENV_VAR1 = {
         "HPC_USERNAME": "hpc_user",
         "HPC_PASSWORD": "hpc_password",
         "HPC_TOKEN": "hpc_jwt",
+        "HPC_PARTITION": "hpc_part",
         "AWS_ACCESS_KEY": "aws_key",
         "AWS_SECRET_ACCESS_KEY": "aws_secret_key",
         "AWS_REGION": "aws_region",
@@ -48,6 +54,7 @@ class TestServerConfigs(unittest.TestCase):
         self.assertEqual(
             "hpc_jwt", server_configs.hpc_token.get_secret_value()
         )
+        self.assertEqual("hpc_part", server_configs.hpc_partition)
         self.assertEqual("aws_key", server_configs.aws_access_key)
         self.assertEqual(
             "aws_secret_key",
@@ -75,6 +82,8 @@ class TestServerConfigs(unittest.TestCase):
 
 
 class TestEndpointConfigs(unittest.TestCase):
+    """Tests EndpointConfigs class"""
+
     EXAMPLE_PARAM_STORE_RESPONSE = json.dumps(
         {
             "codeocean_trigger_capsule_id": "some_capsule_id",
@@ -97,6 +106,7 @@ class TestEndpointConfigs(unittest.TestCase):
     @patch.dict(os.environ, TestServerConfigs.EXAMPLE_ENV_VAR1, clear=True)
     @patch("boto3.client")
     def test_resolved_from_env_vars(self, mock_client: MagicMock):
+        """Tests that the configs can be resolved from env vars."""
         mock_codeocean_api_token_response = {
             "SecretString": (self.EXAMPLE_CODEOCEAN_SECRETS_RESPONSE)
         }
@@ -144,6 +154,8 @@ class TestEndpointConfigs(unittest.TestCase):
 
 
 class TestJobConfigs(unittest.TestCase):
+    """Tests basic job configs class"""
+
     expected_job_configs = [
         BasicUploadJobConfigs(
             s3_bucket="some_bucket",
@@ -161,7 +173,7 @@ class TestJobConfigs(unittest.TestCase):
             acq_date=date(2020, 10, 10),
             acq_time=time(14, 10, 10),
             process_name=ProcessName.OTHER,
-            temp_directory=None,
+            temp_directory=Path("some_temp_dir"),
             behavior_dir=None,
             metadata_dir=None,
             log_level="WARNING",
@@ -192,7 +204,38 @@ class TestJobConfigs(unittest.TestCase):
             acq_date=date(2020, 10, 13),
             acq_time=time(13, 10, 10),
             process_name=ProcessName.OTHER,
-            temp_directory=None,
+            temp_directory=Path("some_temp_dir"),
+            behavior_dir=None,
+            metadata_dir=None,
+            log_level="WARNING",
+            metadata_dir_force=False,
+            dry_run=False,
+            force_cloud_sync=False,
+        ),
+        BasicUploadJobConfigs(
+            s3_bucket="some_bucket2",
+            experiment_type=ExperimentType.OTHER,
+            modalities=[
+                ModalityConfigs(
+                    modality=Modality.OPHYS,
+                    source=Path("dir/data_set_2"),
+                    compress_raw_data=False,
+                    extra_configs=None,
+                    skip_staging=False,
+                ),
+                ModalityConfigs(
+                    modality=Modality.OPHYS,
+                    source=Path("dir/data_set_3"),
+                    compress_raw_data=False,
+                    extra_configs=None,
+                    skip_staging=False,
+                ),
+            ],
+            subject_id="123456",
+            acq_date=date(2020, 10, 13),
+            acq_time=time(13, 10, 10),
+            process_name=ProcessName.OTHER,
+            temp_directory=Path("some_temp_dir"),
             behavior_dir=None,
             metadata_dir=None,
             log_level="WARNING",
@@ -202,14 +245,91 @@ class TestJobConfigs(unittest.TestCase):
         ),
     ]
 
+    @patch.dict(os.environ, TestServerConfigs.EXAMPLE_ENV_VAR1, clear=True)
     def test_parse_csv_file(self):
+        """Tests that the jobs can be parsed from a csv file correctly."""
+        endpoint_configs = EndpointConfigs.construct(
+            staging_directory="some_temp_dir"
+        )
+
         jobs = []
 
         with open(SAMPLE_FILE, newline="") as csvfile:
             reader = csv.DictReader(csvfile, skipinitialspace=True)
             for row in reader:
-                jobs.append(BasicUploadJobConfigs.from_csv_row(row))
+                jobs.append(
+                    BasicUploadJobConfigs.from_csv_row(
+                        row, endpoints=endpoint_configs
+                    )
+                )
+
+        modality_outputs = []
+        for job in jobs:
+            job_s3_prefix = job.s3_prefix
+            for modality in job.modalities:
+                modality_outputs.append(
+                    (
+                        job_s3_prefix,
+                        modality.default_output_folder_name,
+                        modality.number_id,
+                    )
+                )
+        expected_modality_outputs = [
+            ("ecephys_123454_2020-10-10_14-10-10", "ecephys", None),
+            ("Other_123456_2020-10-13_13-10-10", "ophys", None),
+            ("Other_123456_2020-10-13_13-10-10", "mri", None),
+            ("Other_123456_2020-10-13_13-10-10", "ophys", None),
+            ("Other_123456_2020-10-13_13-10-10", "ophys1", 1),
+        ]
         self.assertEqual(self.expected_job_configs, jobs)
+        self.assertEqual(expected_modality_outputs, modality_outputs)
+
+        # Tests validation errors are raised if acq_date and acq_time are
+        # not formatted correctly
+        with self.assertRaises(Exception) as e1:
+            BasicUploadJobConfigs(
+                s3_bucket="",
+                experiment_type=ExperimentType.OTHER,
+                modalities=[],
+                subject_id="12345",
+                acq_date="1234",
+                acq_time="1234",
+            )
+
+        self.assertTrue(
+            "Incorrect date format, should be YYYY-MM-DD or MM/DD/YYYY"
+            in repr(e1.exception)
+        )
+        self.assertTrue(
+            "Incorrect time format, should be HH-MM-SS or HH:MM:SS"
+            in repr(e1.exception)
+        )
+
+        # Tests clean_csv_entry returns a default if None
+        self.assertEqual(
+            BasicUploadJobConfigs.__fields__["log_level"].default,
+            BasicUploadJobConfigs._clean_csv_entry(
+                csv_key="log_level", csv_value=None
+            ),
+        )
+
+
+class TestHpcConfigs(unittest.TestCase):
+    """Tests methods in HpcConfigs class"""
+
+    @patch.dict(os.environ, TestServerConfigs.EXAMPLE_ENV_VAR1, clear=True)
+    def test_from_job_and_server_configs(self):
+        """Tests hpc configs are computed correctly"""
+        server_configs = ServerConfigs()
+        job_configs = TestJobConfigs.expected_job_configs[0]
+        hpc_configs = HpcConfigs.from_job_and_server_configs(
+            job_configs=job_configs, server_configs=server_configs
+        )
+
+        self.assertEqual(1, hpc_configs.hpc_n_tasks)
+        self.assertEqual(360, hpc_configs.hpc_timeout)
+        self.assertEqual(50, hpc_configs.hpc_node_memory)
+        self.assertEqual("hpc_part", hpc_configs.hpc_partition)
 
 
 if __name__ == "__main__":

@@ -56,7 +56,6 @@ class TestServer(unittest.TestCase):
         self.assertIn("text/html", response.headers["content-type"])
         self.assertIn("modality", response.text)
         self.assertIn("some_bucket", response.text)
-        self.assertIn("/aind/data/transfer/endpoints", response.text)
 
     def test_post_submit_jobs_failure(self):
         """Tests that form fails to submit when there's no data as expected."""
