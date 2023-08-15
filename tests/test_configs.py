@@ -13,13 +13,11 @@ from aind_data_schema.processing import ProcessName
 
 from aind_data_transfer_service.configs.job_configs import (
     BasicUploadJobConfigs,
-    HpcConfigs,
+    EndpointConfigs,
+    HpcJobConfigs,
     ModalityConfigs,
 )
-from aind_data_transfer_service.configs.server_configs import (
-    EndpointConfigs,
-    ServerConfigs,
-)
+from aind_data_transfer_service.configs.server_configs import ServerConfigs
 
 RESOURCES_DIR = Path(os.path.dirname(os.path.realpath(__file__))) / "resources"
 SAMPLE_FILE = RESOURCES_DIR / "sample.csv"
@@ -125,8 +123,17 @@ class TestEndpointConfigs(unittest.TestCase):
         }
 
         server_configs = ServerConfigs()
-        endpoint_configs = EndpointConfigs.from_server_configs(
-            server_configs=server_configs
+        endpoint_configs = EndpointConfigs.from_aws_params_and_secrets(
+            endpoints_param_store_name=(
+                server_configs.aws_endpoints_param_store_name
+            ),
+            codeocean_token_secrets_name=(
+                server_configs.aws_codeocean_token_secrets_name
+            ),
+            video_encryption_password_name=(
+                server_configs.aws_video_encryption_password_name
+            ),
+            temp_directory=server_configs.staging_directory,
         )
         self.assertEqual(
             "some_codeocean_token",
@@ -150,6 +157,9 @@ class TestEndpointConfigs(unittest.TestCase):
             "some_dtr_location",
             endpoint_configs.aind_data_transfer_repo_location,
         )
+        self.assertEqual(
+            server_configs.staging_directory, endpoint_configs.temp_directory
+        )
         self.assertIsNone(endpoint_configs.codeocean_process_capsule_id)
 
 
@@ -158,6 +168,10 @@ class TestJobConfigs(unittest.TestCase):
 
     expected_job_configs = [
         BasicUploadJobConfigs(
+            codeocean_domain="some_co_domain",
+            codeocean_trigger_capsule_id="some_co_cap_id",
+            metadata_service_domain="some_msd",
+            aind_data_transfer_repo_location="some_dtr",
             s3_bucket="some_bucket",
             experiment_type=ExperimentType.ECEPHYS,
             modalities=[
@@ -174,7 +188,6 @@ class TestJobConfigs(unittest.TestCase):
             acq_time=time(14, 10, 10),
             process_name=ProcessName.OTHER,
             temp_directory=Path("some_temp_dir"),
-            behavior_dir=None,
             metadata_dir=None,
             log_level="WARNING",
             metadata_dir_force=False,
@@ -182,6 +195,10 @@ class TestJobConfigs(unittest.TestCase):
             force_cloud_sync=False,
         ),
         BasicUploadJobConfigs(
+            codeocean_domain="some_co_domain",
+            codeocean_trigger_capsule_id="some_co_cap_id",
+            metadata_service_domain="some_msd",
+            aind_data_transfer_repo_location="some_dtr",
             s3_bucket="some_bucket2",
             experiment_type=ExperimentType.OTHER,
             modalities=[
@@ -205,7 +222,6 @@ class TestJobConfigs(unittest.TestCase):
             acq_time=time(13, 10, 10),
             process_name=ProcessName.OTHER,
             temp_directory=Path("some_temp_dir"),
-            behavior_dir=None,
             metadata_dir=None,
             log_level="WARNING",
             metadata_dir_force=False,
@@ -213,6 +229,10 @@ class TestJobConfigs(unittest.TestCase):
             force_cloud_sync=False,
         ),
         BasicUploadJobConfigs(
+            codeocean_domain="some_co_domain",
+            codeocean_trigger_capsule_id="some_co_cap_id",
+            metadata_service_domain="some_msd",
+            aind_data_transfer_repo_location="some_dtr",
             s3_bucket="some_bucket2",
             experiment_type=ExperimentType.OTHER,
             modalities=[
@@ -236,7 +256,6 @@ class TestJobConfigs(unittest.TestCase):
             acq_time=time(13, 10, 10),
             process_name=ProcessName.OTHER,
             temp_directory=Path("some_temp_dir"),
-            behavior_dir=None,
             metadata_dir=None,
             log_level="WARNING",
             metadata_dir_force=False,
@@ -249,7 +268,11 @@ class TestJobConfigs(unittest.TestCase):
     def test_parse_csv_file(self):
         """Tests that the jobs can be parsed from a csv file correctly."""
         endpoint_configs = EndpointConfigs.construct(
-            staging_directory="some_temp_dir"
+            temp_directory="some_temp_dir",
+            codeocean_domain="some_co_domain",
+            codeocean_trigger_capsule_id="some_co_cap_id",
+            metadata_service_domain="some_msd",
+            aind_data_transfer_repo_location="some_dtr",
         )
 
         jobs = []
@@ -320,10 +343,9 @@ class TestHpcConfigs(unittest.TestCase):
     @patch.dict(os.environ, TestServerConfigs.EXAMPLE_ENV_VAR1, clear=True)
     def test_from_job_and_server_configs(self):
         """Tests hpc configs are computed correctly"""
-        server_configs = ServerConfigs()
         job_configs = TestJobConfigs.expected_job_configs[0]
-        hpc_configs = HpcConfigs.from_job_and_server_configs(
-            job_configs=job_configs, server_configs=server_configs
+        hpc_configs = HpcJobConfigs(
+            **job_configs.dict(), hpc_partition="hpc_part"
         )
 
         self.assertEqual(1, hpc_configs.hpc_n_tasks)

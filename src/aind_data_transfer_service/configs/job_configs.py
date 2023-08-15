@@ -1,23 +1,117 @@
 """This module adds classes to handle resolving common endpoints used in the
 data transfer jobs."""
-
+import json
 import re
 from datetime import date, datetime, time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+import boto3
 from aind_data_schema.data_description import (
     ExperimentType,
     Modality,
     build_data_name,
 )
 from aind_data_schema.processing import ProcessName
-from pydantic import BaseSettings, Field, PrivateAttr, validator
+from pydantic import BaseSettings, Field, PrivateAttr, SecretStr, validator
 
-from aind_data_transfer_service.configs.server_configs import (
-    EndpointConfigs,
-    ServerConfigs,
-)
+
+class EndpointConfigs(BaseSettings):
+    """Class for basic job endpoints. Can be pulled from aws param store."""
+
+    codeocean_api_token: Optional[SecretStr] = Field(
+        None, description="API token to run code ocean capsules"
+    )
+    video_encryption_password: Optional[SecretStr] = Field(
+        None, description="Password to use when encrypting video files"
+    )
+    codeocean_domain: str = Field(..., description="Code Ocean domain name")
+    codeocean_trigger_capsule_id: str = Field(
+        ..., description="Capsule ID of Code Ocean trigger capsule"
+    )
+    codeocean_trigger_capsule_version: Optional[str] = Field(
+        None, description="Version number of trigger capsule"
+    )
+    metadata_service_domain: str = Field(
+        ..., description="Metadata service domain name"
+    )
+    aind_data_transfer_repo_location: str = Field(
+        ..., description="Location of aind-data-transfer repository"
+    )
+    codeocean_process_capsule_id: Optional[str] = Field(
+        None,
+        description=(
+            "If defined, will run this Code Ocean Capsule after registering "
+            "the data asset"
+        ),
+    )
+    temp_directory: Optional[Path] = Field(
+        default=None,
+        description=(
+            "As default, the file systems temporary directory will be used as "
+            "an intermediate location to store the compressed data before "
+            "being uploaded to s3"
+        ),
+        title="Temp directory",
+    )
+
+    @staticmethod
+    def get_secret(secret_name: str) -> dict:
+        """
+        Retrieves a secret from AWS Secrets Manager.
+
+        param secret_name: The name of the secret to retrieve.
+        """
+        # Create a Secrets Manager client
+        client = boto3.client("secretsmanager")
+        try:
+            response = client.get_secret_value(SecretId=secret_name)
+        finally:
+            client.close()
+        return json.loads(response["SecretString"])
+
+    @staticmethod
+    def get_parameter(parameter_name: str, with_decryption=False) -> dict:
+        """
+        Retrieves a parameter from AWS Parameter Store.
+
+        param parameter_name: The name of the parameter to retrieve.
+        """
+        # Create a Systems Manager client
+        client = boto3.client("ssm")
+        try:
+            response = client.get_parameter(
+                Name=parameter_name, WithDecryption=with_decryption
+            )
+        finally:
+            client.close()
+        return json.loads(response["Parameter"]["Value"])
+
+    @classmethod
+    def from_aws_params_and_secrets(
+        cls,
+        endpoints_param_store_name: str,
+        codeocean_token_secrets_name: str,
+        video_encryption_password_name: str,
+        **kwargs,
+    ):
+        """
+        Construct endpoints from env vars stored on the server
+        Parameters
+        ----------
+
+        """
+        params = cls.get_parameter(endpoints_param_store_name)
+        codeocean_creds = cls.get_secret(codeocean_token_secrets_name)
+        vid_encrypt_password = cls.get_secret(video_encryption_password_name)
+
+        # update param dictionary with secrets
+        params["codeocean_domain"] = codeocean_creds["domain"]
+        params["codeocean_api_token"] = codeocean_creds["token"]
+        params["video_encryption_password"] = vid_encrypt_password["password"]
+        params.update(kwargs)
+
+        return cls(**params)
 
 
 class ModalityConfigs(BaseSettings):
@@ -79,7 +173,7 @@ class ModalityConfigs(BaseSettings):
             return False
 
 
-class BasicUploadJobConfigs(BaseSettings):
+class BasicUploadJobConfigs(EndpointConfigs):
     """Configuration for the basic upload job"""
 
     _DATE_PATTERN1 = re.compile(r"^\d{4}-\d{2}-\d{2}$")
@@ -114,20 +208,6 @@ class BasicUploadJobConfigs(BaseSettings):
         default=ProcessName.OTHER,
         description="Type of processing performed on the raw data source.",
         title="Process Name",
-    )
-    temp_directory: Optional[Path] = Field(
-        default=None,
-        description=(
-            "As default, the file systems temporary directory will be used as "
-            "an intermediate location to store the compressed data before "
-            "being uploaded to s3"
-        ),
-        title="Temp directory",
-    )
-    behavior_dir: Optional[Path] = Field(
-        default=None,
-        description="Directory of behavior data",
-        title="Behavior Directory",
     )
     metadata_dir: Optional[Path] = Field(
         default=None,
@@ -308,9 +388,7 @@ class BasicUploadJobConfigs(BaseSettings):
         cleaned_row["modalities"] = modalities
 
     @classmethod
-    def from_csv_row(
-        cls, row: dict, endpoints: Optional[EndpointConfigs] = None
-    ):
+    def from_csv_row(cls, row: dict, endpoints: Optional[EndpointConfigs]):
         """
         Creates a job config object from a csv row.
         Parameters
@@ -318,11 +396,7 @@ class BasicUploadJobConfigs(BaseSettings):
         row : dict
           The row parsed from the csv file
         endpoints : Optional[EndpointConfigs]
-          Optional EndpointConfigs file to pass location of temp directory
-
-        Returns
-        -------
-
+          Optionally pass in an EndpointConfigs object
         """
         cleaned_row = {
             k.strip().replace("-", "_"): cls._clean_csv_entry(
@@ -332,12 +406,12 @@ class BasicUploadJobConfigs(BaseSettings):
         }
 
         cls._parse_modality_configs_from_row(cleaned_row=cleaned_row)
-        if endpoints:
-            cleaned_row["temp_directory"] = endpoints.staging_directory
+        if endpoints is not None:
+            cleaned_row.update(endpoints.dict())
         return cls(**cleaned_row)
 
 
-class HpcConfigs(BaseSettings):
+class HpcJobConfigs(BasicUploadJobConfigs):
     """Class to contain settings for hpc resources"""
 
     hpc_n_tasks: int = Field(default=1, description="Number of tasks")
@@ -348,28 +422,3 @@ class HpcConfigs(BaseSettings):
     hpc_partition: str = Field(
         ..., description="Partition to submit tasks to (also known as a queue)"
     )
-    job_configs: BasicUploadJobConfigs = Field(
-        ..., description="Upload job configs"
-    )
-
-    @classmethod
-    def from_job_and_server_configs(
-        cls, job_configs: BasicUploadJobConfigs, server_configs: ServerConfigs
-    ):
-        """
-        Calculate hpc configs from other configs
-        Parameters
-        ----------
-        job_configs : BasicUploadJobConfigs
-          We can compute optimal hpc configurations based on the job the user
-          is submitting
-        server_configs : ServerConfigs
-          We can extract the default partition from an env var stored on the
-          server
-        """
-        # We add a method to calculate hpc configs here
-        hpc_partition = server_configs.hpc_partition
-        return cls(
-            hpc_partition=hpc_partition,
-            job_configs=job_configs,
-        )
