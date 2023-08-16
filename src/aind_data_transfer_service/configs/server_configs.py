@@ -28,7 +28,7 @@ class ServerConfigs(BaseSettings):
     hpc_partition: str = Field(
         ..., description="Partition where jobs will be submitted to"
     )
-    aws_access_key: str = Field(
+    aws_access_key_id: str = Field(
         ...,
         description=(
             "AWS access key with permissions to retrieve secrets and upload "
@@ -42,7 +42,7 @@ class ServerConfigs(BaseSettings):
             "upload data to buckets"
         ),
     )
-    aws_region: str = Field(
+    aws_default_region: str = Field(
         ..., description="AWS region associated with the access credentials."
     )
     csrf_secret_key: SecretStr = Field(

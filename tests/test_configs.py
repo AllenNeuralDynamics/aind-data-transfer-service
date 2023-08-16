@@ -31,9 +31,9 @@ class TestServerConfigs(unittest.TestCase):
         "HPC_PASSWORD": "hpc_password",
         "HPC_TOKEN": "hpc_jwt",
         "HPC_PARTITION": "hpc_part",
-        "AWS_ACCESS_KEY": "aws_key",
+        "AWS_ACCESS_KEY_ID": "aws_key",
         "AWS_SECRET_ACCESS_KEY": "aws_secret_key",
-        "AWS_REGION": "aws_region",
+        "AWS_DEFAULT_REGION": "aws_region",
         "CSRF_SECRET_KEY": "csrf_secret",
         "APP_SECRET_KEY": "app_secret",
         "AWS_ENDPOINTS_PARAM_STORE_NAME": "aws/env/param/store",
@@ -53,12 +53,12 @@ class TestServerConfigs(unittest.TestCase):
             "hpc_jwt", server_configs.hpc_token.get_secret_value()
         )
         self.assertEqual("hpc_part", server_configs.hpc_partition)
-        self.assertEqual("aws_key", server_configs.aws_access_key)
+        self.assertEqual("aws_key", server_configs.aws_access_key_id)
         self.assertEqual(
             "aws_secret_key",
             server_configs.aws_secret_access_key.get_secret_value(),
         )
-        self.assertEqual("aws_region", server_configs.aws_region)
+        self.assertEqual("aws_region", server_configs.aws_default_region)
         self.assertEqual(
             "csrf_secret", server_configs.csrf_secret_key.get_secret_value()
         )
@@ -348,8 +348,8 @@ class TestHpcConfigs(unittest.TestCase):
             **job_configs.dict(), hpc_partition="hpc_part"
         )
 
-        self.assertEqual(1, hpc_configs.hpc_n_tasks)
-        self.assertEqual(360, hpc_configs.hpc_timeout)
+        self.assertEqual(1, hpc_configs.hpc_nodes)
+        self.assertEqual(360, hpc_configs.hpc_time_limit)
         self.assertEqual(50, hpc_configs.hpc_node_memory)
         self.assertEqual("hpc_part", hpc_configs.hpc_partition)
 

@@ -1,5 +1,6 @@
 """This module adds classes to handle resolving common endpoints used in the
 data transfer jobs."""
+import hashlib
 import json
 import re
 from datetime import date, datetime, time
@@ -14,6 +15,9 @@ from aind_data_schema.data_description import (
 )
 from aind_data_schema.processing import ProcessName
 from pydantic import BaseSettings, Field, PrivateAttr, SecretStr, validator
+from pydantic.json import pydantic_encoder
+
+from aind_data_transfer_service.configs.server_configs import ServerConfigs
 
 
 class EndpointConfigs(BaseSettings):
@@ -411,14 +415,85 @@ class BasicUploadJobConfigs(EndpointConfigs):
         return cls(**cleaned_row)
 
 
-class HpcJobConfigs(BasicUploadJobConfigs):
+class HpcJobConfigs(BaseSettings):
     """Class to contain settings for hpc resources"""
 
-    hpc_n_tasks: int = Field(default=1, description="Number of tasks")
-    hpc_timeout: int = Field(default=360, description="Timeout in minutes")
+    _sha = hashlib.sha256()
+
+    hpc_nodes: int = Field(default=1, description="Number of tasks")
+    hpc_time_limit: int = Field(default=360, description="Timeout in minutes")
     hpc_node_memory: int = Field(
         default=50, description="Memory requested in GB"
     )
     hpc_partition: str = Field(
         ..., description="Partition to submit tasks to (also known as a queue)"
     )
+    hpc_host: str = Field(...)
+    sif_location: Path = Field(...)
+    basic_upload_job_configs: BasicUploadJobConfigs
+
+    @staticmethod
+    def show_secrets_encoder(obj):
+        if type(obj) == SecretStr:
+            return obj.get_secret_value()
+        else:
+            return pydantic_encoder(obj)
+
+    def _json_args_str(self):
+        return self.basic_upload_job_configs.json(
+            encoder=self.show_secrets_encoder
+        )
+
+    def _script_command_str(self):
+        command_str = [
+            "singularity",
+            "exec",
+            "--cleanenv",
+            str(self.sif_location),
+            "python",
+            "-m",
+            "aind_data_transfer.jobs.basic_job",
+            "--json-args",
+            self._json_args_str(),
+        ]
+
+        return " ".join(command_str)
+
+    def to_job_definition(self, server_configs: ServerConfigs):
+        now = datetime.now()
+        self._sha.update(
+            (
+                self.basic_upload_job_configs.s3_prefix + str(now.timestamp)
+            ).encode()
+        )
+        unique_name = self._sha.hexdigest()
+        job_name = f"job_{unique_name[0:12]}"
+        time_limit_str = "{:02d}:{:02d}:00".format(
+            *divmod(self.hpc_time_limit, 60)
+        )
+        mem_str = f"{self.hpc_node_memory}gb"
+        environment = {
+            "PATH": "/bin:/usr/bin/:/usr/local/bin/",
+            "LD_LIBRARY_PATH": "/lib/:/lib64/:/usr/local/lib",
+            "SINGULARITYENV_AWS_SECRET_ACCESS_KEY": (
+                server_configs.aws_secret_access_key.get_secret_value()
+            ),
+            "SINGULARITYENV_AWS_ACCESS_KEY_ID": (
+                server_configs.aws_access_key_id
+            ),
+            "SINGULARITYENV_AWS_DEFAULT_REGION": (
+                server_configs.aws_default_region
+            ),
+        }
+
+        return {
+            "job": {
+                "name": job_name,
+                "nodes": self.hpc_nodes,
+                "time_limit": time_limit_str,
+                "partition": self.hpc_partition,
+                "mem": mem_str,
+                "environment": environment,
+            },
+            "script": self._script_command_str(),
+        }
