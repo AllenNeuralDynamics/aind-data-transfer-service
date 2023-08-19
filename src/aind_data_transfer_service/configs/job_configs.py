@@ -17,8 +17,6 @@ from aind_data_schema.processing import ProcessName
 from pydantic import BaseSettings, Field, PrivateAttr, SecretStr, validator
 from pydantic.json import pydantic_encoder
 
-from aind_data_transfer_service.configs.server_configs import ServerConfigs
-
 
 class EndpointConfigs(BaseSettings):
     """Class for basic job endpoints. Can be pulled from aws param store."""
@@ -429,8 +427,27 @@ class HpcJobConfigs(BaseSettings):
         ..., description="Partition to submit tasks to (also known as a queue)"
     )
     hpc_host: str = Field(...)
+    hpc_username: str = Field(...)
+    hpc_password: str = Field(...)
+    hpc_token: str = Field(...)
     sif_location: Path = Field(...)
     basic_upload_job_configs: BasicUploadJobConfigs
+
+    @property
+    def job_submit_url(self):
+        return self.hpc_host.strip("/") + "/" + "job" + "/" + "submit"
+
+    @property
+    def node_status_url(self):
+        return self.hpc_host.strip("/") + "/" + "nodes"
+
+    @property
+    def headers(self):
+        return ({
+            'X-SLURM-USER-NAME': self.hpc_username,
+            'X-SLURM-USER-PASSWORD': self.hpc_password,
+            'X-SLURM-USER-TOKEN': self.hpc_token,
+        })
 
     @staticmethod
     def show_secrets_encoder(obj):
@@ -446,7 +463,8 @@ class HpcJobConfigs(BaseSettings):
 
     def _script_command_str(self):
         command_str = [
-            "singularity",
+            "#!/bin/bash",
+            "\nsingularity",
             "exec",
             "--cleanenv",
             str(self.sif_location),
@@ -454,12 +472,21 @@ class HpcJobConfigs(BaseSettings):
             "-m",
             "aind_data_transfer.jobs.basic_job",
             "--json-args",
+            "\'",
             self._json_args_str(),
+            "\'"
         ]
 
         return " ".join(command_str)
 
-    def to_job_definition(self, server_configs: ServerConfigs):
+    def to_job_definition(
+            self,
+            aws_secret_access_key: SecretStr,
+            aws_access_key_id: str,
+            aws_default_region: str,
+            aws_session_token: str,
+            exec_script: str,
+    ):
         now = datetime.now()
         self._sha.update(
             (
@@ -476,13 +503,16 @@ class HpcJobConfigs(BaseSettings):
             "PATH": "/bin:/usr/bin/:/usr/local/bin/",
             "LD_LIBRARY_PATH": "/lib/:/lib64/:/usr/local/lib",
             "SINGULARITYENV_AWS_SECRET_ACCESS_KEY": (
-                server_configs.aws_secret_access_key.get_secret_value()
+                aws_secret_access_key.get_secret_value()
             ),
             "SINGULARITYENV_AWS_ACCESS_KEY_ID": (
-                server_configs.aws_access_key_id
+                aws_access_key_id
             ),
             "SINGULARITYENV_AWS_DEFAULT_REGION": (
-                server_configs.aws_default_region
+                aws_default_region
+            ),
+            "SINGULARITYENV_AWS_SESSION_TOKEN": (
+                aws_session_token
             ),
         }
 
@@ -492,8 +522,9 @@ class HpcJobConfigs(BaseSettings):
                 "nodes": self.hpc_nodes,
                 "time_limit": time_limit_str,
                 "partition": self.hpc_partition,
-                "mem": mem_str,
+                "current_working_directory": f"/home/{self.hpc_username}",
+                "memory_per_node": mem_str,
                 "environment": environment,
             },
-            "script": self._script_command_str(),
+            "script": exec_script,
         }
