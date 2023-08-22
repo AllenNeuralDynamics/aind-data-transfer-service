@@ -10,6 +10,7 @@ class ServerConfigs(BaseSettings):
     """Class for configs that can be stored as env vars on the server running
     this service."""
 
+    hpc_host: str = Field(...)
     hpc_username: str = Field(
         ..., description="User with permissions to run jobs on the hpc"
     )
@@ -28,6 +29,7 @@ class ServerConfigs(BaseSettings):
     hpc_partition: str = Field(
         ..., description="Partition where jobs will be submitted to"
     )
+    hpc_sif_location: Path = Field(...)
     aws_access_key_id: str = Field(
         ...,
         description=(
@@ -50,19 +52,6 @@ class ServerConfigs(BaseSettings):
     )
     app_secret_key: SecretStr = Field(
         ..., description="FastAPI middleware secret"
-    )
-    aws_endpoints_param_store_name: str = Field(
-        ...,
-        description=(
-            "AWS parameter store name for common job endpoints (codeocean "
-            "domain, metadata-service domain, etc.)"
-        ),
-    )
-    aws_codeocean_token_secrets_name: str = Field(
-        ..., description="AWS secrets name for the codeocean token."
-    )
-    aws_video_encryption_password_name: str = Field(
-        ..., description="AWS secrets name for the video encryption password."
     )
     staging_directory: Optional[Path] = Field(
         None, description="Directory where to stage data before upload"

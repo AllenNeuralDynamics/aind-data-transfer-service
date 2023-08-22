@@ -1,7 +1,6 @@
 """Module to test configs"""
 
 import csv
-import json
 import os
 import unittest
 from datetime import date, time
@@ -13,7 +12,6 @@ from aind_data_schema.processing import ProcessName
 
 from aind_data_transfer_service.configs.job_configs import (
     BasicUploadJobConfigs,
-    EndpointConfigs,
     HpcJobConfigs,
     ModalityConfigs,
 )
@@ -27,24 +25,25 @@ class TestServerConfigs(unittest.TestCase):
     """Tests ServerConfigs class"""
 
     EXAMPLE_ENV_VAR1 = {
+        "HPC_HOST": "hpc_host",
         "HPC_USERNAME": "hpc_user",
         "HPC_PASSWORD": "hpc_password",
         "HPC_TOKEN": "hpc_jwt",
         "HPC_PARTITION": "hpc_part",
+        "HPC_SIF_LOCATION": "hpc_sif_location",
         "AWS_ACCESS_KEY_ID": "aws_key",
         "AWS_SECRET_ACCESS_KEY": "aws_secret_key",
         "AWS_DEFAULT_REGION": "aws_region",
         "CSRF_SECRET_KEY": "csrf_secret",
         "APP_SECRET_KEY": "app_secret",
-        "AWS_ENDPOINTS_PARAM_STORE_NAME": "aws/env/param/store",
-        "AWS_CODEOCEAN_TOKEN_SECRETS_NAME": "aws/env/secret/codeocean",
-        "AWS_VIDEO_ENCRYPTION_PASSWORD_NAME": "aws/env/secret/vid/encrypt",
+        "STAGING_DIRECTORY": "/stage/dir",
     }
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     def test_server_configs_env_vars(self):
         """Tests that the server configs can be set from env vars"""
         server_configs = ServerConfigs()
+        self.assertEqual("hpc_host", server_configs.hpc_host)
         self.assertEqual("hpc_user", server_configs.hpc_username)
         self.assertEqual(
             "hpc_password", server_configs.hpc_password.get_secret_value()
@@ -53,6 +52,9 @@ class TestServerConfigs(unittest.TestCase):
             "hpc_jwt", server_configs.hpc_token.get_secret_value()
         )
         self.assertEqual("hpc_part", server_configs.hpc_partition)
+        self.assertEqual(
+            Path("hpc_sif_location"), server_configs.hpc_sif_location
+        )
         self.assertEqual("aws_key", server_configs.aws_access_key_id)
         self.assertEqual(
             "aws_secret_key",
@@ -65,102 +67,7 @@ class TestServerConfigs(unittest.TestCase):
         self.assertEqual(
             "app_secret", server_configs.app_secret_key.get_secret_value()
         )
-        self.assertEqual(
-            "aws/env/param/store",
-            server_configs.aws_endpoints_param_store_name,
-        )
-        self.assertEqual(
-            "aws/env/secret/codeocean",
-            server_configs.aws_codeocean_token_secrets_name,
-        )
-        self.assertEqual(
-            "aws/env/secret/vid/encrypt",
-            server_configs.aws_video_encryption_password_name,
-        )
-
-
-class TestEndpointConfigs(unittest.TestCase):
-    """Tests EndpointConfigs class"""
-
-    EXAMPLE_PARAM_STORE_RESPONSE = json.dumps(
-        {
-            "codeocean_trigger_capsule_id": "some_capsule_id",
-            "metadata_service_domain": "some_ms_domain",
-            "aind_data_transfer_repo_location": "some_dtr_location",
-        }
-    )
-
-    EXAMPLE_CODEOCEAN_SECRETS_RESPONSE = json.dumps(
-        {
-            "domain": "some_codeocean_domain",
-            "token": "some_codeocean_token",
-        }
-    )
-
-    EXAMPLE_VIDEO_SECRETS_RESPONSE = json.dumps(
-        {"password": "some_video_password"}
-    )
-
-    @patch.dict(os.environ, TestServerConfigs.EXAMPLE_ENV_VAR1, clear=True)
-    @patch("boto3.client")
-    def test_resolved_from_env_vars(self, mock_client: MagicMock):
-        """Tests that the configs can be resolved from env vars."""
-        mock_codeocean_api_token_response = {
-            "SecretString": (self.EXAMPLE_CODEOCEAN_SECRETS_RESPONSE)
-        }
-
-        mock_video_password_response = {
-            "SecretString": self.EXAMPLE_VIDEO_SECRETS_RESPONSE
-        }
-
-        mock_client.return_value.get_secret_value.side_effect = [
-            mock_codeocean_api_token_response,
-            mock_video_password_response,
-        ]
-
-        mock_client.return_value.get_parameter.return_value = {
-            "Parameter": {"Value": self.EXAMPLE_PARAM_STORE_RESPONSE}
-        }
-
-        server_configs = ServerConfigs()
-        endpoint_configs = EndpointConfigs.from_aws_params_and_secrets(
-            endpoints_param_store_name=(
-                server_configs.aws_endpoints_param_store_name
-            ),
-            codeocean_token_secrets_name=(
-                server_configs.aws_codeocean_token_secrets_name
-            ),
-            video_encryption_password_name=(
-                server_configs.aws_video_encryption_password_name
-            ),
-            temp_directory=server_configs.staging_directory,
-        )
-        self.assertEqual(
-            "some_codeocean_token",
-            endpoint_configs.codeocean_api_token.get_secret_value(),
-        )
-        self.assertEqual(
-            "some_video_password",
-            endpoint_configs.video_encryption_password.get_secret_value(),
-        )
-        self.assertEqual(
-            "some_codeocean_domain", endpoint_configs.codeocean_domain
-        )
-        self.assertEqual(
-            "some_capsule_id", endpoint_configs.codeocean_trigger_capsule_id
-        )
-        self.assertIsNone(endpoint_configs.codeocean_trigger_capsule_version)
-        self.assertEqual(
-            "some_ms_domain", endpoint_configs.metadata_service_domain
-        )
-        self.assertEqual(
-            "some_dtr_location",
-            endpoint_configs.aind_data_transfer_repo_location,
-        )
-        self.assertEqual(
-            server_configs.staging_directory, endpoint_configs.temp_directory
-        )
-        self.assertIsNone(endpoint_configs.codeocean_process_capsule_id)
+        self.assertEqual(Path("/stage/dir"), server_configs.staging_directory)
 
 
 class TestJobConfigs(unittest.TestCase):
@@ -168,10 +75,7 @@ class TestJobConfigs(unittest.TestCase):
 
     expected_job_configs = [
         BasicUploadJobConfigs(
-            codeocean_domain="some_co_domain",
-            codeocean_trigger_capsule_id="some_co_cap_id",
-            metadata_service_domain="some_msd",
-            aind_data_transfer_repo_location="some_dtr",
+            aws_param_store_name="/some/param/store",
             s3_bucket="some_bucket",
             experiment_type=ExperimentType.ECEPHYS,
             modalities=[
@@ -187,7 +91,7 @@ class TestJobConfigs(unittest.TestCase):
             acq_date=date(2020, 10, 10),
             acq_time=time(14, 10, 10),
             process_name=ProcessName.OTHER,
-            temp_directory=Path("some_temp_dir"),
+            temp_directory=None,
             metadata_dir=None,
             log_level="WARNING",
             metadata_dir_force=False,
@@ -195,10 +99,7 @@ class TestJobConfigs(unittest.TestCase):
             force_cloud_sync=False,
         ),
         BasicUploadJobConfigs(
-            codeocean_domain="some_co_domain",
-            codeocean_trigger_capsule_id="some_co_cap_id",
-            metadata_service_domain="some_msd",
-            aind_data_transfer_repo_location="some_dtr",
+            aws_param_store_name="/some/param/store",
             s3_bucket="some_bucket2",
             experiment_type=ExperimentType.OTHER,
             modalities=[
@@ -221,7 +122,7 @@ class TestJobConfigs(unittest.TestCase):
             acq_date=date(2020, 10, 13),
             acq_time=time(13, 10, 10),
             process_name=ProcessName.OTHER,
-            temp_directory=Path("some_temp_dir"),
+            temp_directory=None,
             metadata_dir=None,
             log_level="WARNING",
             metadata_dir_force=False,
@@ -229,10 +130,7 @@ class TestJobConfigs(unittest.TestCase):
             force_cloud_sync=False,
         ),
         BasicUploadJobConfigs(
-            codeocean_domain="some_co_domain",
-            codeocean_trigger_capsule_id="some_co_cap_id",
-            metadata_service_domain="some_msd",
-            aind_data_transfer_repo_location="some_dtr",
+            aws_param_store_name="/some/param/store",
             s3_bucket="some_bucket2",
             experiment_type=ExperimentType.OTHER,
             modalities=[
@@ -255,7 +153,7 @@ class TestJobConfigs(unittest.TestCase):
             acq_date=date(2020, 10, 13),
             acq_time=time(13, 10, 10),
             process_name=ProcessName.OTHER,
-            temp_directory=Path("some_temp_dir"),
+            temp_directory=None,
             metadata_dir=None,
             log_level="WARNING",
             metadata_dir_force=False,
@@ -267,24 +165,13 @@ class TestJobConfigs(unittest.TestCase):
     @patch.dict(os.environ, TestServerConfigs.EXAMPLE_ENV_VAR1, clear=True)
     def test_parse_csv_file(self):
         """Tests that the jobs can be parsed from a csv file correctly."""
-        endpoint_configs = EndpointConfigs.construct(
-            temp_directory="some_temp_dir",
-            codeocean_domain="some_co_domain",
-            codeocean_trigger_capsule_id="some_co_cap_id",
-            metadata_service_domain="some_msd",
-            aind_data_transfer_repo_location="some_dtr",
-        )
 
         jobs = []
 
         with open(SAMPLE_FILE, newline="") as csvfile:
             reader = csv.DictReader(csvfile, skipinitialspace=True)
             for row in reader:
-                jobs.append(
-                    BasicUploadJobConfigs.from_csv_row(
-                        row, endpoints=endpoint_configs
-                    )
-                )
+                jobs.append(BasicUploadJobConfigs.from_csv_row(row))
 
         modality_outputs = []
         for job in jobs:
@@ -341,13 +228,96 @@ class TestHpcConfigs(unittest.TestCase):
     """Tests methods in HpcConfigs class"""
 
     @patch.dict(os.environ, TestServerConfigs.EXAMPLE_ENV_VAR1, clear=True)
-    def test_from_job_and_server_configs(self):
-        """Tests hpc configs are computed correctly"""
+    def test_job_name_creation(self):
+        """Tests that the job name is created correctly"""
         job_configs = TestJobConfigs.expected_job_configs[0]
         hpc_configs = HpcJobConfigs(
-            **job_configs.dict(), hpc_partition="hpc_part"
+            hpc_partition="hpc_part",
+            hpc_username="hpc_user",
+            aws_secret_access_key="zxcvbnm",
+            aws_access_key_id="abc-123",
+            aws_default_region="us-west-2",
+            sif_location=Path("sif_location"),
+            basic_upload_job_configs=job_configs,
+        )
+        job_name = hpc_configs._job_name()
+        self.assertTrue(job_name.startswith("job_"))
+        self.assertEqual(16, len(job_name))
+
+    @patch.dict(os.environ, TestServerConfigs.EXAMPLE_ENV_VAR1, clear=True)
+    @patch(
+        "aind_data_transfer_service.configs.job_configs.HpcJobConfigs."
+        "_job_name"
+    )
+    def test_from_job_and_server_configs(self, mock_name: MagicMock):
+        """Tests hpc configs are computed correctly"""
+
+        mock_name.return_value = "some_job_name"
+
+        job_configs = TestJobConfigs.expected_job_configs[0]
+        hpc_configs = HpcJobConfigs(
+            hpc_partition="hpc_part",
+            hpc_username="hpc_user",
+            aws_secret_access_key="zxcvbnm",
+            aws_access_key_id="abc-123",
+            aws_session_token="token-42gfwq4",
+            aws_default_region="us-west-2",
+            sif_location=Path("sif_location"),
+            basic_upload_job_configs=job_configs,
         )
 
+        expected_job_def = {
+            "job": {
+                "name": "some_job_name",
+                "nodes": 1,
+                "time_limit": "06:00:00",
+                "partition": "hpc_part",
+                "current_working_directory": "/home/hpc_user",
+                "memory_per_node": "50gb",
+                "environment": (
+                    {
+                        "PATH": "/bin:/usr/bin/:/usr/local/bin/",
+                        "LD_LIBRARY_PATH": "/lib/:/lib64/:/usr/local/lib",
+                        "SINGULARITYENV_AWS_SECRET_ACCESS_KEY": "zxcvbnm",
+                        "SINGULARITYENV_AWS_ACCESS_KEY_ID": "abc-123",
+                        "SINGULARITYENV_AWS_DEFAULT_REGION": "us-west-2",
+                        "SINGULARITYENV_AWS_SESSION_TOKEN": "token-42gfwq4",
+                    }
+                ),
+            },
+            "script": (
+                "#!/bin/bash \nsingularity exec --cleanenv sif_location python"
+                " -m aind_data_transfer.jobs.basic_job --json-args '"
+                ' {"aws_param_store_name": "/some/param/store",'
+                ' "s3_bucket": "some_bucket",'
+                ' "experiment_type": "ecephys",'
+                ' "modalities": [{"modality":'
+                ' {"name": "Extracellular electrophysiology",'
+                ' "abbreviation": "ecephys"},'
+                ' "source": "dir/data_set_1",'
+                ' "compress_raw_data": true, "extra_configs": null,'
+                ' "skip_staging": false}],'
+                ' "subject_id": "123454", "acq_date": "2020-10-10",'
+                ' "acq_time": "14:10:10", "process_name": "Other",'
+                ' "metadata_dir": null, "behavior_dir": null,'
+                ' "log_level": "WARNING", "metadata_dir_force": false,'
+                ' "dry_run": false, "force_cloud_sync": false,'
+                ' "temp_directory": null} \''
+            ),
+        }
+
+        expected_alt_job_def = {
+            "job": expected_job_def["job"],
+            "script": "#!/bin/bash \necho Hello",
+        }
+
+        self.assertEqual(expected_job_def, hpc_configs.to_job_definition())
+        self.assertEqual(
+            expected_alt_job_def,
+            hpc_configs.to_job_definition(
+                alt_exec_script="#!/bin/bash \necho Hello"
+            ),
+        )
         self.assertEqual(1, hpc_configs.hpc_nodes)
         self.assertEqual(360, hpc_configs.hpc_time_limit)
         self.assertEqual(50, hpc_configs.hpc_node_memory)

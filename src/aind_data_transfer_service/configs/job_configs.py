@@ -1,13 +1,11 @@
 """This module adds classes to handle resolving common endpoints used in the
 data transfer jobs."""
 import hashlib
-import json
 import re
 from datetime import date, datetime, time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-import boto3
 from aind_data_schema.data_description import (
     ExperimentType,
     Modality,
@@ -15,105 +13,6 @@ from aind_data_schema.data_description import (
 )
 from aind_data_schema.processing import ProcessName
 from pydantic import BaseSettings, Field, PrivateAttr, SecretStr, validator
-from pydantic.json import pydantic_encoder
-
-
-class EndpointConfigs(BaseSettings):
-    """Class for basic job endpoints. Can be pulled from aws param store."""
-
-    codeocean_api_token: Optional[SecretStr] = Field(
-        None, description="API token to run code ocean capsules"
-    )
-    video_encryption_password: Optional[SecretStr] = Field(
-        None, description="Password to use when encrypting video files"
-    )
-    codeocean_domain: str = Field(..., description="Code Ocean domain name")
-    codeocean_trigger_capsule_id: str = Field(
-        ..., description="Capsule ID of Code Ocean trigger capsule"
-    )
-    codeocean_trigger_capsule_version: Optional[str] = Field(
-        None, description="Version number of trigger capsule"
-    )
-    metadata_service_domain: str = Field(
-        ..., description="Metadata service domain name"
-    )
-    aind_data_transfer_repo_location: str = Field(
-        ..., description="Location of aind-data-transfer repository"
-    )
-    codeocean_process_capsule_id: Optional[str] = Field(
-        None,
-        description=(
-            "If defined, will run this Code Ocean Capsule after registering "
-            "the data asset"
-        ),
-    )
-    temp_directory: Optional[Path] = Field(
-        default=None,
-        description=(
-            "As default, the file systems temporary directory will be used as "
-            "an intermediate location to store the compressed data before "
-            "being uploaded to s3"
-        ),
-        title="Temp directory",
-    )
-
-    @staticmethod
-    def get_secret(secret_name: str) -> dict:
-        """
-        Retrieves a secret from AWS Secrets Manager.
-
-        param secret_name: The name of the secret to retrieve.
-        """
-        # Create a Secrets Manager client
-        client = boto3.client("secretsmanager")
-        try:
-            response = client.get_secret_value(SecretId=secret_name)
-        finally:
-            client.close()
-        return json.loads(response["SecretString"])
-
-    @staticmethod
-    def get_parameter(parameter_name: str, with_decryption=False) -> dict:
-        """
-        Retrieves a parameter from AWS Parameter Store.
-
-        param parameter_name: The name of the parameter to retrieve.
-        """
-        # Create a Systems Manager client
-        client = boto3.client("ssm")
-        try:
-            response = client.get_parameter(
-                Name=parameter_name, WithDecryption=with_decryption
-            )
-        finally:
-            client.close()
-        return json.loads(response["Parameter"]["Value"])
-
-    @classmethod
-    def from_aws_params_and_secrets(
-        cls,
-        endpoints_param_store_name: str,
-        codeocean_token_secrets_name: str,
-        video_encryption_password_name: str,
-        **kwargs,
-    ):
-        """
-        Construct endpoints from env vars stored on the server
-        Parameters
-        ----------
-
-        """
-        params = cls.get_parameter(endpoints_param_store_name)
-        codeocean_creds = cls.get_secret(codeocean_token_secrets_name)
-        vid_encrypt_password = cls.get_secret(video_encryption_password_name)
-
-        # update param dictionary with secrets
-        params["codeocean_domain"] = codeocean_creds["domain"]
-        params["codeocean_api_token"] = codeocean_creds["token"]
-        params["video_encryption_password"] = vid_encrypt_password["password"]
-        params.update(kwargs)
-
-        return cls(**params)
 
 
 class ModalityConfigs(BaseSettings):
@@ -175,7 +74,7 @@ class ModalityConfigs(BaseSettings):
             return False
 
 
-class BasicUploadJobConfigs(EndpointConfigs):
+class BasicUploadJobConfigs(BaseSettings):
     """Configuration for the basic upload job"""
 
     _DATE_PATTERN1 = re.compile(r"^\d{4}-\d{2}-\d{2}$")
@@ -183,6 +82,8 @@ class BasicUploadJobConfigs(EndpointConfigs):
     _TIME_PATTERN1 = re.compile(r"^\d{1,2}-\d{1,2}-\d{1,2}$")
     _TIME_PATTERN2 = re.compile(r"^\d{1,2}:\d{1,2}:\d{1,2}$")
     _MODALITY_ENTRY_PATTERN = re.compile(r"^modality(\d*)$")
+
+    aws_param_store_name: str
 
     s3_bucket: str = Field(
         ...,
@@ -216,6 +117,11 @@ class BasicUploadJobConfigs(EndpointConfigs):
         description="Directory of metadata",
         title="Metadata Directory",
     )
+    behavior_dir: Optional[Path] = Field(
+        default=None,
+        description="Directory of behavior data",
+        title="Behavior Directory",
+    )
     log_level: str = Field(
         default="WARNING",
         description="Logging level. Default is WARNING.",
@@ -240,6 +146,16 @@ class BasicUploadJobConfigs(EndpointConfigs):
             "Force syncing of data folder even if location exists in cloud"
         ),
         title="Force Cloud Sync",
+    )
+
+    temp_directory: Optional[Path] = Field(
+        default=None,
+        description=(
+            "As default, the file systems temporary directory will be used as "
+            "an intermediate location to store the compressed data before "
+            "being uploaded to s3"
+        ),
+        title="Temp directory",
     )
 
     @property
@@ -390,15 +306,13 @@ class BasicUploadJobConfigs(EndpointConfigs):
         cleaned_row["modalities"] = modalities
 
     @classmethod
-    def from_csv_row(cls, row: dict, endpoints: Optional[EndpointConfigs]):
+    def from_csv_row(cls, row: dict):
         """
         Creates a job config object from a csv row.
         Parameters
         ----------
         row : dict
           The row parsed from the csv file
-        endpoints : Optional[EndpointConfigs]
-          Optionally pass in an EndpointConfigs object
         """
         cleaned_row = {
             k.strip().replace("-", "_"): cls._clean_csv_entry(
@@ -406,10 +320,7 @@ class BasicUploadJobConfigs(EndpointConfigs):
             )
             for k, v in row.items()
         }
-
         cls._parse_modality_configs_from_row(cleaned_row=cleaned_row)
-        if endpoints is not None:
-            cleaned_row.update(endpoints.dict())
         return cls(**cleaned_row)
 
 
@@ -423,45 +334,21 @@ class HpcJobConfigs(BaseSettings):
     hpc_node_memory: int = Field(
         default=50, description="Memory requested in GB"
     )
-    hpc_partition: str = Field(
-        ..., description="Partition to submit tasks to (also known as a queue)"
-    )
-    hpc_host: str = Field(...)
-    hpc_username: str = Field(...)
-    hpc_password: str = Field(...)
-    hpc_token: str = Field(...)
+    hpc_partition: str
+    hpc_username: str
+    aws_secret_access_key: SecretStr
+    aws_access_key_id: str
+    aws_default_region: str
+    aws_session_token: Optional[str] = Field(default=None)
     sif_location: Path = Field(...)
     basic_upload_job_configs: BasicUploadJobConfigs
 
-    @property
-    def job_submit_url(self):
-        return self.hpc_host.strip("/") + "/" + "job" + "/" + "submit"
-
-    @property
-    def node_status_url(self):
-        return self.hpc_host.strip("/") + "/" + "nodes"
-
-    @property
-    def headers(self):
-        return ({
-            'X-SLURM-USER-NAME': self.hpc_username,
-            'X-SLURM-USER-PASSWORD': self.hpc_password,
-            'X-SLURM-USER-TOKEN': self.hpc_token,
-        })
-
-    @staticmethod
-    def show_secrets_encoder(obj):
-        if type(obj) == SecretStr:
-            return obj.get_secret_value()
-        else:
-            return pydantic_encoder(obj)
-
     def _json_args_str(self):
-        return self.basic_upload_job_configs.json(
-            encoder=self.show_secrets_encoder
-        )
+        """Serialize job configs to json"""
+        return self.basic_upload_job_configs.json()
 
     def _script_command_str(self):
+        """This is the command that will be sent to the hpc"""
         command_str = [
             "#!/bin/bash",
             "\nsingularity",
@@ -472,29 +359,43 @@ class HpcJobConfigs(BaseSettings):
             "-m",
             "aind_data_transfer.jobs.basic_job",
             "--json-args",
-            "\'",
+            "'",
             self._json_args_str(),
-            "\'"
+            "'",
         ]
 
         return " ".join(command_str)
 
-    def to_job_definition(
-            self,
-            aws_secret_access_key: SecretStr,
-            aws_access_key_id: str,
-            aws_default_region: str,
-            aws_session_token: str,
-            exec_script: str,
-    ):
-        now = datetime.now()
+    def _job_name(self):
+        """Construct a unique name for the job"""
+        dt = datetime.now()
         self._sha.update(
             (
-                self.basic_upload_job_configs.s3_prefix + str(now.timestamp)
+                self.basic_upload_job_configs.s3_prefix + str(dt.timestamp)
             ).encode()
         )
         unique_name = self._sha.hexdigest()
-        job_name = f"job_{unique_name[0:12]}"
+        return f"job_{unique_name[0:12]}"
+
+    def to_job_definition(
+        self,
+        alt_exec_script: Optional[str] = None,
+    ) -> dict:
+        """
+        Convert job configs to a dictionary that can be sent to the slurm
+        cluster via the rest api.
+        Parameters
+        ----------
+        alt_exec_script : Optional[str]
+          Instead of using the _script_command_str, this can be set to test out
+          job submissions using an echo command for example
+
+        Returns
+        -------
+        dict
+
+        """
+        job_name = self._job_name()
         time_limit_str = "{:02d}:{:02d}:00".format(
             *divmod(self.hpc_time_limit, 60)
         )
@@ -503,18 +404,20 @@ class HpcJobConfigs(BaseSettings):
             "PATH": "/bin:/usr/bin/:/usr/local/bin/",
             "LD_LIBRARY_PATH": "/lib/:/lib64/:/usr/local/lib",
             "SINGULARITYENV_AWS_SECRET_ACCESS_KEY": (
-                aws_secret_access_key.get_secret_value()
+                self.aws_secret_access_key.get_secret_value()
             ),
-            "SINGULARITYENV_AWS_ACCESS_KEY_ID": (
-                aws_access_key_id
-            ),
-            "SINGULARITYENV_AWS_DEFAULT_REGION": (
-                aws_default_region
-            ),
-            "SINGULARITYENV_AWS_SESSION_TOKEN": (
-                aws_session_token
-            ),
+            "SINGULARITYENV_AWS_ACCESS_KEY_ID": self.aws_access_key_id,
+            "SINGULARITYENV_AWS_DEFAULT_REGION": self.aws_default_region,
         }
+        if self.aws_session_token is not None:
+            environment[
+                "SINGULARITYENV_AWS_SESSION_TOKEN"
+            ] = self.aws_session_token
+
+        if alt_exec_script is not None:
+            exec_script = alt_exec_script
+        else:
+            exec_script = self._script_command_str()
 
         return {
             "job": {
