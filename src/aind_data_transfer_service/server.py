@@ -30,11 +30,11 @@ templates = Jinja2Templates(directory=template_directory)
 async def index(request: Request):
     """GET|POST /: form handler"""
     hpc_client_conf = HpcClientConfigs(
-        partition=app.state.server_configs.hpc_partition,
-        host=app.state.server_configs.hpc_host,
-        username=app.state.server_configs.hpc_username,
-        password=app.state.server_configs.hpc_password,
-        token=app.state.server_configs.hpc_token,
+        partition=getattr(app, "state").server_configs.hpc_partition,
+        host=getattr(app, "state").server_configs.hpc_host,
+        username=getattr(app, "state").server_configs.hpc_username,
+        password=getattr(app, "state").server_configs.hpc_password,
+        token=getattr(app, "state").server_configs.hpc_token,
     )
     hpc_client = HpcClient(configs=hpc_client_conf)
     job_manifest_form = await JobManifestForm.from_formdata(request)
@@ -51,21 +51,35 @@ async def index(request: Request):
             csv_reader = csv.DictReader(io.StringIO(data))
             for row in csv_reader:
                 job = BasicUploadJobConfigs.from_csv_row(row=row)
-                job.temp_directory = app.state.server_configs.staging_directory
+                job.temp_directory = getattr(
+                    app, "state"
+                ).server_configs.staging_directory
                 hpc_job = HpcJobConfigs(
                     basic_upload_job_configs=job,
                     hpc_partition=hpc_client.configs.partition,
                     hpc_username=hpc_client.configs.username,
                     aws_secret_access_key=(
-                        app.state.server_configs.aws_secret_access_key
+                        getattr(
+                            app, "state"
+                        ).server_configs.aws_secret_access_key
                     ),
                     aws_access_key_id=(
-                        app.state.server_configs.aws_access_key_id
+                        getattr(app, "state").server_configs.aws_access_key_id
                     ),
                     aws_default_region=(
-                        app.state.server_configs.aws_default_region
+                        getattr(app, "state").server_configs.aws_default_region
                     ),
-                    sif_location=app.state.server_configs.hpc_sif_location,
+                    sif_location=getattr(
+                        app, "state"
+                    ).server_configs.hpc_sif_location,
+                    hpc_current_working_directory=(
+                        getattr(
+                            app, "state"
+                        ).server_configs.hpc_current_working_directory
+                    ),
+                    hpc_logging_directory=getattr(
+                        app, "state"
+                    ).server_configs.hpc_logging_directory,
                 )
                 jobs.append(hpc_job)
 
@@ -101,7 +115,7 @@ async def index(request: Request):
 
 async def startup():
     """Set server configs on startup"""
-    app.state.server_configs = ServerConfigs()
+    getattr(app, "state").server_configs = ServerConfigs()
 
 
 routes = [Route("/", endpoint=index, methods=["GET", "POST"])]

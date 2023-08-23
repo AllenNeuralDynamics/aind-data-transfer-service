@@ -31,6 +31,8 @@ class TestServerConfigs(unittest.TestCase):
         "HPC_TOKEN": "hpc_jwt",
         "HPC_PARTITION": "hpc_part",
         "HPC_SIF_LOCATION": "hpc_sif_location",
+        "HPC_CURRENT_WORKING_DIRECTORY": "hpc_cwd",
+        "HPC_LOGGING_DIRECTORY": "hpc_logs",
         "AWS_ACCESS_KEY_ID": "aws_key",
         "AWS_SECRET_ACCESS_KEY": "aws_secret_key",
         "AWS_DEFAULT_REGION": "aws_region",
@@ -54,6 +56,12 @@ class TestServerConfigs(unittest.TestCase):
         self.assertEqual("hpc_part", server_configs.hpc_partition)
         self.assertEqual(
             Path("hpc_sif_location"), server_configs.hpc_sif_location
+        )
+        self.assertEqual(
+            Path("hpc_cwd"), server_configs.hpc_current_working_directory
+        )
+        self.assertEqual(
+            Path("hpc_logs"), server_configs.hpc_logging_directory
         )
         self.assertEqual("aws_key", server_configs.aws_access_key_id)
         self.assertEqual(
@@ -238,6 +246,8 @@ class TestHpcConfigs(unittest.TestCase):
             aws_access_key_id="abc-123",
             aws_default_region="us-west-2",
             sif_location=Path("sif_location"),
+            hpc_current_working_directory=Path("hpc_cwd"),
+            hpc_logging_directory=Path("hpc_logs"),
             basic_upload_job_configs=job_configs,
         )
         job_name = hpc_configs._job_name()
@@ -263,6 +273,8 @@ class TestHpcConfigs(unittest.TestCase):
             aws_session_token="token-42gfwq4",
             aws_default_region="us-west-2",
             sif_location=Path("sif_location"),
+            hpc_current_working_directory=Path("hpc_cwd"),
+            hpc_logging_directory=Path("hpc_logs"),
             basic_upload_job_configs=job_configs,
         )
 
@@ -272,7 +284,11 @@ class TestHpcConfigs(unittest.TestCase):
                 "nodes": 1,
                 "time_limit": "06:00:00",
                 "partition": "hpc_part",
-                "current_working_directory": "/home/hpc_user",
+                "current_working_directory": "hpc_cwd",
+                "standard_output": str(Path("hpc_logs") / "some_job_name.out"),
+                "standard_error": str(
+                    Path("hpc_logs") / "some_job_name_error.out"
+                ),
                 "memory_per_node": "50gb",
                 "environment": (
                     {

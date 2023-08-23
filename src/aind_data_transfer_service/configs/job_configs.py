@@ -336,6 +336,8 @@ class HpcJobConfigs(BaseSettings):
     )
     hpc_partition: str
     hpc_username: str
+    hpc_current_working_directory: Path
+    hpc_logging_directory: Path
     aws_secret_access_key: SecretStr
     aws_access_key_id: str
     aws_default_region: str
@@ -419,13 +421,22 @@ class HpcJobConfigs(BaseSettings):
         else:
             exec_script = self._script_command_str()
 
+        log_std_out_path = self.hpc_logging_directory / (job_name + ".out")
+        log_std_err_path = self.hpc_logging_directory / (
+            job_name + "_error.out"
+        )
+
         return {
             "job": {
                 "name": job_name,
                 "nodes": self.hpc_nodes,
                 "time_limit": time_limit_str,
                 "partition": self.hpc_partition,
-                "current_working_directory": f"/home/{self.hpc_username}",
+                "current_working_directory": (
+                    str(self.hpc_current_working_directory)
+                ),
+                "standard_output": str(log_std_out_path),
+                "standard_error": str(log_std_err_path),
                 "memory_per_node": mem_str,
                 "environment": environment,
             },

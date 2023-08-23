@@ -96,3 +96,7 @@ class TestHpcClient(unittest.TestCase):
                 "X-SLURM-USER-TOKEN": "hpc_jwt",
             },
         )
+
+
+if __name__ == "__main__":
+    unittest.main()

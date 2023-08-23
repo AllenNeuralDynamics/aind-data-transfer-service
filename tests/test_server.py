@@ -27,6 +27,8 @@ class TestServer(unittest.TestCase):
         "HPC_TOKEN": "hpc_jwt",
         "HPC_PARTITION": "hpc_part",
         "HPC_SIF_LOCATION": "hpc_sif_location",
+        "HPC_CURRENT_WORKING_DIRECTORY": "hpc_cwd",
+        "HPC_LOGGING_DIRECTORY": "hpc_logs",
         "AWS_ACCESS_KEY_ID": "aws_key",
         "AWS_SECRET_ACCESS_KEY": "aws_secret_key",
         "AWS_DEFAULT_REGION": "aws_region",
@@ -95,7 +97,7 @@ class TestServer(unittest.TestCase):
         """Tests that form successfully submits as expected."""
         mock_response = Response()
         mock_response.status_code = 200
-        mock_response._content = b'{"foo": "bar"}'
+        mock_response._content = b'{"message": "success"}'
         mock_post.return_value = mock_response
 
         with TestClient(app) as client:

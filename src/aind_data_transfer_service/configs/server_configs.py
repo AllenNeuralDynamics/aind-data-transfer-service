@@ -30,6 +30,8 @@ class ServerConfigs(BaseSettings):
         ..., description="Partition where jobs will be submitted to"
     )
     hpc_sif_location: Path = Field(...)
+    hpc_current_working_directory: Path = Field(...)
+    hpc_logging_directory: Path = Field(...)
     aws_access_key_id: str = Field(
         ...,
         description=(
