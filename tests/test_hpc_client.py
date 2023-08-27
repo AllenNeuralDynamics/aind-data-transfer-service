@@ -12,19 +12,24 @@ class TestHpcClientConfigs(unittest.TestCase):
     def test_hpc_client_configs(self):
         """Tests that attributes are set correctly"""
         hpc_client_configs = HpcClientConfigs(
-            host="http://hpc_host/",
-            username="hpc_username",
-            password="hpc_password",
-            token="hpc_jwt",
-            partition="hpc_part",
+            hpc_host="hpc_host",
+            hpc_port=80,
+            hpc_api_endpoint="api/slurm/v0.0.39",
+            hpc_username="hpc_username",
+            hpc_password="hpc_password",
+            hpc_token="hpc_jwt",
         )
-        self.assertEqual("http://hpc_host", hpc_client_configs.host)
-        self.assertEqual("hpc_username", hpc_client_configs.username)
+        self.assertEqual("hpc_host", hpc_client_configs.hpc_host)
+        self.assertEqual(80, hpc_client_configs.hpc_port)
         self.assertEqual(
-            "hpc_password", hpc_client_configs.password.get_secret_value()
+            "http://hpc_host:80/api/slurm/v0.0.39", hpc_client_configs.hpc_url
+        )
+        self.assertEqual("hpc_username", hpc_client_configs.hpc_username)
+        self.assertEqual(
+            "hpc_password", hpc_client_configs.hpc_password.get_secret_value()
         )
         self.assertEqual(
-            "hpc_jwt", hpc_client_configs.token.get_secret_value()
+            "hpc_jwt", hpc_client_configs.hpc_token.get_secret_value()
         )
 
 
@@ -32,11 +37,10 @@ class TestHpcClient(unittest.TestCase):
     """Tests methods in HpcClient class"""
 
     hpc_client_configs = HpcClientConfigs(
-        host="http://hpc_host",
-        username="hpc_username",
-        password="hpc_password",
-        token="hpc_jwt",
-        partition="hpc_part",
+        hpc_host="hpc_host",
+        hpc_username="hpc_username",
+        hpc_password="hpc_password",
+        hpc_token="hpc_jwt",
     )
 
     def test_properties(self):

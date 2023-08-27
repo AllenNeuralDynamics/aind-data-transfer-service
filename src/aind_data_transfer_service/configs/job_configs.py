@@ -306,13 +306,14 @@ class BasicUploadJobConfigs(BaseSettings):
         cleaned_row["modalities"] = modalities
 
     @classmethod
-    def from_csv_row(cls, row: dict):
+    def from_csv_row(
+        cls,
+        row: dict,
+        aws_param_store_name: str,
+        temp_directory: Optional[str] = None,
+    ):
         """
         Creates a job config object from a csv row.
-        Parameters
-        ----------
-        row : dict
-          The row parsed from the csv file
         """
         cleaned_row = {
             k.strip().replace("-", "_"): cls._clean_csv_entry(
@@ -321,7 +322,11 @@ class BasicUploadJobConfigs(BaseSettings):
             for k, v in row.items()
         }
         cls._parse_modality_configs_from_row(cleaned_row=cleaned_row)
-        return cls(**cleaned_row)
+        return cls(
+            **cleaned_row,
+            aws_param_store_name=aws_param_store_name,
+            temp_directory=temp_directory,
+        )
 
 
 class HpcJobConfigs(BaseSettings):
@@ -335,28 +340,34 @@ class HpcJobConfigs(BaseSettings):
         default=50, description="Memory requested in GB"
     )
     hpc_partition: str
-    hpc_username: str
     hpc_current_working_directory: Path
     hpc_logging_directory: Path
-    aws_secret_access_key: SecretStr
-    aws_access_key_id: str
-    aws_default_region: str
-    aws_session_token: Optional[str] = Field(default=None)
-    sif_location: Path = Field(...)
+    hpc_aws_secret_access_key: SecretStr
+    hpc_aws_access_key_id: str
+    hpc_aws_default_region: str
+    hpc_aws_session_token: Optional[str] = Field(default=None)
+    hpc_sif_location: Path = Field(...)
+    hpc_alt_exec_command: Optional[str] = Field(
+        default=None,
+        description=(
+            "Set this value to run a different execution command then the "
+            "default one built."
+        ),
+    )
     basic_upload_job_configs: BasicUploadJobConfigs
 
-    def _json_args_str(self):
+    def _json_args_str(self) -> str:
         """Serialize job configs to json"""
         return self.basic_upload_job_configs.json()
 
-    def _script_command_str(self):
+    def _script_command_str(self) -> str:
         """This is the command that will be sent to the hpc"""
         command_str = [
             "#!/bin/bash",
             "\nsingularity",
             "exec",
             "--cleanenv",
-            str(self.sif_location),
+            str(self.hpc_sif_location),
             "python",
             "-m",
             "aind_data_transfer.jobs.basic_job",
@@ -368,7 +379,7 @@ class HpcJobConfigs(BaseSettings):
 
         return " ".join(command_str)
 
-    def _job_name(self):
+    def _job_name(self) -> str:
         """Construct a unique name for the job"""
         dt = datetime.now()
         self._sha.update(
@@ -379,18 +390,13 @@ class HpcJobConfigs(BaseSettings):
         unique_name = self._sha.hexdigest()
         return f"job_{unique_name[0:12]}"
 
-    def to_job_definition(
-        self,
-        alt_exec_script: Optional[str] = None,
-    ) -> dict:
+    @property
+    def job_definition(self) -> dict:
         """
         Convert job configs to a dictionary that can be sent to the slurm
         cluster via the rest api.
         Parameters
         ----------
-        alt_exec_script : Optional[str]
-          Instead of using the _script_command_str, this can be set to test out
-          job submissions using an echo command for example
 
         Returns
         -------
@@ -406,18 +412,18 @@ class HpcJobConfigs(BaseSettings):
             "PATH": "/bin:/usr/bin/:/usr/local/bin/",
             "LD_LIBRARY_PATH": "/lib/:/lib64/:/usr/local/lib",
             "SINGULARITYENV_AWS_SECRET_ACCESS_KEY": (
-                self.aws_secret_access_key.get_secret_value()
+                self.hpc_aws_secret_access_key.get_secret_value()
             ),
-            "SINGULARITYENV_AWS_ACCESS_KEY_ID": self.aws_access_key_id,
-            "SINGULARITYENV_AWS_DEFAULT_REGION": self.aws_default_region,
+            "SINGULARITYENV_AWS_ACCESS_KEY_ID": self.hpc_aws_access_key_id,
+            "SINGULARITYENV_AWS_DEFAULT_REGION": self.hpc_aws_default_region,
         }
-        if self.aws_session_token is not None:
+        if self.hpc_aws_session_token is not None:
             environment[
                 "SINGULARITYENV_AWS_SESSION_TOKEN"
-            ] = self.aws_session_token
+            ] = self.hpc_aws_session_token
 
-        if alt_exec_script is not None:
-            exec_script = alt_exec_script
+        if self.hpc_alt_exec_command is not None:
+            exec_script = self.hpc_alt_exec_command
         else:
             exec_script = self._script_command_str()
 

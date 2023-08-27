@@ -21,7 +21,7 @@ class TestServer(unittest.TestCase):
     """Tests main server."""
 
     EXAMPLE_ENV_VAR1 = {
-        "HPC_HOST": "http://hpc_host",
+        "HPC_HOST": "hpc_host",
         "HPC_USERNAME": "hpc_user",
         "HPC_PASSWORD": "hpc_password",
         "HPC_TOKEN": "hpc_jwt",
@@ -29,12 +29,13 @@ class TestServer(unittest.TestCase):
         "HPC_SIF_LOCATION": "hpc_sif_location",
         "HPC_CURRENT_WORKING_DIRECTORY": "hpc_cwd",
         "HPC_LOGGING_DIRECTORY": "hpc_logs",
-        "AWS_ACCESS_KEY_ID": "aws_key",
-        "AWS_SECRET_ACCESS_KEY": "aws_secret_key",
-        "AWS_DEFAULT_REGION": "aws_region",
-        "CSRF_SECRET_KEY": "test_csrf_key",
+        "HPC_AWS_ACCESS_KEY_ID": "aws_key",
+        "HPC_AWS_SECRET_ACCESS_KEY": "aws_secret_key",
+        "HPC_AWS_DEFAULT_REGION": "aws_region",
+        "APP_CSRF_SECRET_KEY": "test_csrf_key",
         "APP_SECRET_KEY": "test_app_key",
-        "STAGING_DIRECTORY": "/stage/dir",
+        "HPC_STAGING_DIRECTORY": "/stage/dir",
+        "HPC_AWS_PARAM_STORE_NAME": "/some/param/store",
     }
 
     with open(test_directory + "/resources/sample.csv", "r") as file:

@@ -1,6 +1,6 @@
 """Module to manage connection with hpc cluster"""
 
-from typing import Union
+from typing import Optional, Union
 
 import requests
 from pydantic import BaseSettings, Field, SecretStr, validator
@@ -10,18 +10,27 @@ from requests.models import Response
 class HpcClientConfigs(BaseSettings):
     """Configs needed to connect to the hpc cluster"""
 
-    partition: str = Field(
-        ..., description="Partition to submit tasks to (also known as a queue)"
-    )
-    host: str = Field(...)
-    username: str = Field(...)
-    password: SecretStr = Field(...)
-    token: SecretStr = Field(...)
+    hpc_host: str = Field(...)
+    hpc_port: Optional[int] = Field(default=None)
+    hpc_api_endpoint: Optional[str] = Field(default=None)
+    hpc_username: str = Field(...)
+    hpc_password: SecretStr = Field(...)
+    hpc_token: SecretStr = Field(...)
 
-    @validator("host", pre=True)
-    def _strip_trailing_slash(cls, input_host):
+    @validator("hpc_host", "hpc_api_endpoint", pre=True)
+    def _strip_slash(cls, input_str: Optional[str]):
         """Strips trailing slash from domain."""
-        return input_host.strip("/")
+        return None if input_str is None else input_str.strip("/")
+
+    @property
+    def hpc_url(self) -> str:
+        """Construct base url from host, port, and api endpoint"""
+        base_url = f"http://{self.hpc_host}"
+        if self.hpc_port is not None:
+            base_url = base_url + f":{self.hpc_port}"
+        if self.hpc_api_endpoint is not None:
+            base_url = base_url + f"/{self.hpc_api_endpoint}"
+        return base_url
 
 
 class HpcClient:
@@ -34,25 +43,27 @@ class HpcClient:
     @property
     def _job_submit_url(self):
         """Url for job submission"""
-        return f"{self.configs.host}/job/submit"
+        return f"{self.configs.hpc_url}/job/submit"
 
     @property
     def _node_status_url(self):
         """Url to check status of nodes"""
-        return f"{self.configs.host}/nodes"
+        return f"{self.configs.hpc_url}/nodes"
 
     @property
     def _job_status_url(self):
         """Url to check status of job"""
-        return f"{self.configs.host}/job"
+        return f"{self.configs.hpc_url}/job"
 
     @property
     def __headers(self):
         """Headers needed for rest api"""
         return {
-            "X-SLURM-USER-NAME": self.configs.username,
-            "X-SLURM-USER-PASSWORD": self.configs.password.get_secret_value(),
-            "X-SLURM-USER-TOKEN": self.configs.token.get_secret_value(),
+            "X-SLURM-USER-NAME": self.configs.hpc_username,
+            "X-SLURM-USER-PASSWORD": (
+                self.configs.hpc_password.get_secret_value()
+            ),
+            "X-SLURM-USER-TOKEN": self.configs.hpc_token.get_secret_value(),
         }
 
     def get_node_status(self) -> Response:

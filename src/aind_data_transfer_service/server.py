@@ -16,7 +16,6 @@ from aind_data_transfer_service.configs.job_configs import (
     BasicUploadJobConfigs,
     HpcJobConfigs,
 )
-from aind_data_transfer_service.configs.server_configs import ServerConfigs
 from aind_data_transfer_service.forms import JobManifestForm
 from aind_data_transfer_service.hpc.client import HpcClient, HpcClientConfigs
 
@@ -29,13 +28,7 @@ templates = Jinja2Templates(directory=template_directory)
 @csrf_protect
 async def index(request: Request):
     """GET|POST /: form handler"""
-    hpc_client_conf = HpcClientConfigs(
-        partition=getattr(app, "state").server_configs.hpc_partition,
-        host=getattr(app, "state").server_configs.hpc_host,
-        username=getattr(app, "state").server_configs.hpc_username,
-        password=getattr(app, "state").server_configs.hpc_password,
-        token=getattr(app, "state").server_configs.hpc_token,
-    )
+    hpc_client_conf = HpcClientConfigs()
     hpc_client = HpcClient(configs=hpc_client_conf)
     job_manifest_form = await JobManifestForm.from_formdata(request)
     jobs = []
@@ -50,44 +43,20 @@ async def index(request: Request):
 
             csv_reader = csv.DictReader(io.StringIO(data))
             for row in csv_reader:
-                job = BasicUploadJobConfigs.from_csv_row(row=row)
-                job.temp_directory = getattr(
-                    app, "state"
-                ).server_configs.staging_directory
-                hpc_job = HpcJobConfigs(
-                    basic_upload_job_configs=job,
-                    hpc_partition=hpc_client.configs.partition,
-                    hpc_username=hpc_client.configs.username,
-                    aws_secret_access_key=(
-                        getattr(
-                            app, "state"
-                        ).server_configs.aws_secret_access_key
-                    ),
-                    aws_access_key_id=(
-                        getattr(app, "state").server_configs.aws_access_key_id
-                    ),
-                    aws_default_region=(
-                        getattr(app, "state").server_configs.aws_default_region
-                    ),
-                    sif_location=getattr(
-                        app, "state"
-                    ).server_configs.hpc_sif_location,
-                    hpc_current_working_directory=(
-                        getattr(
-                            app, "state"
-                        ).server_configs.hpc_current_working_directory
-                    ),
-                    hpc_logging_directory=getattr(
-                        app, "state"
-                    ).server_configs.hpc_logging_directory,
+                job = BasicUploadJobConfigs.from_csv_row(
+                    row=row,
+                    aws_param_store_name=os.getenv("HPC_AWS_PARAM_STORE_NAME"),
+                    temp_directory=os.getenv("HPC_STAGING_DIRECTORY"),
                 )
+                # Construct hpc job setting most of the vars from the env
+                hpc_job = HpcJobConfigs(basic_upload_job_configs=job)
                 jobs.append(hpc_job)
 
         if submit_jobs:
             if jobs:
                 responses = []
                 for job in jobs:
-                    job_def = job.to_job_definition()
+                    job_def = job.job_definition
                     response = hpc_client.submit_job(job_def)
                     response_json = response.json()
                     responses.append(response_json)
@@ -113,18 +82,13 @@ async def index(request: Request):
     )
 
 
-async def startup():
-    """Set server configs on startup"""
-    getattr(app, "state").server_configs = ServerConfigs()
-
-
 routes = [Route("/", endpoint=index, methods=["GET", "POST"])]
 
-app = Starlette(routes=routes, on_startup=[startup])
+app = Starlette(routes=routes)
 app.add_middleware(
     SessionMiddleware, secret_key=os.getenv("APP_SECRET_KEY", "test_app_key")
 )
 app.add_middleware(
     CSRFProtectMiddleware,
-    csrf_secret=os.getenv("CSRF_SECRET_KEY", "test_csrf_key"),
+    csrf_secret=os.getenv("APP_CSRF_SECRET_KEY", "test_csrf_key"),
 )

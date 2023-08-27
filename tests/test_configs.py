@@ -15,14 +15,13 @@ from aind_data_transfer_service.configs.job_configs import (
     HpcJobConfigs,
     ModalityConfigs,
 )
-from aind_data_transfer_service.configs.server_configs import ServerConfigs
 
 RESOURCES_DIR = Path(os.path.dirname(os.path.realpath(__file__))) / "resources"
 SAMPLE_FILE = RESOURCES_DIR / "sample.csv"
 
 
-class TestServerConfigs(unittest.TestCase):
-    """Tests ServerConfigs class"""
+class TestJobConfigs(unittest.TestCase):
+    """Tests basic job configs class"""
 
     EXAMPLE_ENV_VAR1 = {
         "HPC_HOST": "hpc_host",
@@ -40,46 +39,6 @@ class TestServerConfigs(unittest.TestCase):
         "APP_SECRET_KEY": "app_secret",
         "STAGING_DIRECTORY": "/stage/dir",
     }
-
-    @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
-    def test_server_configs_env_vars(self):
-        """Tests that the server configs can be set from env vars"""
-        server_configs = ServerConfigs()
-        self.assertEqual("hpc_host", server_configs.hpc_host)
-        self.assertEqual("hpc_user", server_configs.hpc_username)
-        self.assertEqual(
-            "hpc_password", server_configs.hpc_password.get_secret_value()
-        )
-        self.assertEqual(
-            "hpc_jwt", server_configs.hpc_token.get_secret_value()
-        )
-        self.assertEqual("hpc_part", server_configs.hpc_partition)
-        self.assertEqual(
-            Path("hpc_sif_location"), server_configs.hpc_sif_location
-        )
-        self.assertEqual(
-            Path("hpc_cwd"), server_configs.hpc_current_working_directory
-        )
-        self.assertEqual(
-            Path("hpc_logs"), server_configs.hpc_logging_directory
-        )
-        self.assertEqual("aws_key", server_configs.aws_access_key_id)
-        self.assertEqual(
-            "aws_secret_key",
-            server_configs.aws_secret_access_key.get_secret_value(),
-        )
-        self.assertEqual("aws_region", server_configs.aws_default_region)
-        self.assertEqual(
-            "csrf_secret", server_configs.csrf_secret_key.get_secret_value()
-        )
-        self.assertEqual(
-            "app_secret", server_configs.app_secret_key.get_secret_value()
-        )
-        self.assertEqual(Path("/stage/dir"), server_configs.staging_directory)
-
-
-class TestJobConfigs(unittest.TestCase):
-    """Tests basic job configs class"""
 
     expected_job_configs = [
         BasicUploadJobConfigs(
@@ -170,7 +129,7 @@ class TestJobConfigs(unittest.TestCase):
         ),
     ]
 
-    @patch.dict(os.environ, TestServerConfigs.EXAMPLE_ENV_VAR1, clear=True)
+    @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     def test_parse_csv_file(self):
         """Tests that the jobs can be parsed from a csv file correctly."""
 
@@ -179,7 +138,11 @@ class TestJobConfigs(unittest.TestCase):
         with open(SAMPLE_FILE, newline="") as csvfile:
             reader = csv.DictReader(csvfile, skipinitialspace=True)
             for row in reader:
-                jobs.append(BasicUploadJobConfigs.from_csv_row(row))
+                jobs.append(
+                    BasicUploadJobConfigs.from_csv_row(
+                        row, aws_param_store_name="/some/param/store"
+                    )
+                )
 
         modality_outputs = []
         for job in jobs:
@@ -235,17 +198,16 @@ class TestJobConfigs(unittest.TestCase):
 class TestHpcConfigs(unittest.TestCase):
     """Tests methods in HpcConfigs class"""
 
-    @patch.dict(os.environ, TestServerConfigs.EXAMPLE_ENV_VAR1, clear=True)
+    @patch.dict(os.environ, TestJobConfigs.EXAMPLE_ENV_VAR1, clear=True)
     def test_job_name_creation(self):
         """Tests that the job name is created correctly"""
         job_configs = TestJobConfigs.expected_job_configs[0]
         hpc_configs = HpcJobConfigs(
             hpc_partition="hpc_part",
-            hpc_username="hpc_user",
-            aws_secret_access_key="zxcvbnm",
-            aws_access_key_id="abc-123",
-            aws_default_region="us-west-2",
-            sif_location=Path("sif_location"),
+            hpc_aws_secret_access_key="zxcvbnm",
+            hpc_aws_access_key_id="abc-123",
+            hpc_aws_default_region="us-west-2",
+            hpc_sif_location=Path("sif_location"),
             hpc_current_working_directory=Path("hpc_cwd"),
             hpc_logging_directory=Path("hpc_logs"),
             basic_upload_job_configs=job_configs,
@@ -254,7 +216,7 @@ class TestHpcConfigs(unittest.TestCase):
         self.assertTrue(job_name.startswith("job_"))
         self.assertEqual(16, len(job_name))
 
-    @patch.dict(os.environ, TestServerConfigs.EXAMPLE_ENV_VAR1, clear=True)
+    @patch.dict(os.environ, TestJobConfigs.EXAMPLE_ENV_VAR1, clear=True)
     @patch(
         "aind_data_transfer_service.configs.job_configs.HpcJobConfigs."
         "_job_name"
@@ -267,15 +229,18 @@ class TestHpcConfigs(unittest.TestCase):
         job_configs = TestJobConfigs.expected_job_configs[0]
         hpc_configs = HpcJobConfigs(
             hpc_partition="hpc_part",
-            hpc_username="hpc_user",
-            aws_secret_access_key="zxcvbnm",
-            aws_access_key_id="abc-123",
-            aws_session_token="token-42gfwq4",
-            aws_default_region="us-west-2",
-            sif_location=Path("sif_location"),
+            hpc_aws_secret_access_key="zxcvbnm",
+            hpc_aws_access_key_id="abc-123",
+            hpc_aws_session_token="token-42gfwq4",
+            hpc_aws_default_region="us-west-2",
+            hpc_sif_location=Path("sif_location"),
             hpc_current_working_directory=Path("hpc_cwd"),
             hpc_logging_directory=Path("hpc_logs"),
             basic_upload_job_configs=job_configs,
+        )
+        hpc_configs2 = HpcJobConfigs(
+            **hpc_configs.dict(exclude_none=True),
+            hpc_alt_exec_command="#!/bin/bash \necho Hello",
         )
 
         expected_job_def = {
@@ -327,12 +292,10 @@ class TestHpcConfigs(unittest.TestCase):
             "script": "#!/bin/bash \necho Hello",
         }
 
-        self.assertEqual(expected_job_def, hpc_configs.to_job_definition())
+        self.assertEqual(expected_job_def, hpc_configs.job_definition)
         self.assertEqual(
             expected_alt_job_def,
-            hpc_configs.to_job_definition(
-                alt_exec_script="#!/bin/bash \necho Hello"
-            ),
+            hpc_configs2.job_definition,
         )
         self.assertEqual(1, hpc_configs.hpc_nodes)
         self.assertEqual(360, hpc_configs.hpc_time_limit)
