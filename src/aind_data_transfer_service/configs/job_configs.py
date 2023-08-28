@@ -117,9 +117,14 @@ class BasicUploadJobConfigs(BaseSettings):
         description="Directory of metadata",
         title="Metadata Directory",
     )
+    # Deprecated. Will be removed in future versions.
     behavior_dir: Optional[Path] = Field(
         default=None,
-        description="Directory of behavior data",
+        description=(
+            "Directory of behavior data. This field is deprecated and will be "
+            "removed in future versions. Instead, this will be included in "
+            "the modalities list."
+        ),
         title="Behavior Directory",
     )
     log_level: str = Field(
@@ -147,7 +152,6 @@ class BasicUploadJobConfigs(BaseSettings):
         ),
         title="Force Cloud Sync",
     )
-
     temp_directory: Optional[Path] = Field(
         default=None,
         description=(
