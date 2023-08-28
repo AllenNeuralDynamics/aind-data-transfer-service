@@ -23,23 +23,6 @@ SAMPLE_FILE = RESOURCES_DIR / "sample.csv"
 class TestJobConfigs(unittest.TestCase):
     """Tests basic job configs class"""
 
-    EXAMPLE_ENV_VAR1 = {
-        "HPC_HOST": "hpc_host",
-        "HPC_USERNAME": "hpc_user",
-        "HPC_PASSWORD": "hpc_password",
-        "HPC_TOKEN": "hpc_jwt",
-        "HPC_PARTITION": "hpc_part",
-        "HPC_SIF_LOCATION": "hpc_sif_location",
-        "HPC_CURRENT_WORKING_DIRECTORY": "hpc_cwd",
-        "HPC_LOGGING_DIRECTORY": "hpc_logs",
-        "AWS_ACCESS_KEY_ID": "aws_key",
-        "AWS_SECRET_ACCESS_KEY": "aws_secret_key",
-        "AWS_DEFAULT_REGION": "aws_region",
-        "CSRF_SECRET_KEY": "csrf_secret",
-        "APP_SECRET_KEY": "app_secret",
-        "STAGING_DIRECTORY": "/stage/dir",
-    }
-
     expected_job_configs = [
         BasicUploadJobConfigs(
             aws_param_store_name="/some/param/store",
@@ -129,7 +112,6 @@ class TestJobConfigs(unittest.TestCase):
         ),
     ]
 
-    @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     def test_parse_csv_file(self):
         """Tests that the jobs can be parsed from a csv file correctly."""
 
@@ -198,7 +180,6 @@ class TestJobConfigs(unittest.TestCase):
 class TestHpcConfigs(unittest.TestCase):
     """Tests methods in HpcConfigs class"""
 
-    @patch.dict(os.environ, TestJobConfigs.EXAMPLE_ENV_VAR1, clear=True)
     def test_job_name_creation(self):
         """Tests that the job name is created correctly"""
         job_configs = TestJobConfigs.expected_job_configs[0]
@@ -216,7 +197,6 @@ class TestHpcConfigs(unittest.TestCase):
         self.assertTrue(job_name.startswith("job_"))
         self.assertEqual(16, len(job_name))
 
-    @patch.dict(os.environ, TestJobConfigs.EXAMPLE_ENV_VAR1, clear=True)
     @patch(
         "aind_data_transfer_service.configs.job_configs.HpcJobConfigs."
         "_job_name"
