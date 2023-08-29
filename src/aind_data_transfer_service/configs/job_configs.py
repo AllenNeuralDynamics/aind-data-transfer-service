@@ -1,12 +1,11 @@
 """This module adds classes to handle resolving common endpoints used in the
 data transfer jobs."""
-import json
+import hashlib
 import re
 from datetime import date, datetime, time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-import boto3
 from aind_data_schema.data_description import (
     ExperimentType,
     Modality,
@@ -14,104 +13,6 @@ from aind_data_schema.data_description import (
 )
 from aind_data_schema.processing import ProcessName
 from pydantic import BaseSettings, Field, PrivateAttr, SecretStr, validator
-
-
-class EndpointConfigs(BaseSettings):
-    """Class for basic job endpoints. Can be pulled from aws param store."""
-
-    codeocean_api_token: Optional[SecretStr] = Field(
-        None, description="API token to run code ocean capsules"
-    )
-    video_encryption_password: Optional[SecretStr] = Field(
-        None, description="Password to use when encrypting video files"
-    )
-    codeocean_domain: str = Field(..., description="Code Ocean domain name")
-    codeocean_trigger_capsule_id: str = Field(
-        ..., description="Capsule ID of Code Ocean trigger capsule"
-    )
-    codeocean_trigger_capsule_version: Optional[str] = Field(
-        None, description="Version number of trigger capsule"
-    )
-    metadata_service_domain: str = Field(
-        ..., description="Metadata service domain name"
-    )
-    aind_data_transfer_repo_location: str = Field(
-        ..., description="Location of aind-data-transfer repository"
-    )
-    codeocean_process_capsule_id: Optional[str] = Field(
-        None,
-        description=(
-            "If defined, will run this Code Ocean Capsule after registering "
-            "the data asset"
-        ),
-    )
-    temp_directory: Optional[Path] = Field(
-        default=None,
-        description=(
-            "As default, the file systems temporary directory will be used as "
-            "an intermediate location to store the compressed data before "
-            "being uploaded to s3"
-        ),
-        title="Temp directory",
-    )
-
-    @staticmethod
-    def get_secret(secret_name: str) -> dict:
-        """
-        Retrieves a secret from AWS Secrets Manager.
-
-        param secret_name: The name of the secret to retrieve.
-        """
-        # Create a Secrets Manager client
-        client = boto3.client("secretsmanager")
-        try:
-            response = client.get_secret_value(SecretId=secret_name)
-        finally:
-            client.close()
-        return json.loads(response["SecretString"])
-
-    @staticmethod
-    def get_parameter(parameter_name: str, with_decryption=False) -> dict:
-        """
-        Retrieves a parameter from AWS Parameter Store.
-
-        param parameter_name: The name of the parameter to retrieve.
-        """
-        # Create a Systems Manager client
-        client = boto3.client("ssm")
-        try:
-            response = client.get_parameter(
-                Name=parameter_name, WithDecryption=with_decryption
-            )
-        finally:
-            client.close()
-        return json.loads(response["Parameter"]["Value"])
-
-    @classmethod
-    def from_aws_params_and_secrets(
-        cls,
-        endpoints_param_store_name: str,
-        codeocean_token_secrets_name: str,
-        video_encryption_password_name: str,
-        **kwargs,
-    ):
-        """
-        Construct endpoints from env vars stored on the server
-        Parameters
-        ----------
-
-        """
-        params = cls.get_parameter(endpoints_param_store_name)
-        codeocean_creds = cls.get_secret(codeocean_token_secrets_name)
-        vid_encrypt_password = cls.get_secret(video_encryption_password_name)
-
-        # update param dictionary with secrets
-        params["codeocean_domain"] = codeocean_creds["domain"]
-        params["codeocean_api_token"] = codeocean_creds["token"]
-        params["video_encryption_password"] = vid_encrypt_password["password"]
-        params.update(kwargs)
-
-        return cls(**params)
 
 
 class ModalityConfigs(BaseSettings):
@@ -173,7 +74,7 @@ class ModalityConfigs(BaseSettings):
             return False
 
 
-class BasicUploadJobConfigs(EndpointConfigs):
+class BasicUploadJobConfigs(BaseSettings):
     """Configuration for the basic upload job"""
 
     _DATE_PATTERN1 = re.compile(r"^\d{4}-\d{2}-\d{2}$")
@@ -181,6 +82,8 @@ class BasicUploadJobConfigs(EndpointConfigs):
     _TIME_PATTERN1 = re.compile(r"^\d{1,2}-\d{1,2}-\d{1,2}$")
     _TIME_PATTERN2 = re.compile(r"^\d{1,2}:\d{1,2}:\d{1,2}$")
     _MODALITY_ENTRY_PATTERN = re.compile(r"^modality(\d*)$")
+
+    aws_param_store_name: str
 
     s3_bucket: str = Field(
         ...,
@@ -214,6 +117,16 @@ class BasicUploadJobConfigs(EndpointConfigs):
         description="Directory of metadata",
         title="Metadata Directory",
     )
+    # Deprecated. Will be removed in future versions.
+    behavior_dir: Optional[Path] = Field(
+        default=None,
+        description=(
+            "Directory of behavior data. This field is deprecated and will be "
+            "removed in future versions. Instead, this will be included in "
+            "the modalities list."
+        ),
+        title="Behavior Directory",
+    )
     log_level: str = Field(
         default="WARNING",
         description="Logging level. Default is WARNING.",
@@ -238,6 +151,15 @@ class BasicUploadJobConfigs(EndpointConfigs):
             "Force syncing of data folder even if location exists in cloud"
         ),
         title="Force Cloud Sync",
+    )
+    temp_directory: Optional[Path] = Field(
+        default=None,
+        description=(
+            "As default, the file systems temporary directory will be used as "
+            "an intermediate location to store the compressed data before "
+            "being uploaded to s3"
+        ),
+        title="Temp directory",
     )
 
     @property
@@ -388,15 +310,14 @@ class BasicUploadJobConfigs(EndpointConfigs):
         cleaned_row["modalities"] = modalities
 
     @classmethod
-    def from_csv_row(cls, row: dict, endpoints: Optional[EndpointConfigs]):
+    def from_csv_row(
+        cls,
+        row: dict,
+        aws_param_store_name: str,
+        temp_directory: Optional[str] = None,
+    ):
         """
         Creates a job config object from a csv row.
-        Parameters
-        ----------
-        row : dict
-          The row parsed from the csv file
-        endpoints : Optional[EndpointConfigs]
-          Optionally pass in an EndpointConfigs object
         """
         cleaned_row = {
             k.strip().replace("-", "_"): cls._clean_csv_entry(
@@ -404,21 +325,130 @@ class BasicUploadJobConfigs(EndpointConfigs):
             )
             for k, v in row.items()
         }
-
         cls._parse_modality_configs_from_row(cleaned_row=cleaned_row)
-        if endpoints is not None:
-            cleaned_row.update(endpoints.dict())
-        return cls(**cleaned_row)
+        return cls(
+            **cleaned_row,
+            aws_param_store_name=aws_param_store_name,
+            temp_directory=temp_directory,
+        )
 
 
-class HpcJobConfigs(BasicUploadJobConfigs):
+class HpcJobConfigs(BaseSettings):
     """Class to contain settings for hpc resources"""
 
-    hpc_n_tasks: int = Field(default=1, description="Number of tasks")
-    hpc_timeout: int = Field(default=360, description="Timeout in minutes")
+    _sha = hashlib.sha256()
+
+    hpc_nodes: int = Field(default=1, description="Number of tasks")
+    hpc_time_limit: int = Field(default=360, description="Timeout in minutes")
     hpc_node_memory: int = Field(
         default=50, description="Memory requested in GB"
     )
-    hpc_partition: str = Field(
-        ..., description="Partition to submit tasks to (also known as a queue)"
+    hpc_partition: str
+    hpc_current_working_directory: Path
+    hpc_logging_directory: Path
+    hpc_aws_secret_access_key: SecretStr
+    hpc_aws_access_key_id: str
+    hpc_aws_default_region: str
+    hpc_aws_session_token: Optional[str] = Field(default=None)
+    hpc_sif_location: Path = Field(...)
+    hpc_alt_exec_command: Optional[str] = Field(
+        default=None,
+        description=(
+            "Set this value to run a different execution command then the "
+            "default one built."
+        ),
     )
+    basic_upload_job_configs: BasicUploadJobConfigs
+
+    def _json_args_str(self) -> str:
+        """Serialize job configs to json"""
+        return self.basic_upload_job_configs.json()
+
+    def _script_command_str(self) -> str:
+        """This is the command that will be sent to the hpc"""
+        command_str = [
+            "#!/bin/bash",
+            "\nsingularity",
+            "exec",
+            "--cleanenv",
+            str(self.hpc_sif_location),
+            "python",
+            "-m",
+            "aind_data_transfer.jobs.basic_job",
+            "--json-args",
+            "'",
+            self._json_args_str(),
+            "'",
+        ]
+
+        return " ".join(command_str)
+
+    def _job_name(self) -> str:
+        """Construct a unique name for the job"""
+        dt = datetime.now()
+        self._sha.update(
+            (
+                self.basic_upload_job_configs.s3_prefix + str(dt.timestamp)
+            ).encode()
+        )
+        unique_name = self._sha.hexdigest()
+        return f"job_{unique_name[0:12]}"
+
+    @property
+    def job_definition(self) -> dict:
+        """
+        Convert job configs to a dictionary that can be sent to the slurm
+        cluster via the rest api.
+        Parameters
+        ----------
+
+        Returns
+        -------
+        dict
+
+        """
+        job_name = self._job_name()
+        time_limit_str = "{:02d}:{:02d}:00".format(
+            *divmod(self.hpc_time_limit, 60)
+        )
+        mem_str = f"{self.hpc_node_memory}gb"
+        environment = {
+            "PATH": "/bin:/usr/bin/:/usr/local/bin/",
+            "LD_LIBRARY_PATH": "/lib/:/lib64/:/usr/local/lib",
+            "SINGULARITYENV_AWS_SECRET_ACCESS_KEY": (
+                self.hpc_aws_secret_access_key.get_secret_value()
+            ),
+            "SINGULARITYENV_AWS_ACCESS_KEY_ID": self.hpc_aws_access_key_id,
+            "SINGULARITYENV_AWS_DEFAULT_REGION": self.hpc_aws_default_region,
+        }
+        if self.hpc_aws_session_token is not None:
+            environment[
+                "SINGULARITYENV_AWS_SESSION_TOKEN"
+            ] = self.hpc_aws_session_token
+
+        if self.hpc_alt_exec_command is not None:
+            exec_script = self.hpc_alt_exec_command
+        else:
+            exec_script = self._script_command_str()
+
+        log_std_out_path = self.hpc_logging_directory / (job_name + ".out")
+        log_std_err_path = self.hpc_logging_directory / (
+            job_name + "_error.out"
+        )
+
+        return {
+            "job": {
+                "name": job_name,
+                "nodes": self.hpc_nodes,
+                "time_limit": time_limit_str,
+                "partition": self.hpc_partition,
+                "current_working_directory": (
+                    str(self.hpc_current_working_directory)
+                ),
+                "standard_output": str(log_std_out_path),
+                "standard_error": str(log_std_err_path),
+                "memory_per_node": mem_str,
+                "environment": environment,
+            },
+            "script": exec_script,
+        }

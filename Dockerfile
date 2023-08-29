@@ -5,6 +5,6 @@ ADD pyproject.toml .
 ADD setup.py .
 
 # Pip command
-RUN pip install . --no-cache-dir
+RUN pip install .[server] --no-cache-dir
 
 CMD ["uvicorn", "aind_data_transfer_service.server:app", "--host", "0.0.0.0", "--port", "5000"]
