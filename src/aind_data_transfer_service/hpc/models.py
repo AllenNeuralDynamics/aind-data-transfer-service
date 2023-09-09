@@ -136,8 +136,8 @@ class JobStatus(BaseModel):
         cls, timestamp: Union[int, datetime, None]
     ) -> Optional[datetime]:
         """Maps timestamp to datetime. As default, the hpc returns 0 if the
-        timestamp is not set, for example, the end time for a job that hasn't
-        finished will have and end_time of 0."""
+        timestamp is not set, for example, the end time for a job that is
+        pending will have an end_time of 0."""
         if type(timestamp) is datetime:
             return timestamp
         elif timestamp is None or timestamp == 0:
@@ -146,15 +146,15 @@ class JobStatus(BaseModel):
             return datetime.fromtimestamp(timestamp)
 
     @classmethod
-    def from_hpc_job_status(cls, slurm_job: HpcJobStatusResponse):
-        """Maps the fields from the SlurmJobStatusResponse to this model"""
+    def from_hpc_job_status(cls, hpc_job: HpcJobStatusResponse):
+        """Maps the fields from the HpcJobStatusResponse to this model"""
         return cls(
-            end_time=slurm_job.end_time,
-            job_id=slurm_job.job_id,
-            job_state=slurm_job.job_state,
-            name=slurm_job.name,
-            start_time=slurm_job.start_time,
-            submit_time=slurm_job.submit_time,
+            end_time=hpc_job.end_time,
+            job_id=hpc_job.job_id,
+            job_state=hpc_job.job_state,
+            name=hpc_job.name,
+            start_time=hpc_job.start_time,
+            submit_time=hpc_job.submit_time,
         )
 
     @property
