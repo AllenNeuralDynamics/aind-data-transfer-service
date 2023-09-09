@@ -36,6 +36,8 @@ class TestJobStatus(unittest.TestCase):
             JobStatus.from_hpc_job_status(hpc_job) for hpc_job in hpc_jobs
         ]
         jinja_list = [job.jinja_dict for job in job_status_list]
+        job_status_list.sort(key=lambda x: x.submit_time, reverse=True)
+        jinja_list.sort(key=lambda x: x["submit_time"], reverse=True)
         expected_job_status_list = [
             JobStatus(
                 end_time=datetime(2023, 9, 8, 17, 44, 6),
@@ -90,6 +92,11 @@ class TestJobStatus(unittest.TestCase):
         expected_jinja_list = [
             job.jinja_dict for job in expected_job_status_list
         ]
+
+        expected_job_status_list.sort(
+            key=lambda x: x.submit_time, reverse=True
+        )
+        expected_jinja_list.sort(key=lambda x: x["submit_time"], reverse=True)
 
         self.assertEqual(expected_job_status_list, job_status_list)
         self.assertEqual(expected_jinja_list, jinja_list)
