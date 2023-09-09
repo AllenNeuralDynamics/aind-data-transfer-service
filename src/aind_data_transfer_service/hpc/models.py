@@ -1,7 +1,7 @@
 """Module to contain models for hpc rest api responses."""
 
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Optional, Union
 
 from pydantic import BaseModel, Field, validator
 
@@ -132,14 +132,21 @@ class JobStatus(BaseModel):
     submit_time: Optional[datetime] = Field(None)
 
     @validator("end_time", "start_time", "submit_time", pre=True)
-    def _parse_timestamp(cls, timestamp: Optional[int]) -> Optional[datetime]:
-        if timestamp is None or timestamp == 0:
+    def _parse_timestamp(
+        cls, timestamp: Union[int, datetime, None]
+    ) -> Optional[datetime]:
+        """Maps timestamp to datetime. As default, the hpc returns 0 if the
+        timestamp is not set, for example, the end time for a job that hasn't
+        finished will have and end_time of 0."""
+        if type(timestamp) is datetime:
+            return timestamp
+        elif timestamp is None or timestamp == 0:
             return None
         else:
             return datetime.fromtimestamp(timestamp)
 
     @classmethod
-    def from_slurm_job_status(cls, slurm_job: HpcJobStatusResponse):
+    def from_hpc_job_status(cls, slurm_job: HpcJobStatusResponse):
         """Maps the fields from the SlurmJobStatusResponse to this model"""
         return cls(
             end_time=slurm_job.end_time,

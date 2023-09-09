@@ -28,14 +28,13 @@ pip install -e .[dev]
 ## Local Development
 Assuming docker is installed, navigate to tests/test_server and run
 ```bash
-docker build . -t aind-test-slurm-server:latest
-docker run -p 3000:3000 aind-test-slurm-server
+docker build . -t aind-test-hpc-server:latest
+docker run -p 3000:3000 aind-test-hpc-server
 ```
 A mock server will be created. You can then create a mock environment to run uvicorn:
 ```bash
 export HPC_HOST="localhost"
 export HPC_PORT=3000
-export HPC_API_ENDPOINT=''
 export HPC_USERNAME='username'
 export HPC_PASSWORD='password'
 export HPC_TOKEN='some_token'

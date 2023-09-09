@@ -99,12 +99,12 @@ async def jobs(request: Request):
             if job_json["partition"] == hpc_partition
         ]
         job_status_list = [
-            JobStatus.from_slurm_job_status(slurm_job).jinja_dict
+            JobStatus.from_hpc_job_status(slurm_job).jinja_dict
             for slurm_job in slurm_jobs
         ]
         job_status_list.sort(key=lambda x: x["submit_time"], reverse=True)
     else:
-        job_status_list = [response.json()]
+        job_status_list = []
     return templates.TemplateResponse(
         name="job_status.html",
         context=(
