@@ -28,7 +28,7 @@ class HpcClientConfigs(BaseSettings):
         base_url = f"http://{self.hpc_host}"
         if self.hpc_port is not None:
             base_url = base_url + f":{self.hpc_port}"
-        if self.hpc_api_endpoint is not None:
+        if self.hpc_api_endpoint:
             base_url = base_url + f"/{self.hpc_api_endpoint}"
         return base_url
 

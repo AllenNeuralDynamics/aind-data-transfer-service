@@ -25,6 +25,35 @@ To develop the code, run
 pip install -e .[dev]
 ```
 
+## Local Development
+Assuming docker is installed, navigate to tests/test_server and run
+```bash
+docker build . -t aind-test-slurm-server:latest
+docker run -p 3000:3000 aind-test-slurm-server
+```
+A mock server will be created. You can then create a mock environment to run uvicorn:
+```bash
+export HPC_HOST="localhost"
+export HPC_PORT=3000
+export HPC_API_ENDPOINT=''
+export HPC_USERNAME='username'
+export HPC_PASSWORD='password'
+export HPC_TOKEN='some_token'
+export HPC_PARTITION='part'
+export HPC_SIF_LOCATION='/dir/my_container.sif'
+export HPC_CURRENT_WORKING_DIRECTORY='/hpc/working_dir'
+export HPC_LOGGING_DIRECTORY='/hpc/logging_dir'
+export HPC_AWS_ACCESS_KEY_ID='abc-123'
+export HPC_AWS_SECRET_ACCESS_KEY='def-456'
+export HPC_AWS_DEFAULT_REGION='us-west-2'
+export APP_CSRF_SECRET_KEY='anything'
+export APP_SECRET_KEY='anything_again'
+export HPC_STAGING_DIRECTORY='/hpc/staging_dir'
+export HPC_AWS_PARAM_STORE_NAME='/param/store/name'
+uvicorn aind_data_transfer_service.server:app --host 0.0.0.0 --port 5000
+```
+You can now access `http://localhost:5000/jobs`.
+
 ## Contributing
 
 ### Linters and testing

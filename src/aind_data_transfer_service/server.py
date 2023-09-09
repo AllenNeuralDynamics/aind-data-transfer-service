@@ -19,8 +19,8 @@ from aind_data_transfer_service.configs.job_configs import (
 from aind_data_transfer_service.forms import JobManifestForm
 from aind_data_transfer_service.hpc.client import HpcClient, HpcClientConfigs
 from aind_data_transfer_service.hpc.models import (
-    JobStatus,
     HpcJobStatusResponse,
+    JobStatus,
 )
 
 template_directory = os.path.abspath(
@@ -90,22 +90,30 @@ async def jobs(request: Request):
     """Get status of jobs"""
     hpc_client_conf = HpcClientConfigs()
     hpc_client = HpcClient(configs=hpc_client_conf)
+    hpc_partition = os.getenv("HPC_PARTITION")
     response = hpc_client.get_jobs()
     if response.status_code == 200:
         slurm_jobs = [
             HpcJobStatusResponse.parse_obj(job_json)
             for job_json in response.json()["jobs"]
-            if job_json["partition"] == "aind"
+            if job_json["partition"] == hpc_partition
         ]
         job_status_list = [
             JobStatus.from_slurm_job_status(slurm_job).jinja_dict
             for slurm_job in slurm_jobs
         ]
+        job_status_list.sort(key=lambda x: x["submit_time"], reverse=True)
     else:
         job_status_list = [response.json()]
     return templates.TemplateResponse(
         name="job_status.html",
-        context=({"request": request, "job_status_list": job_status_list}),
+        context=(
+            {
+                "request": request,
+                "job_status_list": job_status_list,
+                "num_of_jobs": len(job_status_list),
+            }
+        ),
     )
 
 

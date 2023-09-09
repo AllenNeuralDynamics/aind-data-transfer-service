@@ -1,8 +1,9 @@
 """Module to contain models for hpc rest api responses."""
 
+from datetime import datetime
 from typing import List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, validator
 
 
 class HpcJobStatusResponse(BaseModel):
@@ -123,41 +124,33 @@ class HpcJobStatusResponse(BaseModel):
 class JobStatus(BaseModel):
     """Model for what we want to render to the user."""
 
-    end_time: Optional[int] = Field(None)
-    exit_code: Optional[int] = Field(None)
+    end_time: Optional[datetime] = Field(None)
     job_id: Optional[int] = Field(None)
     job_state: Optional[str] = Field(None)
     name: Optional[str] = Field(None)
-    nodes: Optional[str] = Field(None)
-    cpus: Optional[int] = Field(None)
-    partition: Optional[str] = Field(None)
-    priority: Optional[int] = Field(None)
-    start_time: Optional[int] = Field(None)
-    submit_time: Optional[int] = Field(None)
-    time_limit: Optional[int] = Field(None)
-    user_name: Optional[str] = Field(None)
+    start_time: Optional[datetime] = Field(None)
+    submit_time: Optional[datetime] = Field(None)
+
+    @validator("end_time", "start_time", "submit_time", pre=True)
+    def _parse_timestamp(cls, timestamp: Optional[int]) -> Optional[datetime]:
+        if timestamp is None or timestamp == 0:
+            return None
+        else:
+            return datetime.fromtimestamp(timestamp)
 
     @classmethod
     def from_slurm_job_status(cls, slurm_job: HpcJobStatusResponse):
         """Maps the fields from the SlurmJobStatusResponse to this model"""
         return cls(
             end_time=slurm_job.end_time,
-            exit_code=slurm_job.exit_code,
             job_id=slurm_job.job_id,
             job_state=slurm_job.job_state,
             name=slurm_job.name,
-            nodes=slurm_job.nodes,
-            cpus=slurm_job.cpus,
-            partition=slurm_job.partition,
-            priority=slurm_job.priority,
             start_time=slurm_job.start_time,
             submit_time=slurm_job.submit_time,
-            time_limit=slurm_job.time_limit,
         )
 
     @property
     def jinja_dict(self):
         """Map model to a dictionary that jinja can render"""
-        return {
-            f"Job {self.job_id}": [self.name, self.job_state, self.user_name]
-        }
+        return self.dict()
