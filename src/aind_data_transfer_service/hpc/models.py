@@ -153,4 +153,4 @@ class JobStatus(BaseModel):
     @property
     def jinja_dict(self):
         """Map model to a dictionary that jinja can render"""
-        return self.dict()
+        return self.dict(exclude_none=True)
