@@ -28,7 +28,7 @@ class HpcClientConfigs(BaseSettings):
         base_url = f"http://{self.hpc_host}"
         if self.hpc_port is not None:
             base_url = base_url + f":{self.hpc_port}"
-        if self.hpc_api_endpoint is not None:
+        if self.hpc_api_endpoint:
             base_url = base_url + f"/{self.hpc_api_endpoint}"
         return base_url
 
@@ -56,6 +56,11 @@ class HpcClient:
         return f"{self.configs.hpc_url}/job"
 
     @property
+    def _jobs_url(self):
+        """Url to check statuses of all jobs"""
+        return f"{self.configs.hpc_url}/jobs"
+
+    @property
     def __headers(self):
         """Headers needed for rest api"""
         return {
@@ -77,6 +82,14 @@ class HpcClient:
         """Get status of job"""
         response = requests.get(
             url=self._job_status_url + "/" + str(job_id),
+            headers=self.__headers,
+        )
+        return response
+
+    def get_jobs(self) -> Response:
+        """Get status of job"""
+        response = requests.get(
+            url=self._jobs_url,
             headers=self.__headers,
         )
         return response

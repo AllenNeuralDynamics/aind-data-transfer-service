@@ -18,6 +18,10 @@ from aind_data_transfer_service.configs.job_configs import (
 )
 from aind_data_transfer_service.forms import JobManifestForm
 from aind_data_transfer_service.hpc.client import HpcClient, HpcClientConfigs
+from aind_data_transfer_service.hpc.models import (
+    HpcJobStatusResponse,
+    JobStatus,
+)
 
 template_directory = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "templates")
@@ -82,7 +86,41 @@ async def index(request: Request):
     )
 
 
-routes = [Route("/", endpoint=index, methods=["GET", "POST"])]
+async def jobs(request: Request):
+    """Get status of jobs"""
+    hpc_client_conf = HpcClientConfigs()
+    hpc_client = HpcClient(configs=hpc_client_conf)
+    hpc_partition = os.getenv("HPC_PARTITION")
+    response = hpc_client.get_jobs()
+    if response.status_code == 200:
+        slurm_jobs = [
+            HpcJobStatusResponse.parse_obj(job_json)
+            for job_json in response.json()["jobs"]
+            if job_json["partition"] == hpc_partition
+        ]
+        job_status_list = [
+            JobStatus.from_hpc_job_status(slurm_job).jinja_dict
+            for slurm_job in slurm_jobs
+        ]
+        job_status_list.sort(key=lambda x: x["submit_time"], reverse=True)
+    else:
+        job_status_list = []
+    return templates.TemplateResponse(
+        name="job_status.html",
+        context=(
+            {
+                "request": request,
+                "job_status_list": job_status_list,
+                "num_of_jobs": len(job_status_list),
+            }
+        ),
+    )
+
+
+routes = [
+    Route("/", endpoint=index, methods=["GET", "POST"]),
+    Route("/jobs", endpoint=jobs, methods=["GET"]),
+]
 
 app = Starlette(routes=routes)
 app.add_middleware(

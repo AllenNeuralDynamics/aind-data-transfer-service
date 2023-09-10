@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>{% block title %} {% endblock %} AIND Data Transfer Service Jobs</title>
+    <style>
+    table {
+      font-family: arial, sans-serif;
+      border-collapse: collapse;
+      width: 75%;
+    }
+
+    td, th {
+      border: 1px solid #dddddd;
+      text-align: left;
+      padding: 8px;
+    }
+
+    tr:nth-child(even) {
+      background-color: #dddddd;
+    }
+    </style>
+</head>
+<body>
+    <nav>
+        <a href="/">Submit Jobs</a> |
+        <a href="/jobs">Job Status</a>
+    </nav>
+    <h2>Jobs Currently Running: {{num_of_jobs}}</h2>
+    <table>
+        <tr>
+            <th>Asset Name</th>
+            <th>Job ID</th>
+            <th>Status</th>
+            <th>Submit Time</th>
+            <th>Start Time</th>
+            <th>End time</th>
+        </tr>
+        {% for job_status in job_status_list %}
+        <tr>
+            <td>{{job_status.name}}</td>
+            <td>{{job_status.job_id}}</td>
+            <td>{{job_status.job_state}}</td>
+            <td>{{job_status.submit_time}}</td>
+            <td>{{job_status.start_time}}</td>
+            <td>{{job_status.end_time}}</td>
+        </tr>
+        {% endfor %}
+    </table>
+    </body>
+</html>

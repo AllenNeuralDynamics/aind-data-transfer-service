@@ -1,8 +1,10 @@
 """Tests server module."""
 
 import io
+import json
 import os
 import unittest
+from pathlib import Path
 from unittest.mock import MagicMock, call, patch
 
 from bs4 import BeautifulSoup
@@ -11,10 +13,8 @@ from requests import Response
 
 from aind_data_transfer_service.server import app
 
-test_directory = os.path.dirname(os.path.abspath(__file__))
-templates_directory = os.path.join(
-    test_directory, "src/aind_data_transfer_service/templates"
-)
+TEST_DIRECTORY = Path(os.path.dirname(os.path.realpath(__file__)))
+MOCK_DB_FILE = TEST_DIRECTORY / "test_server" / "db.json"
 
 
 class TestServer(unittest.TestCase):
@@ -38,8 +38,11 @@ class TestServer(unittest.TestCase):
         "HPC_AWS_PARAM_STORE_NAME": "/some/param/store",
     }
 
-    with open(test_directory + "/resources/sample.csv", "r") as file:
+    with open(TEST_DIRECTORY / "resources" / "sample.csv", "r") as file:
         csv_content = file.read()
+
+    with open(MOCK_DB_FILE) as f:
+        json_contents = json.load(f)
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     def test_index(self):
@@ -47,7 +50,7 @@ class TestServer(unittest.TestCase):
         with TestClient(app) as client:
             response = client.get("/")
         self.assertEqual(response.status_code, 200)
-        self.assertIn("Upload Job", response.text)
+        self.assertIn("Submit Jobs", response.text)
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     def test_post_upload_csv(self):
@@ -123,6 +126,36 @@ class TestServer(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn("Successfully submitted job.", response.text)
         mock_sleep.assert_has_calls([call(1), call(1), call(1)])
+
+    @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
+    @patch("requests.get")
+    def test_jobs_success(self, mock_get: MagicMock):
+        """Tests that job status page renders at startup as expected."""
+        mock_response = Response()
+        mock_response.status_code = 200
+        mock_response._content = json.dumps(self.json_contents["jobs"]).encode(
+            "utf-8"
+        )
+        mock_get.return_value = mock_response
+        with TestClient(app) as client:
+            response = client.get("/jobs")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("Submit Jobs", response.text)
+
+    @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
+    @patch("requests.get")
+    def test_jobs_failure(self, mock_get: MagicMock):
+        """Tests that job status page renders at startup as expected."""
+        mock_response = Response()
+        mock_response.status_code = 500
+        mock_response._content = json.dumps({"message": "error"}).encode(
+            "utf-8"
+        )
+        mock_get.return_value = mock_response
+        with TestClient(app) as client:
+            response = client.get("/jobs")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("Submit Jobs", response.text)
 
 
 if __name__ == "__main__":

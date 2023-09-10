@@ -5,7 +5,6 @@ import os
 import unittest
 from datetime import date, time
 from pathlib import Path
-from unittest.mock import MagicMock, patch
 
 from aind_data_schema.data_description import ExperimentType, Modality
 from aind_data_schema.processing import ProcessName
@@ -194,17 +193,10 @@ class TestHpcConfigs(unittest.TestCase):
             basic_upload_job_configs=job_configs,
         )
         job_name = hpc_configs._job_name()
-        self.assertTrue(job_name.startswith("job_"))
-        self.assertEqual(16, len(job_name))
+        self.assertEqual("ecephys_123454_2020-10-10_14-10-10", job_name)
 
-    @patch(
-        "aind_data_transfer_service.configs.job_configs.HpcJobConfigs."
-        "_job_name"
-    )
-    def test_from_job_and_server_configs(self, mock_name: MagicMock):
+    def test_from_job_and_server_configs(self):
         """Tests hpc configs are computed correctly"""
-
-        mock_name.return_value = "some_job_name"
 
         job_configs = TestJobConfigs.expected_job_configs[0]
         hpc_configs = HpcJobConfigs(
@@ -225,14 +217,17 @@ class TestHpcConfigs(unittest.TestCase):
 
         expected_job_def = {
             "job": {
-                "name": "some_job_name",
+                "name": "ecephys_123454_2020-10-10_14-10-10",
                 "nodes": 1,
                 "time_limit": "06:00:00",
                 "partition": "hpc_part",
                 "current_working_directory": "hpc_cwd",
-                "standard_output": str(Path("hpc_logs") / "some_job_name.out"),
+                "standard_output": str(
+                    Path("hpc_logs") / "ecephys_123454_2020-10-10_14-10-10.out"
+                ),
                 "standard_error": str(
-                    Path("hpc_logs") / "some_job_name_error.out"
+                    Path("hpc_logs")
+                    / "ecephys_123454_2020-10-10_14-10-10_error.out"
                 ),
                 "memory_per_node": "50gb",
                 "environment": (

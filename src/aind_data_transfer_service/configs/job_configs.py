@@ -1,6 +1,5 @@
 """This module adds classes to handle resolving common endpoints used in the
 data transfer jobs."""
-import hashlib
 import re
 from datetime import date, datetime, time
 from pathlib import Path
@@ -336,8 +335,6 @@ class BasicUploadJobConfigs(BaseSettings):
 class HpcJobConfigs(BaseSettings):
     """Class to contain settings for hpc resources"""
 
-    _sha = hashlib.sha256()
-
     hpc_nodes: int = Field(default=1, description="Number of tasks")
     hpc_time_limit: int = Field(default=360, description="Timeout in minutes")
     hpc_node_memory: int = Field(
@@ -384,15 +381,8 @@ class HpcJobConfigs(BaseSettings):
         return " ".join(command_str)
 
     def _job_name(self) -> str:
-        """Construct a unique name for the job"""
-        dt = datetime.now()
-        self._sha.update(
-            (
-                self.basic_upload_job_configs.s3_prefix + str(dt.timestamp)
-            ).encode()
-        )
-        unique_name = self._sha.hexdigest()
-        return f"job_{unique_name[0:12]}"
+        """Construct a name for the job"""
+        return self.basic_upload_job_configs.s3_prefix
 
     @property
     def job_definition(self) -> dict:

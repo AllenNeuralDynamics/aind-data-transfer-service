@@ -84,6 +84,22 @@ class TestHpcClient(unittest.TestCase):
             },
         )
 
+    @patch("requests.get")
+    def test_get_jobs_response(self, mock_get: MagicMock):
+        """Tests that the job status request is sent correctly"""
+        mock_get.return_value = {"message": "A mocked message"}
+        hpc_client = HpcClient(configs=self.hpc_client_configs)
+        response = hpc_client.get_jobs()
+        self.assertEqual({"message": "A mocked message"}, response)
+        mock_get.assert_called_once_with(
+            url="http://hpc_host/jobs",
+            headers={
+                "X-SLURM-USER-NAME": "hpc_username",
+                "X-SLURM-USER-PASSWORD": "hpc_password",
+                "X-SLURM-USER-TOKEN": "hpc_jwt",
+            },
+        )
+
     @patch("requests.post")
     def test_submit_job_response(self, mock_post: MagicMock):
         """Tests that the job submission request is sent correctly"""
