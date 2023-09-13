@@ -51,8 +51,28 @@ async def index(request: Request):
                 # Construct hpc job setting most of the vars from the env
                 hpc_job = HpcJobConfigs(basic_upload_job_configs=job)
                 jobs.append(hpc_job)
-        if job_manifest_form.preview_jobs.data and job_manifest_form.submit_jobs.data and job_manifest_form["upload_csv"].data:
+        if jobs and job_manifest_form.preview_jobs.data and job_manifest_form.submit_jobs.data and job_manifest_form["upload_csv"].data:
+            responses = []
+            for job in jobs:
+                job_def = job.job_definition
+                response = hpc_client.submit_job(job_def)
+                response_json = response.json()
+                responses.append(response_json)
+                # Add pause to stagger job requests to the hpc
+                sleep(1)
 
+            return JSONResponse(
+                content={
+                    "message": "Successfully submitted job.",
+                    "data": responses,
+                },
+                status_code=200,
+            )
+        else:
+            return JSONResponse(
+                content={"error": "Error collecting csv data."},
+                status_code=400,
+            )
     return templates.TemplateResponse(
         name="index.html",
         context=({"request": request,
