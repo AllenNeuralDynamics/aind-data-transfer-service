@@ -308,6 +308,19 @@ class BasicUploadJobConfigs(BaseSettings):
             del cleaned_row[row_key]
         cleaned_row["modalities"] = modalities
 
+    def preview_dict(self):
+        modalities = [{"name": m.modality.name, "source": m.source} for m in self.modalities]
+        return (
+            {"bucket": self.s3_bucket,
+             "name": self.s3_prefix,
+             "subject_id": self.subject_id,
+             "experiment_type": self.experiment_type.value,
+             "acq_date": self.acq_date,
+             "acq_time": self.acq_time,
+             "modalities": modalities
+             }
+        )
+
     @classmethod
     def from_csv_row(
         cls,

@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <title>{% block title %} {% endblock %} AIND Data Transfer Service</title>
     <style>
-     table {
+    table {
       font-family: arial, sans-serif;
       border-collapse: collapse;
       width: 75%;
@@ -14,10 +14,6 @@
       border: 1px solid #dddddd;
       text-align: left;
       padding: 8px;
-    }
-
-    tr:nth-child(even) {
-      background-color: #dddddd;
     }
     </style>
 </head>
@@ -33,7 +29,30 @@
         {{ form.upload_csv() }}
         <div></div>
         <div></div>
+        {{ form.preview_jobs() }}
         {{ form.submit_jobs() }}
     </form>
+    <div>
+        <h2>Preview Jobs</h2>
+        <table>
+        {% for job in jobs %}
+            <tr>
+                <td>{{job.name}}</td>
+                <td>{{job.bucket}}</td>
+                <td>{{job.subject_id}}</td>
+                <td>{{job.experiment_type}}</td>
+                <td>{{job.acq_date}}</td>
+                <td>{{job.acq_time}}</td>
+            </tr>
+            {% for modality in job.modalities %}
+            <tr>
+                <td> </td>
+                <td>{{modality.name}}</td>
+                <td colspan="4">{{modality.source}}</td>
+            </tr>
+            {% endfor %}
+        {% endfor %}
+        </table>
+    </div>
 </body>
 </html>
