@@ -244,14 +244,14 @@ class BasicUploadJobConfigs(BaseSettings):
         """
         modality: str = cleaned_row[modality_key]
         source = cleaned_row.get(f"{modality_key}.source")
+        extra_configs = cleaned_row.get(f"{modality_key}.extra_configs")
 
         # Return None if modality not in Modality list
         if modality not in list(Modality.__members__.keys()):
             return None
 
         modality_configs = ModalityConfigs(
-            modality=modality,
-            source=source,
+            modality=modality, source=source, extra_configs=extra_configs
         )
         num_id = modality_counts.get(modality)
         modality_configs._number_id = num_id
@@ -309,17 +309,20 @@ class BasicUploadJobConfigs(BaseSettings):
         cleaned_row["modalities"] = modalities
 
     def preview_dict(self):
-        modalities = [{"name": m.modality.name, "source": m.source} for m in self.modalities]
-        return (
-            {"bucket": self.s3_bucket,
-             "name": self.s3_prefix,
-             "subject_id": self.subject_id,
-             "experiment_type": self.experiment_type.value,
-             "acq_date": self.acq_date,
-             "acq_time": self.acq_time,
-             "modalities": modalities
-             }
-        )
+        """Maps model to a dictionary that will be rendered by jinja"""
+        modalities = [
+            {"name": m.modality.name, "source": m.source}
+            for m in self.modalities
+        ]
+        return {
+            "bucket": self.s3_bucket,
+            "name": self.s3_prefix,
+            "subject_id": self.subject_id,
+            "experiment_type": self.experiment_type.value,
+            "acq_date": self.acq_date,
+            "acq_time": self.acq_time,
+            "modalities": modalities,
+        }
 
     @classmethod
     def from_csv_row(

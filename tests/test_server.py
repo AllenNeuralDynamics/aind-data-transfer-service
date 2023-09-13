@@ -53,31 +53,8 @@ class TestServer(unittest.TestCase):
         self.assertIn("Submit Jobs", response.text)
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
-    def test_post_upload_csv(self):
-        """Tests that valid csv is posted as expected."""
-        with TestClient(app) as client:
-            get_response = client.get("/")
-            soup = BeautifulSoup(get_response.text, "html.parser")
-            csrf_token = soup.find("input", attrs={"name": "csrf_token"})[
-                "value"
-            ]
-            headers = {"X-CSRF-Token": csrf_token}
-            response = client.post(
-                "/",
-                files={
-                    "upload_csv": (
-                        "resources/sample.csv",
-                        io.BytesIO(self.csv_content.encode("utf-8")),
-                        "text/csv",
-                    )
-                },
-                headers=headers,
-            )
-        self.assertEqual(response.status_code, 200)
-        self.assertIn("text/html", response.headers["content-type"])
-
-    @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
-    def test_post_submit_jobs_failure(self):
+    @patch("requests.post")
+    def test_post_submit_jobs_failure(self, mock_post: MagicMock):
         """Tests that form fails to submit when there's no data as expected."""
         with TestClient(app) as client:
             get_response = client.get("/")
@@ -89,6 +66,7 @@ class TestServer(unittest.TestCase):
             response = client.post(
                 "/", data={"submit_jobs": "Submit"}, headers=headers
             )
+        mock_post.assert_not_called()
         self.assertEqual(response.status_code, 400)
         self.assertIn("Error collecting csv data.", response.text)
 
@@ -111,7 +89,7 @@ class TestServer(unittest.TestCase):
                 "value"
             ]
             headers = {"X-CSRF-Token": csrf_token}
-            response = client.post(
+            response0 = client.post(
                 "/",
                 files={
                     "upload_csv": (
@@ -120,11 +98,17 @@ class TestServer(unittest.TestCase):
                         "text/csv",
                     )
                 },
-                data={"submit_jobs": "Submit"},
+                data={"preview_jobs": "Submit"},
                 headers=headers,
             )
-        self.assertEqual(response.status_code, 200)
-        self.assertIn("Successfully submitted job.", response.text)
+            response1 = client.post(
+                "/",
+                data={"preview_jobs": "Submit", "submit_jobs": "Submit"},
+                headers=headers,
+            )
+        self.assertEqual(response0.status_code, 200)
+        self.assertEqual(response1.status_code, 200)
+        self.assertIn("Successfully submitted job.", response1.text)
         mock_sleep.assert_has_calls([call(1), call(1), call(1)])
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)

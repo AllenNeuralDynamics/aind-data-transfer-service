@@ -35,10 +35,13 @@ async def index(request: Request):
     hpc_client_conf = HpcClientConfigs()
     hpc_client = HpcClient(configs=hpc_client_conf)
     job_manifest_form = await JobManifestForm.from_formdata(request)
-    jobs = []
     if await job_manifest_form.validate_on_submit():
-        if job_manifest_form.preview_jobs.data and job_manifest_form["upload_csv"].data:
-            file = job_manifest_form["upload_csv"].data
+        if (
+            not job_manifest_form.jobs
+            and job_manifest_form.preview_jobs.data
+            and job_manifest_form.upload_csv.data
+        ):
+            file = job_manifest_form.upload_csv.data
             content = await file.read()
             data = content.decode("utf-8")
             csv_reader = csv.DictReader(io.StringIO(data))
@@ -50,10 +53,10 @@ async def index(request: Request):
                 )
                 # Construct hpc job setting most of the vars from the env
                 hpc_job = HpcJobConfigs(basic_upload_job_configs=job)
-                jobs.append(hpc_job)
-        if jobs and job_manifest_form.preview_jobs.data and job_manifest_form.submit_jobs.data and job_manifest_form["upload_csv"].data:
+                job_manifest_form.jobs.append(hpc_job)
+        elif job_manifest_form.jobs and job_manifest_form.submit_jobs.data:
             responses = []
-            for job in jobs:
+            for job in job_manifest_form.jobs:
                 job_def = job.job_definition
                 response = hpc_client.submit_job(job_def)
                 response_json = response.json()
@@ -75,9 +78,16 @@ async def index(request: Request):
             )
     return templates.TemplateResponse(
         name="index.html",
-        context=({"request": request,
-                  "form": job_manifest_form,
-                  "jobs": [j.basic_upload_job_configs.preview_dict() for j in jobs]}),
+        context=(
+            {
+                "request": request,
+                "form": job_manifest_form,
+                "jobs": [
+                    j.basic_upload_job_configs.preview_dict()
+                    for j in job_manifest_form.jobs
+                ],
+            }
+        ),
     )
 
 
