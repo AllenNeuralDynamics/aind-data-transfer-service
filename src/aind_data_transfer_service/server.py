@@ -48,7 +48,6 @@ async def index(request: Request):
             csv_reader = csv.DictReader(io.StringIO(data))
             errors = []
             for row in csv_reader:
-                print("ROW", row)
                 try:
                     job = BasicUploadJobConfigs.from_csv_row(
                         row=row,

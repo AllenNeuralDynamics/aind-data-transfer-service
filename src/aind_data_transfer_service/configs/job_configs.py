@@ -96,6 +96,7 @@ class BasicUploadJobConfigs(BaseSettings):
         ...,
         description="Data collection modalities and their directory location",
         title="Modalities",
+        min_items=1,
     )
     subject_id: str = Field(..., description="Subject ID", title="Subject ID")
     acq_date: date = Field(
@@ -247,7 +248,7 @@ class BasicUploadJobConfigs(BaseSettings):
         extra_configs = cleaned_row.get(f"{modality_key}.extra_configs")
 
         # Return None if modality not in Modality list
-        if modality not in list(Modality.__members__.keys()):
+        if modality is None or modality.strip() == "":
             return None
 
         modality_configs = ModalityConfigs(

@@ -77,8 +77,12 @@ class TestServer(unittest.TestCase):
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch("requests.post")
     @patch("aind_data_transfer_service.server.sleep", return_value=None)
+    @patch("logging.error")
     def test_post_submit_jobs_success(
-        self, mock_sleep: MagicMock, mock_post: MagicMock
+        self,
+        mock_log_error: MagicMock,
+        mock_sleep: MagicMock,
+        mock_post: MagicMock,
     ):
         """Tests that form successfully submits as expected."""
         mock_response = Response()
@@ -98,7 +102,7 @@ class TestServer(unittest.TestCase):
                 files={
                     "upload_csv": (
                         "resources/sample.csv",
-                        io.BytesIO(self.malformed_csv_content.encode("utf-8")),
+                        io.BytesIO(self.csv_content.encode("utf-8")),
                         "text/csv",
                     )
                 },
@@ -110,63 +114,30 @@ class TestServer(unittest.TestCase):
                 data={"preview_jobs": "Submit", "submit_jobs": "Submit"},
                 headers=headers,
             )
-            # response2 = client.post(
-            #     "/",
-            #     files={
-            #         "upload_csv": (
-            #             "resources/sample.csv",
-            #             io.BytesIO(self.malformed_csv_content.encode("utf-8")),
-            #             "text/csv",
-            #         )
-            #     },
-            #     data={"preview_jobs": "Submit"},
-            #     headers=headers,
-            # )
+            response2 = client.post(
+                "/",
+                files={
+                    "upload_csv": (
+                        "resources/sample.csv",
+                        io.BytesIO(self.malformed_csv_content.encode("utf-8")),
+                        "text/csv",
+                    )
+                },
+                data={"preview_jobs": "Submit"},
+                headers=headers,
+            )
         self.assertEqual(response0.status_code, 200)
         self.assertEqual(response1.status_code, 200)
+        self.assertEqual(response2.status_code, 400)
+        self.assertEqual(
+            {"error": "[AttributeError('WRONG_MODALITY_HERE')]"},
+            response2.json(),
+        )
         self.assertIn("Successfully submitted job.", response1.text)
         mock_sleep.assert_has_calls([call(1), call(1), call(1)])
-
-    # @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
-    # @patch("requests.post")
-    # @patch("aind_data_transfer_service.server.sleep", return_value=None)
-    # def test_post_submit_jobs_errors(
-    #     self, mock_sleep: MagicMock, mock_post: MagicMock
-    # ):
-    #     """Tests that form successfully submits as expected."""
-    #     mock_response = Response()
-    #     mock_response.status_code = 200
-    #     mock_response._content = b'{"message": "success"}'
-    #     mock_post.return_value = mock_response
-    #
-    #     with TestClient(app) as client:
-    #         get_response = client.get("/")
-    #         soup = BeautifulSoup(get_response.text, "html.parser")
-    #         csrf_token = soup.find("input", attrs={"name": "csrf_token"})[
-    #             "value"
-    #         ]
-    #         headers = {"X-CSRF-Token": csrf_token}
-    #         response0 = client.post(
-    #             "/",
-    #             files={
-    #                 "upload_csv": (
-    #                     "resources/sample.csv",
-    #                     io.BytesIO(self.malformed_csv_content.encode("utf-8")),
-    #                     "text/csv",
-    #                 )
-    #             },
-    #             data={"preview_jobs": "Submit"},
-    #             headers=headers,
-    #         )
-    #         response1 = client.post(
-    #             "/",
-    #             data={"preview_jobs": "Submit", "submit_jobs": "Submit"},
-    #             headers=headers,
-    #         )
-        # self.assertEqual(response0.status_code, 200)
-        # self.assertEqual(response1.status_code, 200)
-        # self.assertIn("Successfully submitted job.", response1.text)
-        # mock_sleep.assert_has_calls([call(1), call(1), call(1)])
+        mock_log_error.assert_called_once_with(
+            "AttributeError('WRONG_MODALITY_HERE')"
+        )
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch("requests.get")
