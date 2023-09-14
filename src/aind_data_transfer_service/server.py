@@ -1,6 +1,7 @@
 """Starts and Runs Starlette Service"""
 import csv
 import io
+import logging
 import os
 from time import sleep
 
@@ -46,14 +47,25 @@ async def index(request: Request):
             data = content.decode("utf-8")
             csv_reader = csv.DictReader(io.StringIO(data))
             for row in csv_reader:
-                job = BasicUploadJobConfigs.from_csv_row(
-                    row=row,
-                    aws_param_store_name=os.getenv("HPC_AWS_PARAM_STORE_NAME"),
-                    temp_directory=os.getenv("HPC_STAGING_DIRECTORY"),
-                )
-                # Construct hpc job setting most of the vars from the env
-                hpc_job = HpcJobConfigs(basic_upload_job_configs=job)
-                job_manifest_form.jobs.append(hpc_job)
+                errors = []
+                try:
+                    job = BasicUploadJobConfigs.from_csv_row(
+                        row=row,
+                        aws_param_store_name=os.getenv(
+                            "HPC_AWS_PARAM_STORE_NAME"
+                        ),
+                        temp_directory=os.getenv("HPC_STAGING_DIRECTORY"),
+                    )
+                    # Construct hpc job setting most of the vars from the env
+                    hpc_job = HpcJobConfigs(basic_upload_job_configs=job)
+                    job_manifest_form.jobs.append(hpc_job)
+                except Exception as e:
+                    logging.error(repr(e))
+                if errors:
+                    return JSONResponse(
+                        content={"error": f"{errors}"},
+                        status_code=400,
+                    )
         elif job_manifest_form.jobs and job_manifest_form.submit_jobs.data:
             responses = []
             for job in job_manifest_form.jobs:
