@@ -38,16 +38,17 @@ async def index(request: Request):
     job_manifest_form = await JobManifestForm.from_formdata(request)
     if await job_manifest_form.validate_on_submit():
         if (
-            not job_manifest_form.jobs
-            and job_manifest_form.preview_jobs.data
+            job_manifest_form.preview_jobs.data
             and job_manifest_form.upload_csv.data
+            and not job_manifest_form.submit_jobs.data
         ):
             file = job_manifest_form.upload_csv.data
             content = await file.read()
             data = content.decode("utf-8")
             csv_reader = csv.DictReader(io.StringIO(data))
+            errors = []
             for row in csv_reader:
-                errors = []
+                print("ROW", row)
                 try:
                     job = BasicUploadJobConfigs.from_csv_row(
                         row=row,
@@ -61,11 +62,12 @@ async def index(request: Request):
                     job_manifest_form.jobs.append(hpc_job)
                 except Exception as e:
                     logging.error(repr(e))
-                if errors:
-                    return JSONResponse(
-                        content={"error": f"{errors}"},
-                        status_code=400,
-                    )
+                    errors.append(e)
+            if errors:
+                return JSONResponse(
+                    content={"error": f"{errors}"},
+                    status_code=400,
+                )
         elif job_manifest_form.jobs and job_manifest_form.submit_jobs.data:
             responses = []
             for job in job_manifest_form.jobs:

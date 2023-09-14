@@ -1,0 +1,4 @@
+modality0, modality0.source, modality1, modality1.source, s3-bucket, subject-id, experiment_type, acq-date, acq-time
+ECEPHYS, dir/data_set_1, , , some_bucket, 123454, ecephys, 2020-10-10, 14-10-10
+WRONG_MODALITY_HERE, dir/data_set_2, MRI, dir/data_set_3, some_bucket2, 123456, Other, 10/13/2020, 13:10:10
+OPHYS, dir/data_set_2, OPHYS, dir/data_set_3, some_bucket2, 123456, Other, 10/13/2020, 13:10:10
