@@ -14,6 +14,7 @@ from requests import Response
 from aind_data_transfer_service.server import app
 
 TEST_DIRECTORY = Path(os.path.dirname(os.path.realpath(__file__)))
+RESOURCES_DIR = TEST_DIRECTORY / "resources"
 MOCK_DB_FILE = TEST_DIRECTORY / "test_server" / "db.json"
 
 
@@ -40,6 +41,9 @@ class TestServer(unittest.TestCase):
 
     with open(TEST_DIRECTORY / "resources" / "sample.csv", "r") as file:
         csv_content = file.read()
+
+    with open(RESOURCES_DIR / "sample_malformed.csv", "r") as file:
+        malformed_csv_content = file.read()
 
     with open(MOCK_DB_FILE) as f:
         json_contents = json.load(f)
