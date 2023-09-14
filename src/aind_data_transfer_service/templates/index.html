@@ -25,12 +25,15 @@
     <h2>Submit Jobs</h2>
     <form action="/" method="post" enctype="multipart/form-data">
         {{ form.csrf_token() }}
-        <label for="file">Please select a CSV file:</label>
-        {{ form.upload_csv() }}
-        <div></div>
-        <div></div>
-        {{ form.preview_jobs() }}
-        {{ form.submit_jobs() }}
+        <div>
+            <label for="file">Please select a CSV file:</label>
+            {{ form.upload_csv() }}
+        </div>
+        <br>
+        <div>{{ form.preview_jobs() }}</div>
+        <br>
+        <div>{{ form.submit_jobs() }}</div>
+        <br>
     </form>
     <div>
         <h2>Preview Jobs</h2>
