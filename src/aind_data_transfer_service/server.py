@@ -1,9 +1,5 @@
 """Starts and Runs Starlette Service"""
-import csv
-import io
-import logging
 import os
-from time import sleep
 
 from fastapi import Request
 from fastapi.responses import JSONResponse
@@ -12,11 +8,9 @@ from starlette.applications import Starlette
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.routing import Route
 from starlette_wtf import CSRFProtectMiddleware, csrf_protect
+from aind_data_transfer_service.parsers import content_to_basic_jobs, content_to_hpc_jobs
+import json
 
-from aind_data_transfer_service.configs.job_configs import (
-    BasicUploadJobConfigs,
-    HpcJobConfigs,
-)
 from aind_data_transfer_service.forms import JobManifestForm
 from aind_data_transfer_service.hpc.client import HpcClient, HpcClientConfigs
 from aind_data_transfer_service.hpc.models import (
@@ -33,72 +27,42 @@ templates = Jinja2Templates(directory=template_directory)
 @csrf_protect
 async def index(request: Request):
     """GET|POST /: form handler"""
-    hpc_client_conf = HpcClientConfigs()
-    hpc_client = HpcClient(configs=hpc_client_conf)
     job_manifest_form = await JobManifestForm.from_formdata(request)
+    json_body = {}
     if await job_manifest_form.validate_on_submit():
-        if (
-            job_manifest_form.preview_jobs.data
-            and job_manifest_form.upload_csv.data
-            and not job_manifest_form.submit_jobs.data
-        ):
+        if job_manifest_form.preview_jobs.data and job_manifest_form.upload_csv.data:
             file = job_manifest_form.upload_csv.data
             content = await file.read()
-            data = content.decode("utf-8")
-            csv_reader = csv.DictReader(io.StringIO(data))
-            errors = []
-            for row in csv_reader:
-                try:
-                    job = BasicUploadJobConfigs.from_csv_row(
-                        row=row,
-                        aws_param_store_name=os.getenv(
-                            "HPC_AWS_PARAM_STORE_NAME"
-                        ),
-                        temp_directory=os.getenv("HPC_STAGING_DIRECTORY"),
-                    )
-                    # Construct hpc job setting most of the vars from the env
-                    hpc_job = HpcJobConfigs(basic_upload_job_configs=job)
-                    job_manifest_form.jobs.append(hpc_job)
-                except Exception as e:
-                    logging.error(repr(e))
-                    errors.append(e)
-            if errors:
-                return JSONResponse(
-                    content={"error": f"{errors}"},
-                    status_code=400,
-                )
-        elif job_manifest_form.jobs and job_manifest_form.submit_jobs.data:
-            responses = []
-            for job in job_manifest_form.jobs:
-                job_def = job.job_definition
-                response = hpc_client.submit_job(job_def)
-                response_json = response.json()
-                responses.append(response_json)
-                # Add pause to stagger job requests to the hpc
-                sleep(1)
-
-            return JSONResponse(
-                content={
-                    "message": "Successfully submitted job.",
-                    "data": responses,
-                },
-                status_code=200,
+            json_response = content_to_basic_jobs(
+                content=content,
+                aws_param_store_name=os.getenv("HPC_AWS_PARAM_STORE_NAME"),
+                temp_directory=os.getenv("HPC_STAGING_DIRECTORY")
+            )
+        elif job_manifest_form.submit_jobs.data and job_manifest_form.upload_csv.data:
+            hpc_client_conf = HpcClientConfigs()
+            hpc_client = HpcClient(configs=hpc_client_conf)
+            file = job_manifest_form.upload_csv.data
+            content = await file.read()
+            # Clear data to avoid re-submission on page refresh
+            # job_manifest_form.data.clear()
+            json_response = content_to_hpc_jobs(
+                content=content,
+                aws_param_store_name=os.getenv("HPC_AWS_PARAM_STORE_NAME"),
+                temp_directory=os.getenv("HPC_STAGING_DIRECTORY"),
+                hpc_client=hpc_client
             )
         else:
-            return JSONResponse(
-                content={"error": "Error collecting csv data."},
-                status_code=400,
+            json_response = JSONResponse(
+                content={"message": "", "data": ""}, status_code=200
             )
+        json_body = json.loads(json_response.body)
     return templates.TemplateResponse(
         name="index.html",
         context=(
             {
                 "request": request,
                 "form": job_manifest_form,
-                "jobs": [
-                    j.basic_upload_job_configs.preview_dict()
-                    for j in job_manifest_form.jobs
-                ],
+                "json_body": json_body,
             }
         ),
     )

@@ -36,26 +36,8 @@
         <br>
     </form>
     <div>
-        <h2>Preview Jobs</h2>
-        <table>
-        {% for job in jobs %}
-            <tr>
-                <td>{{job.name}}</td>
-                <td>{{job.bucket}}</td>
-                <td>{{job.subject_id}}</td>
-                <td>{{job.experiment_type}}</td>
-                <td>{{job.acq_date}}</td>
-                <td>{{job.acq_time}}</td>
-            </tr>
-            {% for modality in job.modalities %}
-            <tr>
-                <td> </td>
-                <td>{{modality.name}}</td>
-                <td colspan="4">{{modality.source}}</td>
-            </tr>
-            {% endfor %}
-        {% endfor %}
-        </table>
+        <h2>Responses</h2>
+        <span>{{ json_body }}<span>
     </div>
 </body>
 </html>

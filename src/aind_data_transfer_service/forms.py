@@ -10,4 +10,3 @@ class JobManifestForm(StarletteForm):
     upload_csv = FileField("upload_csv")
     preview_jobs = SubmitField("Preview Jobs")
     submit_jobs = SubmitField("Submit Jobs")
-    jobs: list = []
