@@ -82,7 +82,7 @@ class BasicUploadJobConfigs(BaseSettings):
     _TIME_PATTERN2 = re.compile(r"^\d{1,2}:\d{1,2}:\d{1,2}$")
     _MODALITY_ENTRY_PATTERN = re.compile(r"^modality(\d*)$")
 
-    aws_param_store_name: str
+    aws_param_store_name: Optional[str] = Field(None)
 
     s3_bucket: str = Field(
         ...,
@@ -96,6 +96,7 @@ class BasicUploadJobConfigs(BaseSettings):
         ...,
         description="Data collection modalities and their directory location",
         title="Modalities",
+        min_items=1,
     )
     subject_id: str = Field(..., description="Subject ID", title="Subject ID")
     acq_date: date = Field(
@@ -244,14 +245,13 @@ class BasicUploadJobConfigs(BaseSettings):
         """
         modality: str = cleaned_row[modality_key]
         source = cleaned_row.get(f"{modality_key}.source")
+        extra_configs = cleaned_row.get(f"{modality_key}.extra_configs")
 
-        # Return None if modality not in Modality list
-        if modality not in list(Modality.__members__.keys()):
+        if modality is None or modality.strip() == "":
             return None
 
         modality_configs = ModalityConfigs(
-            modality=modality,
-            source=source,
+            modality=modality, source=source, extra_configs=extra_configs
         )
         num_id = modality_counts.get(modality)
         modality_configs._number_id = num_id
@@ -312,7 +312,7 @@ class BasicUploadJobConfigs(BaseSettings):
     def from_csv_row(
         cls,
         row: dict,
-        aws_param_store_name: str,
+        aws_param_store_name: Optional[str] = None,
         temp_directory: Optional[str] = None,
     ):
         """
