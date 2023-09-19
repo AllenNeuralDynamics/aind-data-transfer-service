@@ -4,6 +4,7 @@ import io
 import json
 import os
 import unittest
+from copy import deepcopy
 from pathlib import Path
 from unittest.mock import MagicMock, call, patch
 
@@ -12,8 +13,11 @@ from fastapi.testclient import TestClient
 from requests import Response
 
 from aind_data_transfer_service.server import app
+from tests.test_configs import TestJobConfigs
 
 TEST_DIRECTORY = Path(os.path.dirname(os.path.realpath(__file__)))
+SAMPLE_FILE = TEST_DIRECTORY / "resources" / "sample.csv"
+# MALFORMED_SAMPLE_FILE = TEST_DIRECTORY / "resources" / "sample_malformed.csv"
 MOCK_DB_FILE = TEST_DIRECTORY / "test_server" / "db.json"
 
 
@@ -43,6 +47,27 @@ class TestServer(unittest.TestCase):
 
     with open(MOCK_DB_FILE) as f:
         json_contents = json.load(f)
+
+    expected_job_configs = deepcopy(TestJobConfigs.expected_job_configs)
+    for config in expected_job_configs:
+        config.aws_param_store_name = None
+
+    @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
+    def test_validate_csv(self):
+        """Tests that form renders at startup as expected."""
+        with TestClient(app) as client:
+            with open(TEST_DIRECTORY / "resources" / "sample.csv", "rb") as f:
+                files = {
+                    "file": f,
+                }
+                response = client.post(url="/api/validate_csv", files=files)
+        expected_jobs = [j.json() for j in self.expected_job_configs]
+        expected_response = {
+            "message": "Valid Data",
+            "data": {"jobs": expected_jobs},
+        }
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(expected_response, response.json())
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     def test_index(self):

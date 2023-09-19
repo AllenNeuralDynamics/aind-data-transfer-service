@@ -82,7 +82,7 @@ class BasicUploadJobConfigs(BaseSettings):
     _TIME_PATTERN2 = re.compile(r"^\d{1,2}:\d{1,2}:\d{1,2}$")
     _MODALITY_ENTRY_PATTERN = re.compile(r"^modality(\d*)$")
 
-    aws_param_store_name: str
+    aws_param_store_name: Optional[str] = Field(None)
 
     s3_bucket: str = Field(
         ...,
@@ -312,7 +312,7 @@ class BasicUploadJobConfigs(BaseSettings):
     def from_csv_row(
         cls,
         row: dict,
-        aws_param_store_name: str,
+        aws_param_store_name: Optional[str] = None,
         temp_directory: Optional[str] = None,
     ):
         """
