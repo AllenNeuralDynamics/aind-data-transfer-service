@@ -1,7 +1,7 @@
 """Starts and Runs Starlette Service"""
 import csv
 import io
-import json
+import logging
 import os
 from asyncio import sleep
 
@@ -45,13 +45,12 @@ async def validate_csv(request: Request):
                 basic_jobs.append(job.json())
             except Exception as e:
                 errors.append(repr(e))
-        message = (
-            f"Errors: {json.dumps(errors)}"
-            if len(errors) > 0
-            else "Valid Data"
-        )
+        message = "There were errors" if len(errors) > 0 else "Valid Data"
         status_code = 406 if len(errors) > 0 else 200
-        content = {"message": message, "data": {"jobs": basic_jobs}}
+        content = {
+            "message": message,
+            "data": {"jobs": basic_jobs, "errors": errors},
+        }
         return JSONResponse(
             content=content,
             status_code=status_code,
@@ -69,16 +68,23 @@ async def submit_basic_jobs(request: Request):
     for job in basic_jobs:
         try:
             basic_upload_job = BasicUploadJobConfigs.parse_raw(job)
+            # Add aws_param_store_name and temp_dir
+            basic_upload_job.aws_param_store_name = os.getenv(
+                "HPC_AWS_PARAM_STORE_NAME"
+            )
+            basic_upload_job.temp_directory = os.getenv(
+                "HPC_STAGING_DIRECTORY"
+            )
             hpc_job = HpcJobConfigs(basic_upload_job_configs=basic_upload_job)
             hpc_jobs.append(hpc_job)
         except Exception as e:
             parsing_errors.append(f"Error parsing {job}: {e.__class__}")
     if parsing_errors:
         status_code = 406
-        message = f"Errors: {json.dumps(parsing_errors)}"
+        message = "There were errors parsing the basic job configs"
         content = {
             "message": message,
-            "data": {"responses": [], "errors": json.dumps(parsing_errors)},
+            "data": {"responses": [], "errors": parsing_errors},
         }
     else:
         responses = []
@@ -92,12 +98,13 @@ async def submit_basic_jobs(request: Request):
                 # Add pause to stagger job requests to the hpc
                 await sleep(0.05)
             except Exception as e:
+                logging.error(repr(e))
                 hpc_errors.append(
-                    f"Error processing {hpc_job.basic_upload_job_configs}: "
-                    f"{e.__class__}"
+                    f"Error processing "
+                    f"{hpc_job.basic_upload_job_configs.s3_prefix}"
                 )
         message = (
-            f"Errors: {json.dumps(hpc_errors)}"
+            "There were errors submitting jobs to the hpc."
             if len(hpc_errors) > 0
             else "Submitted Jobs."
         )
