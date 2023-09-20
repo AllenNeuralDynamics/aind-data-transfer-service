@@ -1,14 +1,12 @@
 """Tests server module."""
 
-import io
 import json
 import os
 import unittest
 from copy import deepcopy
 from pathlib import Path
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import MagicMock, patch
 
-from bs4 import BeautifulSoup
 from fastapi.testclient import TestClient
 from requests import Response
 
@@ -203,81 +201,6 @@ class TestServer(unittest.TestCase):
             response = client.get("/")
         self.assertEqual(response.status_code, 200)
         self.assertIn("Submit Jobs", response.text)
-
-    @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
-    def test_post_upload_csv(self):
-        """Tests that valid csv is posted as expected."""
-        with TestClient(app) as client:
-            get_response = client.get("/")
-            soup = BeautifulSoup(get_response.text, "html.parser")
-            csrf_token = soup.find("input", attrs={"name": "csrf_token"})[
-                "value"
-            ]
-            headers = {"X-CSRF-Token": csrf_token}
-            response = client.post(
-                "/",
-                files={
-                    "upload_csv": (
-                        "resources/sample.csv",
-                        io.BytesIO(self.csv_content.encode("utf-8")),
-                        "text/csv",
-                    )
-                },
-                headers=headers,
-            )
-        self.assertEqual(response.status_code, 200)
-        self.assertIn("text/html", response.headers["content-type"])
-
-    @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
-    def test_post_submit_jobs_failure(self):
-        """Tests that form fails to submit when there's no data as expected."""
-        with TestClient(app) as client:
-            get_response = client.get("/")
-            soup = BeautifulSoup(get_response.text, "html.parser")
-            csrf_token = soup.find("input", attrs={"name": "csrf_token"})[
-                "value"
-            ]
-            headers = {"X-CSRF-Token": csrf_token}
-            response = client.post(
-                "/", data={"submit_jobs": "Submit"}, headers=headers
-            )
-        self.assertEqual(response.status_code, 400)
-        self.assertIn("Error collecting csv data.", response.text)
-
-    @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
-    @patch("requests.post")
-    @patch("aind_data_transfer_service.server.sleep", return_value=None)
-    def test_post_submit_jobs_success(
-        self, mock_sleep: MagicMock, mock_post: MagicMock
-    ):
-        """Tests that form successfully submits as expected."""
-        mock_response = Response()
-        mock_response.status_code = 200
-        mock_response._content = b'{"message": "success"}'
-        mock_post.return_value = mock_response
-
-        with TestClient(app) as client:
-            get_response = client.get("/")
-            soup = BeautifulSoup(get_response.text, "html.parser")
-            csrf_token = soup.find("input", attrs={"name": "csrf_token"})[
-                "value"
-            ]
-            headers = {"X-CSRF-Token": csrf_token}
-            response = client.post(
-                "/",
-                files={
-                    "upload_csv": (
-                        "resources/sample.csv",
-                        io.BytesIO(self.csv_content.encode("utf-8")),
-                        "text/csv",
-                    )
-                },
-                data={"submit_jobs": "Submit"},
-                headers=headers,
-            )
-        self.assertEqual(response.status_code, 200)
-        self.assertIn("Successfully submitted job.", response.text)
-        mock_sleep.assert_has_calls([call(1), call(1), call(1)])
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch("requests.get")

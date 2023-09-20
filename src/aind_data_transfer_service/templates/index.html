@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.4/jquery.min.js"></script>
     <meta charset="UTF-8">
     <title>{% block title %} {% endblock %} AIND Data Transfer Service</title>
     <style>
@@ -15,10 +16,6 @@
       text-align: left;
       padding: 8px;
     }
-
-    tr:nth-child(even) {
-      background-color: #dddddd;
-    }
     </style>
 </head>
 <body>
@@ -27,13 +24,111 @@
         <a href="/jobs">Job Status</a>
     </nav>
     <h2>Submit Jobs</h2>
-    <form action="/" method="post" enctype="multipart/form-data">
-        {{ form.csrf_token() }}
+    <form id="preview_form" method="post" enctype="multipart/form-data">
         <label for="file">Please select a CSV file:</label>
-        {{ form.upload_csv() }}
-        <div></div>
-        <div></div>
-        {{ form.submit_jobs() }}
+        <input type="file" id="file" name="file"><br><br>
+        <input type="submit" id="preview" value="preview"><br><br>
     </form>
+    <button type="button" onclick="submitJobs()">Submit</button>
+    <div id="message"></div><br>
+    <div id="response"></div>
+    <script>
+        var jobs = []
+        var parsing_errors = []
+        $(function() {
+            $("#preview_form").on("submit", function(e) {
+                e.preventDefault();
+                var formData = new FormData(this);
+                $.ajax({
+                    url: "/api/validate_csv",
+                    type: "POST",
+                    data: formData,
+                    cache: false,
+                    contentType: false,
+                    processData: false,
+                    beforeSend: function() {
+                        $("#message").html("sending...");
+                    },
+                    success: function(data) {
+                        $("#message").html("Returned response.");
+                        jobs = data["data"]["jobs"];
+                        parsing_errors = []
+                        let jobsLength = jobs.length;
+                        var table = document.createElement('table'), tr, td, row, cell;
+                        for (row = 0; row < jobsLength; row++) {
+                            let job = JSON.parse(jobs[row]);
+                            tr = document.createElement('tr');
+                            td = document.createElement('td');
+                            tr.appendChild(td);
+                            td.innerHTML = job.s3_bucket;
+                            td = document.createElement('td');
+                            tr.appendChild(td);
+                            td.innerHTML = job.experiment_type;
+                            td = document.createElement('td');
+                            tr.appendChild(td);
+                            td.innerHTML = job.subject_id;
+                            td = document.createElement('td');
+                            tr.appendChild(td);
+                            td.innerHTML = job.acq_date;
+                            td = document.createElement('td');
+                            tr.appendChild(td);
+                            td.innerHTML = job.acq_time;
+                            table.appendChild(tr);
+                            let modalities = job.modalities;
+                            let modalitiesLength = modalities.length;
+                            for (mRow = 0; mRow < modalitiesLength; mRow++){
+                                let modality = modalities[mRow]
+                                tr = document.createElement('tr');
+                                td = document.createElement('td');
+                                tr.appendChild(td);
+                                td = document.createElement('td');
+                                tr.appendChild(td);
+                                td.innerHTML = modality.modality.abbreviation;
+                                td = document.createElement('td');
+                                tr.appendChild(td);
+                                td.innerHTML = modality.source;
+                                td.setAttribute("colspan", "4");
+                                table.appendChild(tr);
+                            }
+                        }
+                        document.getElementById('response').appendChild(table);
+                    },
+                    error: function(data) {
+                        jobs = []
+                        parsing_errors = data.responseJSON["data"]["errors"]
+                        $("#message").html("Returned error");
+                        document.getElementById("response").innerHTML = "";
+                        $("#response").html(parsing_errors);
+                    }
+                });
+            });
+        });
+        submitJobs = function() {
+            if(jobs.length > 0 && parsing_errors.length == 0){
+                $.ajax({
+                    url: "/api/submit_basic_jobs",
+                    type: "POST",
+                    data: JSON.stringify({"jobs": jobs}),
+                    contentType: 'application/json; charset=utf-8',
+                    beforeSend: function() {
+                        $("#message").html("Submitting jobs. Please don't refresh or re-submit...");
+                    },
+                    success: function (data) {
+                        jobs = []
+                        parsing_errors = []
+                        $("#message").html("Submitted Jobs.");
+                        $("#response").html(data);
+                    },
+                    error: function(data) {
+                        jobs = []
+                        $("#message").html("Returned error");
+                        document.getElementById("response").innerHTML = "";
+                        parsing_errors = data.responseJSON["data"]["errors"]
+                        $("#response").html(parsing_errors);
+                    }
+                });
+            }
+        };
+    </script>
 </body>
 </html>
