@@ -39,7 +39,9 @@ server = [
     'httpx',
     'jinja2',
     'starlette',
+    'starlette_wtf',
     'uvicorn[standard]',
+    'wtforms',
     'requests==2.25.0'
 ]
 
