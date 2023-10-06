@@ -1,7 +1,7 @@
 """This module adds classes to handle resolving common endpoints used in the
 data transfer jobs."""
 import re
-from datetime import date, datetime, time
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -159,14 +159,13 @@ class BasicUploadJobConfigs(BaseSettings):
     def s3_prefix(self):
         """Construct s3_prefix from configs."""
         return build_data_name(
-            label=f"{self.platform.value}_{self.subject_id}",
+            label=f"{self.platform.value.abbreviation}_{self.subject_id}",
             creation_datetime=self.acq_datetime,
         )
 
     @validator("acq_datetime", pre=True)
     def _parse_datetime(cls, datetime_str: str) -> datetime:
         """Parses datetime string to %YYYY-%MM-%DD HH:mm:ss"""
-        # TODO: do this in data transfer service
         if re.match(BasicUploadJobConfigs._DATETIME_PATTERN1, datetime_str):
             return datetime.strptime(datetime_str, "%Y-%m-%d %H:%M:%S")
         elif re.match(BasicUploadJobConfigs._DATETIME_PATTERN2, datetime_str):

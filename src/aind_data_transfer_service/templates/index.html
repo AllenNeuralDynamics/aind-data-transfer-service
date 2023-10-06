@@ -21,7 +21,9 @@
 <body>
     <nav>
         <a href="/">Submit Jobs</a> |
-        <a href="/jobs">Job Status</a>
+        <a href="/jobs">Job Status</a> |
+        <a href="https://github.com/AllenNeuralDynamics/aind-data-transfer/tree/main">Upload Template</a>
+
     </nav>
     <h2>Submit Jobs</h2>
     <form id="preview_form" method="post" enctype="multipart/form-data">
@@ -63,7 +65,7 @@
                             td.innerHTML = job.s3_bucket;
                             td = document.createElement('td');
                             tr.appendChild(td);
-                            td.innerHTML = job.platform;
+                            td.innerHTML = job.platform.abbreviation;
                             td = document.createElement('td');
                             tr.appendChild(td);
                             td.innerHTML = job.subject_id;
