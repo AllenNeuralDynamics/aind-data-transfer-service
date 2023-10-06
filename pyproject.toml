@@ -33,7 +33,7 @@ dev = [
 
 server = [
     'boto3',
-    'aind-data-schema==0.13.90',
+    'aind-data-schema==0.14.6',
     'pydantic<2.0',
     'fastapi',
     'httpx',

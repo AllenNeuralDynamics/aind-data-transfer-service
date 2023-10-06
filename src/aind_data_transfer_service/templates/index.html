@@ -63,16 +63,14 @@
                             td.innerHTML = job.s3_bucket;
                             td = document.createElement('td');
                             tr.appendChild(td);
-                            td.innerHTML = job.experiment_type;
+                            td.innerHTML = job.platform;
                             td = document.createElement('td');
                             tr.appendChild(td);
                             td.innerHTML = job.subject_id;
                             td = document.createElement('td');
                             tr.appendChild(td);
-                            td.innerHTML = job.acq_date;
+                            td.innerHTML = job.acq_datetime;
                             td = document.createElement('td');
-                            tr.appendChild(td);
-                            td.innerHTML = job.acq_time;
                             table.appendChild(tr);
                             let modalities = job.modalities;
                             let modalitiesLength = modalities.length;

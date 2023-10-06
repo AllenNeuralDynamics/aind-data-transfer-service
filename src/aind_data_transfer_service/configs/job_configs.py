@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from aind_data_schema.data_description import (
-    ExperimentType,
+    Platform,
     Modality,
     build_data_name,
 )
@@ -52,9 +52,9 @@ class ModalityConfigs(BaseSettings):
     def default_output_folder_name(self):
         """Construct the default folder name for the modality."""
         if self._number_id is None:
-            return self.modality.name.lower()
+            return self.modality.value.abbreviation
         else:
-            return self.modality.name.lower() + str(self._number_id)
+            return self.modality.value.abbreviation + str(self._number_id)
 
     @validator("compress_raw_data", always=True)
     def get_compress_source_default(
@@ -76,11 +76,9 @@ class ModalityConfigs(BaseSettings):
 class BasicUploadJobConfigs(BaseSettings):
     """Configuration for the basic upload job"""
 
-    _DATE_PATTERN1 = re.compile(r"^\d{4}-\d{2}-\d{2}$")
-    _DATE_PATTERN2 = re.compile(r"^\d{1,2}/\d{1,2}/\d{4}$")
-    _TIME_PATTERN1 = re.compile(r"^\d{1,2}-\d{1,2}-\d{1,2}$")
-    _TIME_PATTERN2 = re.compile(r"^\d{1,2}:\d{1,2}:\d{1,2}$")
     _MODALITY_ENTRY_PATTERN = re.compile(r"^modality(\d*)$")
+    _DATETIME_PATTERN1 = re.compile(r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$")
+    _DATETIME_PATTERN2 = re.compile(r"^\d{1,2}/\d{1,2}/\d{4} \d{1,2}:\d{2}:\d{2} [APap][Mm]$")
 
     aws_param_store_name: Optional[str] = Field(None)
 
@@ -89,8 +87,8 @@ class BasicUploadJobConfigs(BaseSettings):
         description="Bucket where data will be uploaded",
         title="S3 Bucket",
     )
-    experiment_type: ExperimentType = Field(
-        ..., description="Experiment type", title="Experiment Type"
+    platform: Platform = Field(
+        ..., description="Platform", title="Platform"
     )
     modalities: List[ModalityConfigs] = Field(
         ...,
@@ -99,13 +97,8 @@ class BasicUploadJobConfigs(BaseSettings):
         min_items=1,
     )
     subject_id: str = Field(..., description="Subject ID", title="Subject ID")
-    acq_date: date = Field(
-        ..., description="Date data was acquired", title="Acquisition Date"
-    )
-    acq_time: time = Field(
-        ...,
-        description="Time of day data was acquired",
-        title="Acquisition Time",
+    acq_datetime: datetime = Field(
+        ..., description="Datetime data was acquired", title="Acquisition Datetime"
     )
     process_name: ProcessName = Field(
         default=ProcessName.OTHER,
@@ -166,44 +159,22 @@ class BasicUploadJobConfigs(BaseSettings):
     def s3_prefix(self):
         """Construct s3_prefix from configs."""
         return build_data_name(
-            label=f"{self.experiment_type.value}_{self.subject_id}",
-            creation_date=self.acq_date,
-            creation_time=self.acq_time,
+            label=f"{self.platform.value}_{self.subject_id}",
+            creation_datetime=self.acq_datetime,
         )
 
-    @validator("acq_date", pre=True)
-    def _parse_date(cls, date_val: Any) -> date:
-        """Parses date string to %YYYY-%MM-%DD format"""
-        is_str = isinstance(date_val, str)
-        if is_str and re.match(BasicUploadJobConfigs._DATE_PATTERN1, date_val):
-            return date.fromisoformat(date_val)
-        elif is_str and re.match(
-            BasicUploadJobConfigs._DATE_PATTERN2, date_val
-        ):
-            return datetime.strptime(date_val, "%m/%d/%Y").date()
-        elif is_str:
-            raise ValueError(
-                "Incorrect date format, should be YYYY-MM-DD or MM/DD/YYYY"
-            )
+    @validator("acq_datetime", pre=True)
+    def _parse_datetime(cls, datetime_str: str) -> datetime:
+        """Parses datetime string to %YYYY-%MM-%DD HH:mm:ss"""
+        # TODO: do this in data transfer service
+        if re.match(BasicUploadJobConfigs._DATETIME_PATTERN1, datetime_str):
+            return datetime.strptime(datetime_str, "%Y-%m-%d %H:%M:%S")
+        elif re.match(BasicUploadJobConfigs._DATETIME_PATTERN2, datetime_str):
+            return datetime.strptime(datetime_str, "%m/%d/%Y %I:%M:%S %p")
         else:
-            return date_val
-
-    @validator("acq_time", pre=True)
-    def _parse_time(cls, time_val: Any) -> time:
-        """Parses time string to "%HH-%MM-%SS format"""
-        is_str = isinstance(time_val, str)
-        if is_str and re.match(BasicUploadJobConfigs._TIME_PATTERN1, time_val):
-            return datetime.strptime(time_val, "%H-%M-%S").time()
-        elif is_str and re.match(
-            BasicUploadJobConfigs._TIME_PATTERN2, time_val
-        ):
-            return time.fromisoformat(time_val)
-        elif is_str:
             raise ValueError(
-                "Incorrect time format, should be HH-MM-SS or HH:MM:SS"
+                "Incorrect datetime format, should be YYYY-MM-DD HH:mm:ss or MM/DD/YYYY I:MM:SS P"
             )
-        else:
-            return time_val
 
     @staticmethod
     def _clean_csv_entry(csv_key: str, csv_value: Optional[str]) -> Any:
