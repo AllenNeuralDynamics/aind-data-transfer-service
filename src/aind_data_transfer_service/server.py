@@ -26,6 +26,12 @@ template_directory = os.path.abspath(
 )
 templates = Jinja2Templates(directory=template_directory)
 
+# TODO: Add server configs model
+UPLOAD_TEMPLATE_LINK = os.getenv(
+    "UPLOAD_TEMPLATE_LINK",
+    "https://github.com/AllenNeuralDynamics/aind-data-transfer/tree/main",
+)
+
 
 async def validate_csv(request: Request):
     """Validate a csv file. Return parsed contents as json."""
@@ -120,7 +126,9 @@ async def index(request: Request):
     """GET|POST /: form handler"""
     return templates.TemplateResponse(
         name="index.html",
-        context=({"request": request}),
+        context=(
+            {"request": request, "upload_template_link": UPLOAD_TEMPLATE_LINK}
+        ),
     )
 
 
@@ -150,6 +158,7 @@ async def jobs(request: Request):
                 "request": request,
                 "job_status_list": job_status_list,
                 "num_of_jobs": len(job_status_list),
+                "upload_template_link": UPLOAD_TEMPLATE_LINK,
             }
         ),
     )
