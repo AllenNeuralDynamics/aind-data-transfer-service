@@ -21,7 +21,8 @@
 <body>
     <nav>
         <a href="/">Submit Jobs</a> |
-        <a href="/jobs">Job Status</a>
+        <a href="/jobs">Job Status</a> |
+        <a href= "{{ upload_template_link }}" >Upload Template</a>
     </nav>
     <h2>Submit Jobs</h2>
     <form id="preview_form" method="post" enctype="multipart/form-data">
@@ -63,16 +64,14 @@
                             td.innerHTML = job.s3_bucket;
                             td = document.createElement('td');
                             tr.appendChild(td);
-                            td.innerHTML = job.experiment_type;
+                            td.innerHTML = job.platform.abbreviation;
                             td = document.createElement('td');
                             tr.appendChild(td);
                             td.innerHTML = job.subject_id;
                             td = document.createElement('td');
                             tr.appendChild(td);
-                            td.innerHTML = job.acq_date;
+                            td.innerHTML = job.acq_datetime;
                             td = document.createElement('td');
-                            tr.appendChild(td);
-                            td.innerHTML = job.acq_time;
                             table.appendChild(tr);
                             let modalities = job.modalities;
                             let modalitiesLength = modalities.length;

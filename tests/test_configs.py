@@ -3,10 +3,10 @@
 import csv
 import os
 import unittest
-from datetime import date, time
+from datetime import datetime
 from pathlib import Path
 
-from aind_data_schema.data_description import ExperimentType, Modality
+from aind_data_schema.data_description import Modality, Platform
 from aind_data_schema.processing import ProcessName
 
 from aind_data_transfer_service.configs.job_configs import (
@@ -26,7 +26,7 @@ class TestJobConfigs(unittest.TestCase):
         BasicUploadJobConfigs(
             aws_param_store_name="/some/param/store",
             s3_bucket="some_bucket",
-            experiment_type=ExperimentType.ECEPHYS,
+            platform=Platform.ECEPHYS,
             modalities=[
                 ModalityConfigs(
                     modality=Modality.ECEPHYS,
@@ -37,8 +37,7 @@ class TestJobConfigs(unittest.TestCase):
                 )
             ],
             subject_id="123454",
-            acq_date=date(2020, 10, 10),
-            acq_time=time(14, 10, 10),
+            acq_datetime=datetime(2020, 10, 10, 14, 10, 10),
             process_name=ProcessName.OTHER,
             temp_directory=None,
             metadata_dir=None,
@@ -50,10 +49,10 @@ class TestJobConfigs(unittest.TestCase):
         BasicUploadJobConfigs(
             aws_param_store_name="/some/param/store",
             s3_bucket="some_bucket2",
-            experiment_type=ExperimentType.OTHER,
+            platform=Platform.BEHAVIOR,
             modalities=[
                 ModalityConfigs(
-                    modality=Modality.OPHYS,
+                    modality=Modality.BEHAVIOR_VIDEOS,
                     source=Path("dir/data_set_2"),
                     compress_raw_data=False,
                     extra_configs=None,
@@ -68,8 +67,7 @@ class TestJobConfigs(unittest.TestCase):
                 ),
             ],
             subject_id="123456",
-            acq_date=date(2020, 10, 13),
-            acq_time=time(13, 10, 10),
+            acq_datetime=datetime(2020, 10, 13, 13, 10, 10),
             process_name=ProcessName.OTHER,
             temp_directory=None,
             metadata_dir=None,
@@ -81,17 +79,17 @@ class TestJobConfigs(unittest.TestCase):
         BasicUploadJobConfigs(
             aws_param_store_name="/some/param/store",
             s3_bucket="some_bucket2",
-            experiment_type=ExperimentType.OTHER,
+            platform=Platform.BEHAVIOR,
             modalities=[
                 ModalityConfigs(
-                    modality=Modality.OPHYS,
+                    modality=Modality.BEHAVIOR_VIDEOS,
                     source=Path("dir/data_set_2"),
                     compress_raw_data=False,
                     extra_configs=None,
                     skip_staging=False,
                 ),
                 ModalityConfigs(
-                    modality=Modality.OPHYS,
+                    modality=Modality.BEHAVIOR_VIDEOS,
                     source=Path("dir/data_set_3"),
                     compress_raw_data=False,
                     extra_configs=None,
@@ -99,8 +97,7 @@ class TestJobConfigs(unittest.TestCase):
                 ),
             ],
             subject_id="123456",
-            acq_date=date(2020, 10, 13),
-            acq_time=time(13, 10, 10),
+            acq_datetime=datetime(2020, 10, 13, 13, 10, 10),
             process_name=ProcessName.OTHER,
             temp_directory=None,
             metadata_dir=None,
@@ -138,32 +135,30 @@ class TestJobConfigs(unittest.TestCase):
                 )
         expected_modality_outputs = [
             ("ecephys_123454_2020-10-10_14-10-10", "ecephys", None),
-            ("Other_123456_2020-10-13_13-10-10", "ophys", None),
-            ("Other_123456_2020-10-13_13-10-10", "mri", None),
-            ("Other_123456_2020-10-13_13-10-10", "ophys", None),
-            ("Other_123456_2020-10-13_13-10-10", "ophys1", 1),
+            ("behavior_123456_2020-10-13_13-10-10", "behavior-videos", None),
+            ("behavior_123456_2020-10-13_13-10-10", "MRI", None),
+            ("behavior_123456_2020-10-13_13-10-10", "behavior-videos", None),
+            ("behavior_123456_2020-10-13_13-10-10", "behavior-videos1", 1),
         ]
         self.assertEqual(self.expected_job_configs, jobs)
         self.assertEqual(expected_modality_outputs, modality_outputs)
 
-        # Tests validation errors are raised if acq_date and acq_time are
+        # Tests validation errors are raised if acq_datetime is
         # not formatted correctly
         with self.assertRaises(Exception) as e1:
             BasicUploadJobConfigs(
                 s3_bucket="",
-                experiment_type=ExperimentType.OTHER,
-                modalities=[],
+                platform=Platform.BEHAVIOR,
+                modalities=[Modality.BEHAVIOR_VIDEOS],
                 subject_id="12345",
-                acq_date="1234",
-                acq_time="1234",
+                acq_datetime="1234",
             )
 
         self.assertTrue(
-            "Incorrect date format, should be YYYY-MM-DD or MM/DD/YYYY"
-            in repr(e1.exception)
-        )
-        self.assertTrue(
-            "Incorrect time format, should be HH-MM-SS or HH:MM:SS"
+            (
+                "Incorrect datetime format, should be YYYY-MM-DD HH:mm:ss "
+                "or MM/DD/YYYY I:MM:SS P"
+            )
             in repr(e1.exception)
         )
 
@@ -246,15 +241,17 @@ class TestHpcConfigs(unittest.TestCase):
                 " -m aind_data_transfer.jobs.basic_job --json-args '"
                 ' {"aws_param_store_name": "/some/param/store",'
                 ' "s3_bucket": "some_bucket",'
-                ' "experiment_type": "ecephys",'
-                ' "modalities": [{"modality":'
-                ' {"name": "Extracellular electrophysiology",'
-                ' "abbreviation": "ecephys"},'
-                ' "source": "dir/data_set_1",'
-                ' "compress_raw_data": true, "extra_configs": null,'
+                ' "platform": {"name": "Electrophysiology platform", '
+                '"abbreviation": "ecephys"}, "modalities": '
+                '[{"modality": {"name": '
+                '"Extracellular electrophysiology", '
+                '"abbreviation": "ecephys"}, '
+                '"source": "dir/data_set_1", "compress_raw_data": true, '
+                '"extra_configs": null,'
                 ' "skip_staging": false}],'
-                ' "subject_id": "123454", "acq_date": "2020-10-10",'
-                ' "acq_time": "14:10:10", "process_name": "Other",'
+                ' "subject_id": "123454",'
+                ' "acq_datetime": "2020-10-10T14:10:10",'
+                ' "process_name": "Other",'
                 ' "metadata_dir": null, "behavior_dir": null,'
                 ' "log_level": "WARNING", "metadata_dir_force": false,'
                 ' "dry_run": false, "force_cloud_sync": false,'
