@@ -6,7 +6,7 @@ import unittest
 from datetime import datetime
 from pathlib import Path
 
-from aind_data_schema.data_description import Platform, Modality
+from aind_data_schema.data_description import Modality, Platform
 from aind_data_schema.processing import ProcessName
 
 from aind_data_transfer_service.configs.job_configs import (
@@ -134,11 +134,11 @@ class TestJobConfigs(unittest.TestCase):
                     )
                 )
         expected_modality_outputs = [
-            ('ecephys_123454_2020-10-10_14-10-10', 'ecephys', None),
-            ('behavior_123456_2020-10-13_13-10-10', 'behavior-videos', None),
-            ('behavior_123456_2020-10-13_13-10-10', 'MRI', None),
-            ('behavior_123456_2020-10-13_13-10-10', 'behavior-videos', None),
-            ('behavior_123456_2020-10-13_13-10-10', 'behavior-videos1', 1)
+            ("ecephys_123454_2020-10-10_14-10-10", "ecephys", None),
+            ("behavior_123456_2020-10-13_13-10-10", "behavior-videos", None),
+            ("behavior_123456_2020-10-13_13-10-10", "MRI", None),
+            ("behavior_123456_2020-10-13_13-10-10", "behavior-videos", None),
+            ("behavior_123456_2020-10-13_13-10-10", "behavior-videos1", 1),
         ]
         self.assertEqual(self.expected_job_configs, jobs)
         self.assertEqual(expected_modality_outputs, modality_outputs)
@@ -155,7 +155,10 @@ class TestJobConfigs(unittest.TestCase):
             )
 
         self.assertTrue(
-            "Incorrect datetime format, should be YYYY-MM-DD HH:mm:ss or MM/DD/YYYY I:MM:SS P"
+            (
+                "Incorrect datetime format, should be YYYY-MM-DD HH:mm:ss "
+                "or MM/DD/YYYY I:MM:SS P"
+            )
             in repr(e1.exception)
         )
 
@@ -239,9 +242,12 @@ class TestHpcConfigs(unittest.TestCase):
                 ' {"aws_param_store_name": "/some/param/store",'
                 ' "s3_bucket": "some_bucket",'
                 ' "platform": {"name": "Electrophysiology platform", '
-                '"abbreviation": "ecephys"}, "modalities": [{"modality": {"name": '
-                '"Extracellular electrophysiology", "abbreviation": "ecephys"}, '
-                '"source": "dir/data_set_1", "compress_raw_data": true, "extra_configs": null,'
+                '"abbreviation": "ecephys"}, "modalities": '
+                '[{"modality": {"name": '
+                '"Extracellular electrophysiology", '
+                '"abbreviation": "ecephys"}, '
+                '"source": "dir/data_set_1", "compress_raw_data": true, '
+                '"extra_configs": null,'
                 ' "skip_staging": false}],'
                 ' "subject_id": "123454",'
                 ' "acq_datetime": "2020-10-10T14:10:10",'

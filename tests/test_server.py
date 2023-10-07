@@ -133,8 +133,8 @@ class TestServer(unittest.TestCase):
                 "responses": [],
                 "errors": [
                     "Error processing ecephys_123454_2020-10-10_14-10-10",
-                    "Error processing Other_123456_2020-10-13_13-10-10",
-                    "Error processing Other_123456_2020-10-13_13-10-10",
+                    "Error processing behavior_123456_2020-10-13_13-10-10",
+                    "Error processing behavior_123456_2020-10-13_13-10-10",
                 ],
             },
         }
