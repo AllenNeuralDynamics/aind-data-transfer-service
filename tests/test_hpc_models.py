@@ -5,9 +5,11 @@ import os
 import unittest
 from datetime import datetime
 from pathlib import Path
+from unittest.mock import patch
 
 from aind_data_transfer_service.hpc.models import (
     HpcJobStatusResponse,
+    HpcJobSubmitSettings,
     JobStatus,
 )
 
@@ -100,3 +102,17 @@ class TestJobStatus(unittest.TestCase):
 
         self.assertEqual(expected_job_status_list, job_status_list)
         self.assertEqual(expected_jinja_list, jinja_list)
+
+
+class TestJobSubmit(unittest.TestCase):
+    """Tests job submit model"""
+
+    @patch.dict(os.environ, {"HPC_NAME": "foobar"}, clear=True)
+    def test_hpc_job_submit_model(self):
+        """Tests that the hpc job submit settings are set correctly."""
+        hpc_job_submit_settings = HpcJobSubmitSettings(environment=[])
+        self.assertEqual("foobar", hpc_job_submit_settings.name)
+
+
+if __name__ == "__main__":
+    unittest.main()
