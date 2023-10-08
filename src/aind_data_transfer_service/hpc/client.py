@@ -1,10 +1,13 @@
 """Module to manage connection with hpc cluster"""
 
-from typing import Optional, Union
+import json
+from typing import List, Optional, Union
 
 import requests
 from pydantic import BaseSettings, Field, SecretStr, validator
 from requests.models import Response
+
+from aind_data_transfer_service.hpc.models import HpcJobSubmitSettings
 
 
 class HpcClientConfigs(BaseSettings):
@@ -94,8 +97,43 @@ class HpcClient:
         )
         return response
 
-    def submit_job(self, job_def: dict) -> Response:
-        """Submit a job defined by job def"""
+    def submit_job(
+        self,
+        script: str,
+        job: Optional[HpcJobSubmitSettings] = None,
+        jobs: Optional[List[HpcJobSubmitSettings]] = None,
+    ) -> Response:
+        """
+        Submit a job following the v0.0.36 Slurm rest api job submission guide
+        Parameters
+        ----------
+        script : str
+          Executable script (full contents) to run in batch step
+        job : Optional[HpcJobSubmitSettings]
+          v0.0.36_job_properties (Default is None)
+        jobs : Optional[List[HpcJobSubmitSettings]]
+          List of properties of an HetJob (Default is None)
+
+        Returns
+        -------
+        Response
+
+        """
+        # Assert at least one of job or jobs is defined
+        assert job is not None or jobs is not None
+        # Assert not both job and jobs are defined
+        assert job is None or jobs is None
+        if job is not None:
+            job_def = {
+                "job": json.loads(job.json(exclude_none=True)),
+                "script": script,
+            }
+        else:
+            job_def = {
+                "jobs": [json.loads(j.json(exclude_none=True)) for j in jobs],
+                "script": script,
+            }
+
         response = requests.post(
             url=self._job_submit_url, json=job_def, headers=self.__headers
         )

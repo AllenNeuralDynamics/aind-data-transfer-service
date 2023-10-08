@@ -314,6 +314,7 @@ class BasicUploadJobConfigs(BaseSettings):
         )
 
 
+# Deprecating this class
 class HpcJobConfigs(BaseSettings):
     """Class to contain settings for hpc resources"""
 
