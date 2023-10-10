@@ -28,23 +28,16 @@ template_directory = os.path.abspath(
 templates = Jinja2Templates(directory=template_directory)
 
 # TODO: Add server configs model
-UPLOAD_TEMPLATE_LINK = os.getenv(
-    "UPLOAD_TEMPLATE_LINK",
-    "https://github.com/AllenNeuralDynamics/aind-data-transfer/tree/main",
-)
-HPC_SIF_LOCATION = os.getenv("HPC_SIF_LOCATION")
-HPC_LOGGING_DIRECTORY = None if os.getenv("HPC_LOGGING_DIRECTORY") is None else Path(os.getenv("HPC_LOGGING_DIRECTORY"))
-HPC_AWS_ACCESS_KEY_ID = os.getenv("HPC_AWS_ACCESS_KEY_ID")
-HPC_AWS_SECRET_ACCESS_KEY = SecretStr(os.getenv("HPC_AWS_SECRET_ACCESS_KEY"))
-HPC_AWS_SESSION_TOKEN = (
-    None
-    if os.getenv("HPC_AWS_SESSION_TOKEN") is None
-    else SecretStr(os.getenv("HPC_AWS_SESSION_TOKEN"))
-)
-HPC_AWS_DEFAULT_REGION = os.getenv("HPC_AWS_DEFAULT_REGION")
-HPC_STAGING_DIRECTORY = os.getenv("HPC_STAGING_DIRECTORY")
-HPC_AWS_PARAM_STORE_NAME = os.getenv("HPC_AWS_PARAM_STORE_NAME")
-BASIC_JOB_SCRIPT = HpcJobSubmitSettings.script_command_str(HPC_SIF_LOCATION)
+# UPLOAD_TEMPLATE_LINK
+# HPC_SIF_LOCATION
+# HPC_LOGGING_DIRECTORY
+# HPC_AWS_ACCESS_KEY_ID
+# HPC_AWS_SECRET_ACCESS_KEY
+# HPC_AWS_SESSION_TOKEN
+# HPC_AWS_DEFAULT_REGION
+# HPC_STAGING_DIRECTORY
+# HPC_AWS_PARAM_STORE_NAME
+# BASIC_JOB_SCRIPT
 
 
 async def validate_csv(request: Request):
@@ -86,15 +79,27 @@ async def submit_basic_jobs(request: Request):
         try:
             basic_upload_job = BasicUploadJobConfigs.parse_raw(job)
             # Add aws_param_store_name and temp_dir
-            basic_upload_job.aws_param_store_name = HPC_AWS_PARAM_STORE_NAME
-            basic_upload_job.temp_directory = HPC_STAGING_DIRECTORY
+            basic_upload_job.aws_param_store_name = os.getenv(
+                "HPC_AWS_PARAM_STORE_NAME"
+            )
+            basic_upload_job.temp_directory = os.getenv(
+                "HPC_STAGING_DIRECTORY"
+            )
             hpc_job = HpcJobSubmitSettings.from_basic_job_configs(
                 basic_upload_job_configs=basic_upload_job,
-                logging_directory=HPC_LOGGING_DIRECTORY,
-                aws_secret_access_key=HPC_AWS_SECRET_ACCESS_KEY,
-                aws_access_key_id=HPC_AWS_ACCESS_KEY_ID,
-                aws_default_region=HPC_AWS_DEFAULT_REGION,
-                aws_session_token=HPC_AWS_SESSION_TOKEN,
+                logging_directory=Path(os.getenv("HPC_LOGGING_DIRECTORY")),
+                aws_secret_access_key=SecretStr(
+                    os.getenv("HPC_AWS_SECRET_ACCESS_KEY")
+                ),
+                aws_access_key_id=os.getenv("HPC_AWS_ACCESS_KEY_ID"),
+                aws_default_region=os.getenv("HPC_AWS_DEFAULT_REGION"),
+                aws_session_token=(
+                    (
+                        None
+                        if os.getenv("HPC_AWS_SESSION_TOKEN") is None
+                        else SecretStr(os.getenv("HPC_AWS_SESSION_TOKEN"))
+                    )
+                ),
             )
             hpc_jobs.append(hpc_job)
         except Exception as e:
@@ -111,7 +116,10 @@ async def submit_basic_jobs(request: Request):
         response_json = {}
         try:
             response = hpc_client.submit_job(
-                script=BASIC_JOB_SCRIPT, jobs=hpc_jobs
+                script=HpcJobSubmitSettings.script_command_str(
+                    os.getenv("HPC_SIF_LOCATION")
+                ),
+                jobs=hpc_jobs,
             )
             response_json = response.json()
         except Exception as e:
@@ -138,7 +146,10 @@ async def index(request: Request):
     return templates.TemplateResponse(
         name="index.html",
         context=(
-            {"request": request, "upload_template_link": UPLOAD_TEMPLATE_LINK}
+            {
+                "request": request,
+                "upload_template_link": os.getenv("UPLOAD_TEMPLATE_LINK"),
+            }
         ),
     )
 
@@ -169,7 +180,7 @@ async def jobs(request: Request):
                 "request": request,
                 "job_status_list": job_status_list,
                 "num_of_jobs": len(job_status_list),
-                "upload_template_link": UPLOAD_TEMPLATE_LINK,
+                "upload_template_link": os.getenv("UPLOAD_TEMPLATE_LINK"),
             }
         ),
     )

@@ -68,11 +68,8 @@ class TestServer(unittest.TestCase):
         self.assertEqual(expected_response, response.json())
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
-    @patch("aind_data_transfer_service.server.sleep", return_value=None)
     @patch("aind_data_transfer_service.hpc.client.HpcClient.submit_job")
-    def test_submit_jobs(
-        self, mock_submit_job: MagicMock, mock_sleep: MagicMock
-    ):
+    def test_submit_jobs(self, mock_submit_job: MagicMock):
         """Tests submit jobs success."""
         mock_response = Response()
         mock_response.status_code = 200
@@ -91,27 +88,20 @@ class TestServer(unittest.TestCase):
         expected_response = {
             "message": "Submitted Jobs.",
             "data": {
-                "responses": [
-                    {"message": "success"},
-                    {"message": "success"},
-                    {"message": "success"},
-                ],
-                "errors": [],
+                "response": {"message": "success"},
+                "error": None,
             },
         }
         self.assertEqual(expected_response, submit_job_response.json())
         self.assertEqual(200, submit_job_response.status_code)
-        self.assertEqual(3, mock_sleep.call_count)
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
-    @patch("aind_data_transfer_service.server.sleep", return_value=None)
     @patch("aind_data_transfer_service.hpc.client.HpcClient.submit_job")
     @patch("logging.error")
     def test_submit_jobs_server_error(
         self,
         mock_log_error: MagicMock,
-        mock_submit_job: MagicMock,
-        mock_sleep: MagicMock,
+        mock_submit_job: MagicMock
     ):
         """Tests that submit jobs returns error if there's an issue with hpc"""
         mock_response = Response()
@@ -130,28 +120,24 @@ class TestServer(unittest.TestCase):
         expected_response = {
             "message": "There were errors submitting jobs to the hpc.",
             "data": {
-                "responses": [],
-                "errors": [
-                    "Error processing ecephys_123454_2020-10-10_14-10-10",
-                    "Error processing behavior_123456_2020-10-13_13-10-10",
-                    "Error processing behavior_123456_2020-10-13_13-10-10",
-                ],
+                "response": {},
+                "error": (
+                    "JSONDecodeError('Expecting value: line 1 column 1 (char "
+                    "0)')"
+                ),
             },
         }
         self.assertEqual(expected_response, submit_job_response.json())
         self.assertEqual(500, submit_job_response.status_code)
-        self.assertEqual(0, mock_sleep.call_count)
-        self.assertEqual(3, mock_log_error.call_count)
+        self.assertEqual(1, mock_log_error.call_count)
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
-    @patch("aind_data_transfer_service.server.sleep", return_value=None)
     @patch("aind_data_transfer_service.hpc.client.HpcClient.submit_job")
     @patch("logging.error")
     def test_submit_jobs_malformed_json(
         self,
         mock_log_error: MagicMock,
-        mock_submit_job: MagicMock,
-        mock_sleep: MagicMock,
+        mock_submit_job: MagicMock
     ):
         """Tests that submit jobs returns parsing errors."""
         mock_response = Response()
@@ -176,7 +162,6 @@ class TestServer(unittest.TestCase):
         }
         self.assertEqual(406, submit_job_response.status_code)
         self.assertEqual(expected_response, submit_job_response.json())
-        self.assertEqual(0, mock_sleep.call_count)
         self.assertEqual(0, mock_log_error.call_count)
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
