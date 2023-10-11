@@ -97,7 +97,14 @@ class HpcClient:
         )
         return response
 
-    def submit_job(
+    def submit_job(self, job_def: dict) -> Response:
+        """Submit a job defined by job def"""
+        response = requests.post(
+            url=self._job_submit_url, json=job_def, headers=self.__headers
+        )
+        return response
+
+    def submit_hpc_job(
         self,
         script: str,
         job: Optional[HpcJobSubmitSettings] = None,

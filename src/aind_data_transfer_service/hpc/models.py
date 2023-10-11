@@ -1,5 +1,6 @@
 """Module to contain models for hpc rest api responses."""
 
+import json
 from datetime import datetime
 from pathlib import Path
 from typing import Any, List, Optional, Union
@@ -13,10 +14,6 @@ from pydantic import (
     validator,
 )
 from pydantic.typing import Literal
-
-from aind_data_transfer_service.configs.job_configs import (
-    BasicUploadJobConfigs,
-)
 
 
 class HpcJobSubmitSettings(BaseSettings):
@@ -405,9 +402,8 @@ class HpcJobSubmitSettings(BaseSettings):
         return None
 
     @classmethod
-    def from_basic_job_configs(
+    def from_upload_job_configs(
         cls,
-        basic_upload_job_configs: BasicUploadJobConfigs,
         logging_directory: Path,
         aws_secret_access_key: SecretStr,
         aws_access_key_id: str,
@@ -419,7 +415,6 @@ class HpcJobSubmitSettings(BaseSettings):
         Class constructor to use when submitting a basic upload job request
         Parameters
         ----------
-        basic_upload_job_configs : BasicUploadJobConfigs
         logging_directory : Path
         aws_secret_access_key : SecretStr
         aws_access_key_id : str
@@ -436,20 +431,14 @@ class HpcJobSubmitSettings(BaseSettings):
             ),
             "SINGULARITYENV_AWS_ACCESS_KEY_ID": aws_access_key_id,
             "SINGULARITYENV_AWS_DEFAULT_REGION": aws_default_region,
-            "SINGULARITYENV_UPLOAD_JOB_JSON_ARGS": (
-                basic_upload_job_configs.json(exclude_none=True)
-            ),
         }
         if aws_session_token is not None:
             hpc_env[
                 "SINGULARITYENV_AWS_SESSION_TOKEN"
             ] = aws_session_token.get_secret_value()
         cls._set_default_val(kwargs, "environment", hpc_env)
-        cls._set_default_val(
-            kwargs, "name", basic_upload_job_configs.s3_prefix
-        )
-        # Set default time limit to 6 hours
-        cls._set_default_val(kwargs, "time_limit", 360)
+        # Set default time limit to 3 hours
+        cls._set_default_val(kwargs, "time_limit", 180)
         cls._set_default_val(
             kwargs,
             "standard_out",
@@ -461,9 +450,61 @@ class HpcJobSubmitSettings(BaseSettings):
             str(logging_directory / (kwargs["name"] + "_error.out")),
         )
         cls._set_default_val(kwargs, "nodes", [1, 1])
-        # Set memory per node to 50 GB
-        cls._set_default_val(kwargs, "memory_per_node", 50000)
+        cls._set_default_val(kwargs, "minimum_cpus_per_node", 4)
+        cls._set_default_val(kwargs, "tasks", 1)
+        # 8 GB per cpu for 32 GB total memory
+        cls._set_default_val(kwargs, "memory_per_cpu", 8000)
         return cls(**kwargs)
+
+    @classmethod
+    def attach_configs_to_script(
+        cls,
+        script: str,
+        base_configs: dict,
+        upload_configs_aws_param_store_name: Optional[str],
+        staging_directory: Optional[str],
+    ) -> str:
+        """
+        Helper method to attach configs to a base run command string.
+        Parameters
+        ----------
+        script : str
+          Can be like
+          '#!/bin/bash \nsingularity exec --cleanenv
+          feat_289.sif python -m aind_data_transfer.jobs.basic_job'
+        base_configs : dict
+          job_configs to attach as --json-args
+        upload_configs_aws_param_store_name : Optional[str]
+          Will supply this config if not in base_configs and not None
+        staging_directory : Optional[str]
+          Will supply this config if not in base_configs and not None
+
+        Returns
+        -------
+        str
+          The run command script to send to submit to the slurm cluster
+
+        """
+        if staging_directory is not None:
+            cls._set_default_val(
+                base_configs, "temp_directory", staging_directory
+            )
+        if upload_configs_aws_param_store_name is not None:
+            cls._set_default_val(
+                base_configs,
+                "aws_param_store_name",
+                upload_configs_aws_param_store_name,
+            )
+
+        return " ".join(
+            [
+                script,
+                "--json-args",
+                "'",
+                json.dumps(base_configs),
+                "'",
+            ]
+        )
 
 
 class HpcJobStatusResponse(BaseModel):

@@ -158,21 +158,19 @@ class TestHpcJobSubmitSettings(unittest.TestCase):
         },
         clear=True,
     )
-    def test_from_basic_job_configs(self):
+    def test_from_upload_job_configs(self):
         """Tests from_basic_job_configs class"""
-        job_configs = self.example_config
-        hpc_settings = HpcJobSubmitSettings.from_basic_job_configs(
-            basic_upload_job_configs=job_configs,
+        hpc_settings = HpcJobSubmitSettings.from_upload_job_configs(
             logging_directory=Path("dir/logs"),
             aws_secret_access_key=SecretStr("some_secret"),
             aws_access_key_id="some_key",
             aws_default_region="us-west-2",
             aws_session_token=SecretStr("session_token"),
+            **{"name": "ecephys_123454_2020-10-10_14-10-10"},
         )
         sif_location = os.getenv("HPC_SIF_LOCATION")
         command_str = hpc_settings.script_command_str(sif_loc_str=sif_location)
         hpc_env = hpc_settings.environment
-        job_json_args = hpc_env["SINGULARITYENV_UPLOAD_JOB_JSON_ARGS"]
         self.assertEqual("part", hpc_settings.partition)
         self.assertEqual("production", hpc_settings.qos)
         self.assertEqual(
@@ -186,8 +184,9 @@ class TestHpcJobSubmitSettings(unittest.TestCase):
             "dir/logs/ecephys_123454_2020-10-10_14-10-10.out",
             hpc_settings.standard_out,
         )
-        self.assertEqual(360, hpc_settings.time_limit)
-        self.assertEqual(50000, hpc_settings.memory_per_node)
+        self.assertEqual(180, hpc_settings.time_limit)
+        self.assertEqual(8000, hpc_settings.memory_per_cpu)
+        self.assertEqual(1, hpc_settings.tasks)
         self.assertEqual([1, 1], hpc_settings.nodes)
         self.assertEqual("/bin:/usr/bin/:/usr/local/bin/", hpc_env["PATH"])
         self.assertEqual(
@@ -204,9 +203,6 @@ class TestHpcJobSubmitSettings(unittest.TestCase):
         )
         self.assertEqual(
             "session_token", hpc_env["SINGULARITYENV_AWS_SESSION_TOKEN"]
-        )
-        self.assertEqual(
-            job_configs, BasicUploadJobConfigs.parse_raw(job_json_args)
         )
         self.assertEqual(
             (

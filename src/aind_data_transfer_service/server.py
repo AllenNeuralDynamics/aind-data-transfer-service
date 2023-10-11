@@ -1,8 +1,10 @@
 """Starts and Runs Starlette Service"""
 import csv
 import io
+import json
 import logging
 import os
+from asyncio import sleep
 from pathlib import Path
 
 from fastapi import Request
@@ -14,6 +16,7 @@ from starlette.routing import Route
 
 from aind_data_transfer_service.configs.job_configs import (
     BasicUploadJobConfigs,
+    HpcJobConfigs,
 )
 from aind_data_transfer_service.hpc.client import HpcClient, HpcClientConfigs
 from aind_data_transfer_service.hpc.models import (
@@ -85,8 +88,69 @@ async def submit_basic_jobs(request: Request):
             basic_upload_job.temp_directory = os.getenv(
                 "HPC_STAGING_DIRECTORY"
             )
-            hpc_job = HpcJobSubmitSettings.from_basic_job_configs(
-                basic_upload_job_configs=basic_upload_job,
+            hpc_job = HpcJobConfigs(basic_upload_job_configs=basic_upload_job)
+            hpc_jobs.append(hpc_job)
+        except Exception as e:
+            parsing_errors.append(f"Error parsing {job}: {e.__class__}")
+    if parsing_errors:
+        status_code = 406
+        message = "There were errors parsing the basic job configs"
+        content = {
+            "message": message,
+            "data": {"responses": [], "errors": parsing_errors},
+        }
+    else:
+        responses = []
+        hpc_errors = []
+        for hpc_job in hpc_jobs:
+            try:
+                job_def = hpc_job.job_definition
+                response = hpc_client.submit_job(job_def)
+                response_json = response.json()
+                responses.append(response_json)
+                # Add pause to stagger job requests to the hpc
+                await sleep(0.2)
+            except Exception as e:
+                logging.error(repr(e))
+                hpc_errors.append(
+                    f"Error processing "
+                    f"{hpc_job.basic_upload_job_configs.s3_prefix}"
+                )
+        message = (
+            "There were errors submitting jobs to the hpc."
+            if len(hpc_errors) > 0
+            else "Submitted Jobs."
+        )
+        status_code = 500 if len(hpc_errors) > 0 else 200
+        content = {
+            "message": message,
+            "data": {"responses": responses, "errors": hpc_errors},
+        }
+    return JSONResponse(
+        content=content,
+        status_code=status_code,
+    )
+
+
+async def submit_hpc_jobs(request: Request):
+    """Post HpcJobSubmitSettings to hpc server to process."""
+
+    content = await request.json()
+    # content should have
+    # {
+    #   "jobs": [{"hpc_settings": str, upload_job_settings: str, script: str}]
+    # }
+    hpc_client_conf = HpcClientConfigs()
+    hpc_client = HpcClient(configs=hpc_client_conf)
+    job_configs = content["jobs"]
+    hpc_jobs = []
+    parsing_errors = []
+    for job in job_configs:
+        try:
+            upload_job_configs = json.loads(job["upload_job_settings"])
+            hpc_settings = json.loads(job["hpc_settings"])
+            base_script = job["script"]
+            hpc_job = HpcJobSubmitSettings.from_upload_job_configs(
                 logging_directory=Path(os.getenv("HPC_LOGGING_DIRECTORY")),
                 aws_secret_access_key=SecretStr(
                     os.getenv("HPC_AWS_SECRET_ACCESS_KEY")
@@ -100,40 +164,54 @@ async def submit_basic_jobs(request: Request):
                         else SecretStr(os.getenv("HPC_AWS_SESSION_TOKEN"))
                     )
                 ),
+                **hpc_settings,
             )
-            hpc_jobs.append(hpc_job)
+            script = hpc_job.attach_configs_to_script(
+                script=base_script,
+                base_configs=upload_job_configs,
+                upload_configs_aws_param_store_name=os.getenv(
+                    "HPC_AWS_PARAM_STORE_NAME"
+                ),
+                staging_directory=os.getenv("HPC_STAGING_DIRECTORY"),
+            )
+            hpc_jobs.append((hpc_job, script))
         except Exception as e:
-            parsing_errors.append(f"Error parsing {job}: {e.__class__}")
+            parsing_errors.append(
+                f"Error parsing {job['upload_job_settings']}: {repr(e)}"
+            )
     if parsing_errors:
         status_code = 406
-        message = "There were errors parsing the basic job configs"
+        message = "There were errors parsing the job configs"
         content = {
             "message": message,
             "data": {"responses": [], "errors": parsing_errors},
         }
     else:
-        hpc_error = None
-        response_json = {}
-        try:
-            response = hpc_client.submit_job(
-                script=HpcJobSubmitSettings.script_command_str(
-                    os.getenv("HPC_SIF_LOCATION")
-                ),
-                jobs=hpc_jobs,
-            )
-            response_json = response.json()
-        except Exception as e:
-            logging.error(repr(e))
-            hpc_error = repr(e)
+        responses = []
+        hpc_errors = []
+        for hpc_job in hpc_jobs:
+            hpc_job_def = hpc_job[0]
+            try:
+                script = hpc_job[1]
+                response = hpc_client.submit_hpc_job(
+                    job=hpc_job_def, script=script
+                )
+                response_json = response.json()
+                responses.append(response_json)
+                # Add pause to stagger job requests to the hpc
+                await sleep(0.2)
+            except Exception as e:
+                logging.error(repr(e))
+                hpc_errors.append(f"Error processing " f"{hpc_job_def.name}")
         message = (
             "There were errors submitting jobs to the hpc."
-            if hpc_error
+            if len(hpc_errors) > 0
             else "Submitted Jobs."
         )
-        status_code = 500 if hpc_error else 200
+        status_code = 500 if len(hpc_errors) > 0 else 200
         content = {
             "message": message,
-            "data": {"response": response_json, "error": hpc_error},
+            "data": {"responses": responses, "errors": hpc_errors},
         }
     return JSONResponse(
         content=content,
@@ -192,6 +270,7 @@ routes = [
     Route(
         "/api/submit_basic_jobs", endpoint=submit_basic_jobs, methods=["POST"]
     ),
+    Route("/api/submit_hpc_jobs", endpoint=submit_hpc_jobs, methods=["POST"]),
     Route("/jobs", endpoint=jobs, methods=["GET"]),
 ]
 

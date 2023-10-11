@@ -106,7 +106,24 @@ class TestHpcClient(unittest.TestCase):
         """Tests that the job submission request is sent correctly"""
         mock_post.return_value = {"message": "A mocked message"}
         hpc_client = HpcClient(configs=self.hpc_client_configs)
-        response = hpc_client.submit_job(
+        response = hpc_client.submit_job(job_def={"job": {"some_job"}})
+        self.assertEqual({"message": "A mocked message"}, response)
+        mock_post.assert_called_once_with(
+            url="http://hpc_host/job/submit",
+            json={"job": {"some_job"}},
+            headers={
+                "X-SLURM-USER-NAME": "hpc_username",
+                "X-SLURM-USER-PASSWORD": "hpc_password",
+                "X-SLURM-USER-TOKEN": "hpc_jwt",
+            },
+        )
+
+    @patch("requests.post")
+    def test_submit_hpc_job_response(self, mock_post: MagicMock):
+        """Tests that the job submission request is sent correctly"""
+        mock_post.return_value = {"message": "A mocked message"}
+        hpc_client = HpcClient(configs=self.hpc_client_configs)
+        response = hpc_client.submit_hpc_job(
             script="Hello World!", job=HpcJobSubmitSettings(name="test_job")
         )
         self.assertEqual({"message": "A mocked message"}, response)
@@ -121,7 +138,7 @@ class TestHpcClient(unittest.TestCase):
         )
 
     @patch("requests.post")
-    def test_submit_jobs_response(self, mock_post: MagicMock):
+    def test_submit_hpc_jobs_response(self, mock_post: MagicMock):
         """Tests that the jobs submission request is sent correctly"""
         mock_post.return_value = {"message": "A mocked message"}
         hpc_client = HpcClient(configs=self.hpc_client_configs)
@@ -129,7 +146,7 @@ class TestHpcClient(unittest.TestCase):
             HpcJobSubmitSettings(name="test_job1"),
             HpcJobSubmitSettings(name="test_job2"),
         ]
-        response = hpc_client.submit_job(script="Hello World!", jobs=jobs)
+        response = hpc_client.submit_hpc_job(script="Hello World!", jobs=jobs)
         self.assertEqual({"message": "A mocked message"}, response)
         mock_post.assert_called_once_with(
             url="http://hpc_host/job/submit",
