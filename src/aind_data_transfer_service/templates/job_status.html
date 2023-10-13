@@ -2,6 +2,7 @@
 <html>
 <head>
     <meta charset="UTF-8">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.3/moment.min.js"></script>
     <title>{% block title %} {% endblock %} AIND Data Transfer Service Jobs</title>
     <style>
     table {
@@ -42,11 +43,20 @@
             <td>{{job_status.name}}</td>
             <td>{{job_status.job_id}}</td>
             <td>{{job_status.job_state}}</td>
-            <td>{{job_status.submit_time}}</td>
-            <td>{{job_status.start_time}}</td>
-            <td>{{job_status.end_time}}</td>
+            <td class="datetime_to_be_adjusted">{{job_status.submit_time}}</td>
+            <td class="datetime_to_be_adjusted">{{job_status.start_time}}</td>
+            <td class="datetime_to_be_adjusted">{{job_status.end_time}}</td>
         </tr>
         {% endfor %}
     </table>
+    <script>
+        window.onload = function() {
+            document.querySelectorAll(".datetime_to_be_adjusted").forEach(function(el){
+            var utcTime = moment.utc(el.innerText);  // This is the time in UTC
+            utcTime.local();  // Switch to using the browser's local timezone
+            el.innerText = utcTime.format('YYYY-MM-DD h:mm:ss a');  // Write the local time back to the element
+          });
+        }
+    </script>
     </body>
 </html>

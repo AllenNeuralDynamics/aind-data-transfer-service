@@ -437,8 +437,6 @@ class HpcJobSubmitSettings(BaseSettings):
                 "SINGULARITYENV_AWS_SESSION_TOKEN"
             ] = aws_session_token.get_secret_value()
         cls._set_default_val(kwargs, "environment", hpc_env)
-        # Set default time limit to 3 hours
-        cls._set_default_val(kwargs, "time_limit", 180)
         cls._set_default_val(
             kwargs,
             "standard_out",
@@ -449,11 +447,6 @@ class HpcJobSubmitSettings(BaseSettings):
             "standard_error",
             str(logging_directory / (kwargs["name"] + "_error.out")),
         )
-        cls._set_default_val(kwargs, "nodes", [1, 1])
-        cls._set_default_val(kwargs, "minimum_cpus_per_node", 4)
-        cls._set_default_val(kwargs, "tasks", 1)
-        # 8 GB per cpu for 32 GB total memory
-        cls._set_default_val(kwargs, "memory_per_cpu", 8000)
         return cls(**kwargs)
 
     @classmethod
@@ -644,7 +637,7 @@ class JobStatus(BaseModel):
         elif timestamp is None or timestamp == 0:
             return None
         else:
-            return datetime.fromtimestamp(timestamp)
+            return datetime.utcfromtimestamp(timestamp)
 
     @classmethod
     def from_hpc_job_status(cls, hpc_job: HpcJobStatusResponse):
