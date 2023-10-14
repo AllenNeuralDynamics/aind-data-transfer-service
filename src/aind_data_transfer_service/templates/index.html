@@ -5,7 +5,10 @@
     <meta charset="UTF-8">
     <title>{% block title %} {% endblock %} AIND Data Transfer Service</title>
     <style>
-     table {
+    fieldset {
+      display:inline
+    }
+    table {
       font-family: arial, sans-serif;
       border-collapse: collapse;
       width: 75%;
@@ -22,9 +25,30 @@
     <nav>
         <a href="/">Submit Jobs</a> |
         <a href="/jobs">Job Status</a> |
-        <a href= "{{ upload_template_link }}" >Upload Template</a>
+        <a href= "{{ upload_template_link }}" >Job Submit Template</a>
     </nav>
     <h2>Submit Jobs</h2>
+        <div>
+        <fieldset>
+            <legend>Mail Notifications (optional)</legend><br>
+            <div>
+                <label for="email" title="Optionally provide an allen institute email address to receive upload job status notifications">Allen Institute email:</label>
+                <input type="email" id="email" pattern=".+@alleninstitute\.org" size="30" placeholder="@alleninstitute.org" /><br><br>
+            </div>
+            <div>
+                <input type="checkbox" id="begin" name="begin" />
+                <label for="begin">BEGIN</label> |
+                <input type="checkbox" id="end" name="end" />
+                <label for="end">END</label> |
+                <input type="checkbox" id="fail" name="fail" checked />
+                <label for="fail">FAIL</label> |
+                <input type="checkbox" id="requeue" name="requeue" />
+                <label for="requeue">REQUEUE</label> |
+                <input type="checkbox" id="all" name="all" />
+                <label for="all">ALL</label>
+            </div>
+        </fieldset>
+        </div><br><br>
     <form id="preview_form" method="post" enctype="multipart/form-data">
         <label for="file">Please select a CSV file:</label>
         <input type="file" id="file" name="file"><br><br>
@@ -104,10 +128,44 @@
         });
         submitJobs = function() {
             if(jobs.length > 0 && parsing_errors.length == 0){
+                let mail_user = $("#email").val();
+                let hpc_settings = {};
+                if (mail_user !== "" && mail_user !== undefined) {
+                    let mail_type = [];
+                    hpc_settings["mail_user"] = mail_user;
+                    hpc_settings["comment"] = mail_user;
+                    if ($("#all").is(":checked")) {
+                        mail_type = ["ALL"];
+                    } else {
+                        if ($("#begin").is(":checked")) {
+                            mail_type.push("BEGIN");
+                        };
+                        if ($("#end").is(":checked")) {
+                            mail_type.push("END");
+                        };
+                        if ($("#fail").is(":checked")) {
+                            mail_type.push("FAIL");
+                        };
+                        if ($("#requeue").is(":checked")) {
+                            mail_type.push("REQUEUE");
+                        };
+                    };
+                    if (mail_type.length == 0) {
+                        hpc_settings["mail_type"] = "NONE";
+                    } else {
+                        hpc_settings["mail_type"] = mail_type.join()
+                    };
+                };
+                let hpc_jobs = []
+                for (row = 0; row < jobs.length; row++) {
+                    let job = jobs[row];
+                    hpc_job = {"upload_job_settings": job, "hpc_settings": JSON.stringify(hpc_settings), "script": ""};
+                    hpc_jobs.push(hpc_job);
+                };
                 $.ajax({
-                    url: "/api/submit_basic_jobs",
+                    url: "/api/submit_hpc_jobs",
                     type: "POST",
-                    data: JSON.stringify({"jobs": jobs}),
+                    data: JSON.stringify({"jobs": hpc_jobs}),
                     contentType: 'application/json; charset=utf-8',
                     beforeSend: function() {
                         $("#message").html("Submitting jobs. Please don't refresh or re-submit...");
