@@ -33,6 +33,7 @@ templates = Jinja2Templates(directory=template_directory)
 # TODO: Add server configs model
 # UPLOAD_TEMPLATE_LINK
 # HPC_SIF_LOCATION
+# HPC_USERNAME
 # HPC_LOGGING_DIRECTORY
 # HPC_AWS_ACCESS_KEY_ID
 # HPC_AWS_SECRET_ACCESS_KEY
@@ -47,7 +48,9 @@ async def validate_csv(request: Request):
     """Validate a csv file. Return parsed contents as json."""
     async with request.form() as form:
         content = await form["file"].read()
-        data = content.decode("utf-8")
+        # A few csv files created from excel have extra unicode byte chars.
+        # Adding "utf-8-sig" should remove them.
+        data = content.decode("utf-8-sig")
         csv_reader = csv.DictReader(io.StringIO(data))
         basic_jobs = []
         errors = []
@@ -132,7 +135,8 @@ async def submit_basic_jobs(request: Request):
     )
 
 
-async def submit_hpc_jobs(request: Request):
+# TODO: Refactor to make less complex
+async def submit_hpc_jobs(request: Request):  # noqa: C901
     """Post HpcJobSubmitSettings to hpc server to process."""
 
     content = await request.json()
@@ -147,9 +151,20 @@ async def submit_hpc_jobs(request: Request):
     parsing_errors = []
     for job in job_configs:
         try:
+            base_script = job.get("script")
+            # If script is empty, assume that the job type is a basic job
+            basic_job_name = None
+            if base_script is None or base_script == "":
+                base_script = HpcJobSubmitSettings.script_command_str(
+                    sif_loc_str=os.getenv("HPC_SIF_LOCATION")
+                )
+                basic_job_name = BasicUploadJobConfigs.parse_raw(
+                    job["upload_job_settings"]
+                ).s3_prefix
             upload_job_configs = json.loads(job["upload_job_settings"])
             hpc_settings = json.loads(job["hpc_settings"])
-            base_script = job["script"]
+            if basic_job_name is not None:
+                hpc_settings["name"] = basic_job_name
             hpc_job = HpcJobSubmitSettings.from_upload_job_configs(
                 logging_directory=Path(os.getenv("HPC_LOGGING_DIRECTORY")),
                 aws_secret_access_key=SecretStr(
@@ -166,14 +181,17 @@ async def submit_hpc_jobs(request: Request):
                 ),
                 **hpc_settings,
             )
-            script = hpc_job.attach_configs_to_script(
-                script=base_script,
-                base_configs=upload_job_configs,
-                upload_configs_aws_param_store_name=os.getenv(
-                    "HPC_AWS_PARAM_STORE_NAME"
-                ),
-                staging_directory=os.getenv("HPC_STAGING_DIRECTORY"),
-            )
+            if not upload_job_configs:
+                script = base_script
+            else:
+                script = hpc_job.attach_configs_to_script(
+                    script=base_script,
+                    base_configs=upload_job_configs,
+                    upload_configs_aws_param_store_name=os.getenv(
+                        "HPC_AWS_PARAM_STORE_NAME"
+                    ),
+                    staging_directory=os.getenv("HPC_STAGING_DIRECTORY"),
+                )
             hpc_jobs.append((hpc_job, script))
         except Exception as e:
             parsing_errors.append(
@@ -237,12 +255,18 @@ async def jobs(request: Request):
     hpc_client_conf = HpcClientConfigs()
     hpc_client = HpcClient(configs=hpc_client_conf)
     hpc_partition = os.getenv("HPC_PARTITION")
+    hpc_qos = os.getenv("HPC_QOS")
     response = hpc_client.get_jobs()
     if response.status_code == 200:
         slurm_jobs = [
             HpcJobStatusResponse.parse_obj(job_json)
             for job_json in response.json()["jobs"]
             if job_json["partition"] == hpc_partition
+            and job_json["user_name"] == os.getenv("HPC_USERNAME")
+            and (
+                hpc_qos is None
+                or (hpc_qos == "production" and job_json["qos"] == hpc_qos)
+            )
         ]
         job_status_list = [
             JobStatus.from_hpc_job_status(slurm_job).jinja_dict

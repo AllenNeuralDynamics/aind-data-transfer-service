@@ -26,9 +26,9 @@
     <nav>
         <a href="/">Submit Jobs</a> |
         <a href="/jobs">Job Status</a> |
-        <a href= "{{ upload_template_link }}" >Upload Template</a>
+        <a href= "{{ upload_template_link }}" >Job Submit Template</a>
     </nav>
-    <h2>Jobs Currently Running: {{num_of_jobs}}</h2>
+    <h2>Jobs Submitted: {{num_of_jobs}}</h2>
     <table>
         <tr>
             <th>Asset Name</th>
@@ -37,6 +37,7 @@
             <th>Submit Time</th>
             <th>Start Time</th>
             <th>End time</th>
+            <th>Comment</th>
         </tr>
         {% for job_status in job_status_list %}
         <tr>
@@ -46,15 +47,18 @@
             <td class="datetime_to_be_adjusted">{{job_status.submit_time}}</td>
             <td class="datetime_to_be_adjusted">{{job_status.start_time}}</td>
             <td class="datetime_to_be_adjusted">{{job_status.end_time}}</td>
+            <td>{{job_status.comment}}</td>
         </tr>
         {% endfor %}
     </table>
     <script>
         window.onload = function() {
             document.querySelectorAll(".datetime_to_be_adjusted").forEach(function(el){
-            var utcTime = moment.utc(el.innerText);  // This is the time in UTC
-            utcTime.local();  // Switch to using the browser's local timezone
-            el.innerText = utcTime.format('YYYY-MM-DD h:mm:ss a');  // Write the local time back to the element
+            if (el.innerHTML !== "") {
+                var utcTime = moment.utc(el.innerText);  // This is the time in UTC
+                utcTime.local();  // Switch to using the browser's local timezone
+                el.innerText = utcTime.format('YYYY-MM-DD h:mm:ss a');  // Write the local time back to the element
+            };
           });
         }
     </script>

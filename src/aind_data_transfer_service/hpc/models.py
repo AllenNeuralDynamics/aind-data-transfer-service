@@ -622,6 +622,7 @@ class JobStatus(BaseModel):
     job_id: Optional[int] = Field(None)
     job_state: Optional[str] = Field(None)
     name: Optional[str] = Field(None)
+    comment: Optional[str] = Field(None)
     start_time: Optional[datetime] = Field(None)
     submit_time: Optional[datetime] = Field(None)
 
@@ -647,6 +648,7 @@ class JobStatus(BaseModel):
             job_id=hpc_job.job_id,
             job_state=hpc_job.job_state,
             name=hpc_job.name,
+            comment=hpc_job.comment,
             start_time=hpc_job.start_time,
             submit_time=hpc_job.submit_time,
         )

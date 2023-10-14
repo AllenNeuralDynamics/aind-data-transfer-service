@@ -35,7 +35,7 @@ A mock server will be created. You can then create a mock environment to run uvi
 ```bash
 export HPC_HOST="localhost"
 export HPC_PORT=3000
-export HPC_USERNAME='username'
+export HPC_USERNAME='some.user'
 export HPC_PASSWORD='password'
 export HPC_TOKEN='some_token'
 export HPC_PARTITION='part'
@@ -45,10 +45,14 @@ export HPC_LOGGING_DIRECTORY='/hpc/logging_dir'
 export HPC_AWS_ACCESS_KEY_ID='abc-123'
 export HPC_AWS_SECRET_ACCESS_KEY='def-456'
 export HPC_AWS_DEFAULT_REGION='us-west-2'
-export APP_CSRF_SECRET_KEY='anything'
-export APP_SECRET_KEY='anything_again'
 export HPC_STAGING_DIRECTORY='/hpc/staging_dir'
 export HPC_AWS_PARAM_STORE_NAME='/param/store/name'
+export HPC_MINIMUM_CPUS_PER_NODE='8'
+export HPC_MEMORY_PER_CPU='8000'
+export HPC_NODES='[1,1]'
+export HPC_TASKS='1'
+export HPC_TIME_LIMIT='360'
+export HPC_QOS='dev'
 uvicorn aind_data_transfer_service.server:app --host 0.0.0.0 --port 5000
 ```
 You can now access `http://localhost:5000/jobs`.

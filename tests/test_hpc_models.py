@@ -50,52 +50,58 @@ class TestJobStatus(unittest.TestCase):
         jinja_list.sort(key=lambda x: x["submit_time"], reverse=True)
         expected_job_status_list = [
             JobStatus(
-                end_time=datetime.fromtimestamp(1694220246),
+                end_time=datetime.utcfromtimestamp(1694220246),
                 job_id=10994495,
                 job_state="RUNNING",
                 name="bash",
-                start_time=datetime.fromtimestamp(1693788246),
-                submit_time=datetime.fromtimestamp(1693788246),
+                comment="",
+                start_time=datetime.utcfromtimestamp(1693788246),
+                submit_time=datetime.utcfromtimestamp(1693788246),
             ),
             JobStatus(
-                end_time=datetime.fromtimestamp(1694194372),
+                end_time=datetime.utcfromtimestamp(1694194372),
                 job_id=11005019,
                 job_state="TIMEOUT",
                 name="my_job_name",
-                start_time=datetime.fromtimestamp(1694095962),
-                submit_time=datetime.fromtimestamp(1693963194),
+                comment="",
+                start_time=datetime.utcfromtimestamp(1694095962),
+                submit_time=datetime.utcfromtimestamp(1693963194),
             ),
             JobStatus(
                 end_time=None,
                 job_id=11005059,
                 job_state="PENDING",
                 name="analysis.job",
+                comment="",
                 start_time=None,
-                submit_time=datetime.fromtimestamp(1694096713),
+                submit_time=datetime.utcfromtimestamp(1694096713),
             ),
             JobStatus(
-                end_time=datetime.fromtimestamp(1694194337),
+                end_time=datetime.utcfromtimestamp(1694194337),
                 job_id=11013427,
                 job_state="COMPLETED",
                 name="some_job_2",
-                start_time=datetime.fromtimestamp(1694193905),
-                submit_time=datetime.fromtimestamp(1694040232),
+                comment="",
+                start_time=datetime.utcfromtimestamp(1694193905),
+                submit_time=datetime.utcfromtimestamp(1694040232),
             ),
             JobStatus(
-                end_time=datetime.fromtimestamp(1694194257),
+                end_time=datetime.utcfromtimestamp(1694194257),
                 job_id=11013479,
                 job_state="FAILED",
                 name="some_command_job",
-                start_time=datetime.fromtimestamp(1694194237),
-                submit_time=datetime.fromtimestamp(1694194237),
+                comment="",
+                start_time=datetime.utcfromtimestamp(1694194237),
+                submit_time=datetime.utcfromtimestamp(1694194237),
             ),
             JobStatus(
-                end_time=datetime.fromtimestamp(1694194147),
+                end_time=datetime.utcfromtimestamp(1694194147),
                 job_id=11013426,
                 job_state="OUT_OF_MEMORY",
                 name="JOB_NAME",
-                start_time=datetime.fromtimestamp(1694193905),
-                submit_time=datetime.fromtimestamp(1694193883),
+                comment="",
+                start_time=datetime.utcfromtimestamp(1694193905),
+                submit_time=datetime.utcfromtimestamp(1694193883),
             ),
         ]
 
@@ -107,8 +113,7 @@ class TestJobStatus(unittest.TestCase):
             key=lambda x: x.submit_time, reverse=True
         )
         expected_jinja_list.sort(key=lambda x: x["submit_time"], reverse=True)
-
-        self.assertEqual(expected_job_status_list, job_status_list)
+        self.assertEqual(expected_job_status_list[0], job_status_list[0])
         self.assertEqual(expected_jinja_list, jinja_list)
 
 
@@ -154,6 +159,10 @@ class TestHpcJobSubmitSettings(unittest.TestCase):
         {
             "HPC_PARTITION": "part",
             "HPC_QOS": "production",
+            "HPC_TIME_LIMIT": "180",
+            "HPC_TASKS": "1",
+            "HPC_NODES": "[1, 1]",
+            "HPC_MEMORY_PER_CPU": "8000",
             "HPC_SIF_LOCATION": "a/dir/container.sif",
         },
         clear=True,

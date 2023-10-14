@@ -209,13 +209,30 @@ class TestServer(unittest.TestCase):
             "jobs": [
                 {
                     "hpc_settings": '{"qos":"production", "name": "job1"}',
-                    "upload_job_settings": '{"temp_directory":"tmp"}',
-                    "script": "run script",
+                    "upload_job_settings": (
+                        '{"s3_bucket": "some_bucket2", '
+                        '"platform": {"name": "Behavior platform", '
+                        '"abbreviation": "behavior"}, '
+                        '"modalities": ['
+                        '{"modality": {"name": "Behavior videos", '
+                        '"abbreviation": "behavior-videos"}, '
+                        '"source": "dir/data_set_2", '
+                        '"compress_raw_data": true, '
+                        '"skip_staging": false}], '
+                        '"subject_id": "123456", '
+                        '"acq_datetime": "2020-10-13T13:10:10", '
+                        '"process_name": "Other", '
+                        '"log_level": "WARNING", '
+                        '"metadata_dir_force": false, '
+                        '"dry_run": false, '
+                        '"force_cloud_sync": false}'
+                    ),
+                    "script": "",
                 },
                 {
                     "hpc_settings": '{"qos":"production", "name": "job2"}',
-                    "upload_job_settings": '{"temp_directory":"tmp"}',
-                    "script": "run script",
+                    "upload_job_settings": "{}",
+                    "script": "run custom script",
                 },
             ]
         }
