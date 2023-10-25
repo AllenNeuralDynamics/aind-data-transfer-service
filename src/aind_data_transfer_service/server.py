@@ -151,16 +151,22 @@ async def submit_hpc_jobs(request: Request):  # noqa: C901
     parsing_errors = []
     for job in job_configs:
         try:
-            base_script = job.get("script")
-            # If script is empty, assume that the job type is a basic job
-            basic_job_name = None
-            if base_script is None or base_script == "":
+            # Load upload job configs
+            upload_job_configs = json.loads(job["upload_job_settings"])
+            raw_script = job.get("script")
+            # If script is empty, try to create one using the upload job
+            # configs
+            if raw_script is None or raw_script == "":
+                platform = upload_job_configs.get("platform")
                 base_script = HpcJobSubmitSettings.script_command_str(
-                    sif_loc_str=os.getenv("HPC_SIF_LOCATION")
+                    sif_loc_str=os.getenv("HPC_SIF_LOCATION"), platform=platform
                 )
                 basic_job_name = BasicUploadJobConfigs.parse_raw(
                     job["upload_job_settings"]
                 ).s3_prefix
+            else:
+                basic_job_name = None
+                base_script = raw_script
             upload_job_configs = json.loads(job["upload_job_settings"])
             hpc_settings = json.loads(job["hpc_settings"])
             if basic_job_name is not None:

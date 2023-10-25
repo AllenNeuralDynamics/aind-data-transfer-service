@@ -4,6 +4,7 @@ import json
 from datetime import datetime
 from pathlib import Path
 from typing import Any, List, Optional, Union
+from aind_data_schema.data_description import Platform
 
 from pydantic import (
     BaseModel,
@@ -380,8 +381,9 @@ class HpcJobSubmitSettings(BaseSettings):
         env_prefix = "HPC_"
 
     @staticmethod
-    def script_command_str(sif_loc_str) -> str:
+    def script_command_str(sif_loc_str: str, platform: Optional[Union[str, dict]]) -> str:
         """This is the command that will be sent to the hpc"""
+
         command_str = [
             "#!/bin/bash",
             "\nsingularity",
@@ -390,9 +392,31 @@ class HpcJobSubmitSettings(BaseSettings):
             sif_loc_str,
             "python",
             "-m",
-            "aind_data_transfer.jobs.basic_job",
         ]
+        if platform is None:
+            job_type = "aind_data_transfer.jobs.basic_job"
+        else:
+            platform_enum = Platform(platform)
+            if platform_enum in [Platform.SMARTSPIM, Platform.EXASPIM, Platform.HCR]:
+                job_type = "aind_data_transfer.jobs.zarr_upload_job"
+            else:
+                job_type = "aind_data_transfer.jobs.basic_job"
+        command_str.append(job_type)
         return " ".join(command_str)
+
+    # @staticmethod
+    # def spim_script_command_str(sif_loc_str) -> str:
+    #     command_str = [
+    #         "#!/bin/bash",
+    #         "\nsingularity",
+    #         "exec",
+    #         "--cleanenv",
+    #         sif_loc_str,
+    #         "python",
+    #         "-m",
+    #         "aind_data_transfer.jobs.zarr_upload_job",
+    #     ]
+    #     return " ".join(command_str)
 
     @staticmethod
     def _set_default_val(values: dict, key: str, default_value: Any) -> None:

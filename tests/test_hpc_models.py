@@ -178,7 +178,7 @@ class TestHpcJobSubmitSettings(unittest.TestCase):
             **{"name": "ecephys_123454_2020-10-10_14-10-10"},
         )
         sif_location = os.getenv("HPC_SIF_LOCATION")
-        command_str = hpc_settings.script_command_str(sif_loc_str=sif_location)
+        command_str = hpc_settings.script_command_str(sif_loc_str=sif_location, platform=None)
         hpc_env = hpc_settings.environment
         self.assertEqual("part", hpc_settings.partition)
         self.assertEqual("production", hpc_settings.qos)
