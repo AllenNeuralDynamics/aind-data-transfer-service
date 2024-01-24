@@ -51,7 +51,7 @@ async def validate_csv(request: Request):
         basic_jobs = []
         errors = []
         if not form["file"].filename.endswith((".csv", ".xlsx")):
-            errors.append("Invalid input file type.")
+            errors.append("Invalid input file type")
         else:
             content = await form["file"].read()
             if form["file"].filename.endswith(".csv"):

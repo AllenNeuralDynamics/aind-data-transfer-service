@@ -14,8 +14,11 @@ from aind_data_transfer_service.server import app
 from tests.test_configs import TestJobConfigs
 
 TEST_DIRECTORY = Path(os.path.dirname(os.path.realpath(__file__)))
-SAMPLE_FILE = TEST_DIRECTORY / "resources" / "sample.csv"
-MALFORMED_SAMPLE_FILE = TEST_DIRECTORY / "resources" / "sample_malformed.csv"
+SAMPLE_INVALID_EXT = TEST_DIRECTORY / "resources" / "sample_invalid_ext.txt"
+SAMPLE_CSV = TEST_DIRECTORY / "resources" / "sample.csv"
+MALFORMED_SAMPLE_CSV = TEST_DIRECTORY / "resources" / "sample_malformed.csv"
+SAMPLE_XLSX = TEST_DIRECTORY / "resources" / "sample.xlsx"
+MALFORMED_SAMPLE_XLSX = TEST_DIRECTORY / "resources" / "sample_malformed.xlsx"
 MOCK_DB_FILE = TEST_DIRECTORY / "test_server" / "db.json"
 
 
@@ -40,7 +43,7 @@ class TestServer(unittest.TestCase):
         "HPC_AWS_PARAM_STORE_NAME": "/some/param/store",
     }
 
-    with open(SAMPLE_FILE, "r") as file:
+    with open(SAMPLE_CSV, "r") as file:
         csv_content = file.read()
 
     with open(MOCK_DB_FILE) as f:
@@ -54,7 +57,24 @@ class TestServer(unittest.TestCase):
     def test_validate_csv(self):
         """Tests that valid csv file is returned."""
         with TestClient(app) as client:
-            with open(SAMPLE_FILE, "rb") as f:
+            with open(SAMPLE_CSV, "rb") as f:
+                files = {
+                    "file": f,
+                }
+                response = client.post(url="/api/validate_csv", files=files)
+        expected_jobs = [j.json() for j in self.expected_job_configs]
+        expected_response = {
+            "message": "Valid Data",
+            "data": {"jobs": expected_jobs, "errors": []},
+        }
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(expected_response, response.json())
+
+    @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
+    def test_validate_csv_xlsx(self):
+        """Tests that valid xlsx file is returned."""
+        with TestClient(app) as client:
+            with open(SAMPLE_XLSX, "rb") as f:
                 files = {
                     "file": f,
                 }
@@ -79,7 +99,7 @@ class TestServer(unittest.TestCase):
         mock_response._content = b'{"message": "success"}'
         mock_submit_job.return_value = mock_response
         with TestClient(app) as client:
-            with open(SAMPLE_FILE, "rb") as f:
+            with open(SAMPLE_CSV, "rb") as f:
                 files = {
                     "file": f,
                 }
@@ -118,7 +138,7 @@ class TestServer(unittest.TestCase):
         mock_response.status_code = 500
         mock_submit_job.return_value = mock_response
         with TestClient(app) as client:
-            with open(SAMPLE_FILE, "rb") as f:
+            with open(SAMPLE_CSV, "rb") as f:
                 files = {
                     "file": f,
                 }
@@ -180,10 +200,43 @@ class TestServer(unittest.TestCase):
         self.assertEqual(0, mock_log_error.call_count)
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
+    def test_validate_null_csv(self):
+        """Tests that invalid file type returns FileNotFoundError"""
+        with TestClient(app) as client:
+            with open(SAMPLE_INVALID_EXT, "rb") as f:
+                files = {
+                    "file": f,
+                }
+                response = client.post(url="/api/validate_csv", files=files)
+        self.assertEqual(response.status_code, 406)
+        self.assertEqual(
+            ["Invalid input file type"],
+            response.json()["data"]["errors"],
+        )
+
+    @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     def test_validate_malformed_csv(self):
         """Tests that invalid csv returns errors"""
         with TestClient(app) as client:
-            with open(MALFORMED_SAMPLE_FILE, "rb") as f:
+            with open(MALFORMED_SAMPLE_CSV, "rb") as f:
+                files = {
+                    "file": f,
+                }
+                response = client.post(url="/api/validate_csv", files=files)
+        self.assertEqual(response.status_code, 406)
+        self.assertEqual(
+            [
+                "AttributeError(\"type object 'Modality' "
+                "has no attribute 'WRONG_MODALITY_HERE'\")"
+            ],
+            response.json()["data"]["errors"],
+        )
+
+    @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
+    def test_validate_malformed_xlsx(self):
+        """Tests that invalid xlsx returns errors"""
+        with TestClient(app) as client:
+            with open(MALFORMED_SAMPLE_XLSX, "rb") as f:
                 files = {
                     "file": f,
                 }

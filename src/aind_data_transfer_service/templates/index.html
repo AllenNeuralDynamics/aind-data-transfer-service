@@ -63,8 +63,6 @@
         $(function() {
             $("#preview_form").on("submit", function(e) {
                 e.preventDefault();
-
-                // Validate file type
                 if ($("#file").prop("files").length != 1) {
                     alert("No file selected. Please attach a .csv or .xlsx file.");
                     return;
@@ -73,7 +71,6 @@
                     alert("Invalid file type. Please attach a .csv or .xlsx file.");
                     return;
                 }
-
                 var formData = new FormData(this);
                 $.ajax({
                     url: "/api/validate_csv",
