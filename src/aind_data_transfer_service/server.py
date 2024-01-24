@@ -7,6 +7,7 @@ import os
 from asyncio import sleep
 from pathlib import Path
 
+import openpyxl
 from fastapi import Request
 from fastapi.responses import JSONResponse
 from fastapi.templating import Jinja2Templates
@@ -45,22 +46,33 @@ templates = Jinja2Templates(directory=template_directory)
 
 
 async def validate_csv(request: Request):
-    """Validate a csv file. Return parsed contents as json."""
+    """Validate a csv or xlsx file. Return parsed contents as json."""
     async with request.form() as form:
-        content = await form["file"].read()
-        # A few csv files created from excel have extra unicode byte chars.
-        # Adding "utf-8-sig" should remove them.
-        data = content.decode("utf-8-sig")
-        csv_reader = csv.DictReader(io.StringIO(data))
         basic_jobs = []
         errors = []
-        for row in csv_reader:
-            try:
-                job = BasicUploadJobConfigs.from_csv_row(row=row)
-                # Construct hpc job setting most of the vars from the env
-                basic_jobs.append(job.json())
-            except Exception as e:
-                errors.append(repr(e))
+        if not form["file"].filename.endswith((".csv", ".xlsx")):
+            errors.append("Invalid input file type.")
+        else:
+            content = await form["file"].read()
+            if form["file"].filename.endswith(".csv"):
+                # A few csv files created from excel have extra unicode
+                # byte chars. Adding "utf-8-sig" should remove them.
+                data = content.decode("utf-8-sig")
+            else:
+                xlsx_sheet = openpyxl.load_workbook(io.BytesIO(content)).active
+                csv_io = io.StringIO()
+                csv_writer = csv.writer(csv_io)
+                for r in xlsx_sheet.rows:
+                    csv_writer.writerow([cell.value for cell in r])
+                data = csv_io.getvalue()
+            csv_reader = csv.DictReader(io.StringIO(data))
+            for row in csv_reader:
+                try:
+                    job = BasicUploadJobConfigs.from_csv_row(row=row)
+                    # Construct hpc job setting most of the vars from the env
+                    basic_jobs.append(job.json())
+                except Exception as e:
+                    errors.append(repr(e))
         message = "There were errors" if len(errors) > 0 else "Valid Data"
         status_code = 406 if len(errors) > 0 else 200
         content = {
