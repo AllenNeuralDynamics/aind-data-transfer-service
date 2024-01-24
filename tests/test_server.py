@@ -190,7 +190,10 @@ class TestServer(unittest.TestCase):
                 response = client.post(url="/api/validate_csv", files=files)
         self.assertEqual(response.status_code, 406)
         self.assertEqual(
-            ["AttributeError('WRONG_MODALITY_HERE')"],
+            [
+                "AttributeError(\"type object 'Modality' "
+                "has no attribute 'WRONG_MODALITY_HERE'\")"
+            ],
             response.json()["data"]["errors"],
         )
 

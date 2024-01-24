@@ -186,11 +186,11 @@ class TestHpcJobSubmitSettings(unittest.TestCase):
             "ecephys_123454_2020-10-10_14-10-10", hpc_settings.name
         )
         self.assertEqual(
-            "dir/logs/ecephys_123454_2020-10-10_14-10-10_error.out",
+            str(Path("dir/logs/ecephys_123454_2020-10-10_14-10-10_error.out")),
             hpc_settings.standard_error,
         )
         self.assertEqual(
-            "dir/logs/ecephys_123454_2020-10-10_14-10-10.out",
+            str(Path("dir/logs/ecephys_123454_2020-10-10_14-10-10.out")),
             hpc_settings.standard_out,
         )
         self.assertEqual(180, hpc_settings.time_limit)
