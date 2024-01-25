@@ -50,8 +50,8 @@
         </fieldset>
         </div><br><br>
     <form id="preview_form" method="post" enctype="multipart/form-data">
-        <label for="file">Please select a CSV file:</label>
-        <input type="file" id="file" name="file"><br><br>
+        <label for="file">Please select a .csv or .xlsx file:</label>
+        <input type="file" id="file" name="file" accept=".csv,.xlsx"><br><br>
         <input type="submit" id="preview" value="preview"><br><br>
     </form>
     <button type="button" onclick="submitJobs()">Submit</button>
@@ -63,6 +63,14 @@
         $(function() {
             $("#preview_form").on("submit", function(e) {
                 e.preventDefault();
+                if ($("#file").prop("files").length != 1) {
+                    alert("No file selected. Please attach a .csv or .xlsx file.");
+                    return;
+                } 
+                if (![".csv", ".xlsx"].some(ext => $("#file").prop("files")[0].name.endsWith(ext))) {
+                    alert("Invalid file type. Please attach a .csv or .xlsx file.");
+                    return;
+                }
                 var formData = new FormData(this);
                 $.ajax({
                     url: "/api/validate_csv",
