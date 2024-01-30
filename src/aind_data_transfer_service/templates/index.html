@@ -122,14 +122,15 @@
                                 table.appendChild(tr);
                             }
                         }
-                       $("#response").html(table);
+                        $("#response").html(table);
                     },
                     error: function(data) {
                         jobs = []
                         parsing_errors = data.responseJSON["data"]["errors"]
                         $("#message").html("Returned error");
-                        document.getElementById("response").innerHTML = "";
-                        $("#response").html(parsing_errors);
+                        $("#response").html(parsing_errors.map((errStr) => {
+                            return `<li>${errStr}</li>`
+                        }));
                     }
                 });
             });
@@ -187,9 +188,10 @@
                     error: function(data) {
                         jobs = []
                         $("#message").html("Returned error");
-                        document.getElementById("response").innerHTML = "";
                         parsing_errors = data.responseJSON["data"]["errors"]
-                        $("#response").html(parsing_errors);
+                        $("#response").html(parsing_errors.map((errStr) => {
+                            return `<li>${errStr}</li>`
+                        }));
                     }
                 });
             }
