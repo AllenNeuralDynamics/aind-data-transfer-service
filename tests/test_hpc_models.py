@@ -4,11 +4,12 @@ import json
 import os
 import unittest
 from datetime import datetime
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from unittest.mock import patch
 
-from aind_data_schema.data_description import Modality, Platform
-from aind_data_schema.processing import ProcessName
+from aind_data_schema.models.modalities import Modality
+from aind_data_schema.models.platforms import Platform
+from aind_data_schema.models.process_names import ProcessName
 from pydantic import SecretStr
 
 from aind_data_transfer_service.configs.job_configs import (
@@ -39,7 +40,7 @@ class TestJobStatus(unittest.TestCase):
     def test_from_hpc_job_status(self):
         """Tests parsing from hpc response json"""
         hpc_jobs = [
-            HpcJobStatusResponse.parse_obj(job_json)
+            HpcJobStatusResponse.model_validate(job_json)
             for job_json in self.job_status_response["jobs"]
         ]
         job_status_list = [
@@ -123,7 +124,7 @@ class TestJobSubmit(unittest.TestCase):
     @patch.dict(os.environ, {"HPC_NAME": "foobar"}, clear=True)
     def test_hpc_job_submit_model(self):
         """Tests that the hpc job submit settings are set correctly."""
-        hpc_job_submit_settings = HpcJobSubmitSettings(environment=[])
+        hpc_job_submit_settings = HpcJobSubmitSettings(environment={})
         self.assertEqual("foobar", hpc_job_submit_settings.name)
 
 
@@ -137,7 +138,7 @@ class TestHpcJobSubmitSettings(unittest.TestCase):
         modalities=[
             ModalityConfigs(
                 modality=Modality.ECEPHYS,
-                source=Path("dir/data_set_1"),
+                source=(PurePosixPath("dir") / "data_set_1"),
                 compress_raw_data=True,
                 extra_configs=None,
                 skip_staging=False,
@@ -170,7 +171,7 @@ class TestHpcJobSubmitSettings(unittest.TestCase):
     def test_from_upload_job_configs(self):
         """Tests from_basic_job_configs class"""
         hpc_settings = HpcJobSubmitSettings.from_upload_job_configs(
-            logging_directory=Path("dir/logs"),
+            logging_directory=(PurePosixPath("dir") / "logs"),
             aws_secret_access_key=SecretStr("some_secret"),
             aws_access_key_id="some_key",
             aws_default_region="us-west-2",
@@ -186,11 +187,19 @@ class TestHpcJobSubmitSettings(unittest.TestCase):
             "ecephys_123454_2020-10-10_14-10-10", hpc_settings.name
         )
         self.assertEqual(
-            str(Path("dir/logs/ecephys_123454_2020-10-10_14-10-10_error.out")),
+            str(
+                PurePosixPath("dir")
+                / "logs"
+                / "ecephys_123454_2020-10-10_14-10-10_error.out"
+            ),
             hpc_settings.standard_error,
         )
         self.assertEqual(
-            str(Path("dir/logs/ecephys_123454_2020-10-10_14-10-10.out")),
+            str(
+                PurePosixPath("dir")
+                / "logs"
+                / "ecephys_123454_2020-10-10_14-10-10.out"
+            ),
             hpc_settings.standard_out,
         )
         self.assertEqual(180, hpc_settings.time_limit)

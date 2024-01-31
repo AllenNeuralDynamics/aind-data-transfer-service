@@ -2,18 +2,11 @@
 
 import json
 from datetime import datetime
-from pathlib import Path
-from typing import Any, List, Optional, Union
+from pathlib import PurePosixPath
+from typing import Any, List, Literal, Optional, Union
 
-from pydantic import (
-    BaseModel,
-    BaseSettings,
-    Extra,
-    Field,
-    SecretStr,
-    validator,
-)
-from pydantic.typing import Literal
+from pydantic import BaseModel, Extra, Field, SecretStr, field_validator
+from pydantic_settings import BaseSettings
 
 
 class HpcJobSubmitSettings(BaseSettings):
@@ -404,7 +397,7 @@ class HpcJobSubmitSettings(BaseSettings):
     @classmethod
     def from_upload_job_configs(
         cls,
-        logging_directory: Path,
+        logging_directory: PurePosixPath,
         aws_secret_access_key: SecretStr,
         aws_access_key_id: str,
         aws_default_region: str,
@@ -415,7 +408,7 @@ class HpcJobSubmitSettings(BaseSettings):
         Class constructor to use when submitting a basic upload job request
         Parameters
         ----------
-        logging_directory : Path
+        logging_directory : PurePosixPath
         aws_secret_access_key : SecretStr
         aws_access_key_id : str
         aws_default_region : str
@@ -626,7 +619,7 @@ class JobStatus(BaseModel):
     start_time: Optional[datetime] = Field(None)
     submit_time: Optional[datetime] = Field(None)
 
-    @validator("end_time", "start_time", "submit_time", pre=True)
+    @field_validator("end_time", "start_time", "submit_time", mode="before")
     def _parse_timestamp(
         cls, timestamp: Union[int, datetime, None]
     ) -> Optional[datetime]:
@@ -656,4 +649,4 @@ class JobStatus(BaseModel):
     @property
     def jinja_dict(self):
         """Map model to a dictionary that jinja can render"""
-        return self.dict(exclude_none=True)
+        return self.model_dump(exclude_none=True)

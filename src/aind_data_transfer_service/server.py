@@ -70,7 +70,7 @@ async def validate_csv(request: Request):
                 try:
                     job = BasicUploadJobConfigs.from_csv_row(row=row)
                     # Construct hpc job setting most of the vars from the env
-                    basic_jobs.append(job.json())
+                    basic_jobs.append(job.model_dump_json())
                 except Exception as e:
                     errors.append(repr(e))
         message = "There were errors" if len(errors) > 0 else "Valid Data"
@@ -95,7 +95,7 @@ async def submit_basic_jobs(request: Request):
     parsing_errors = []
     for job in basic_jobs:
         try:
-            basic_upload_job = BasicUploadJobConfigs.parse_raw(job)
+            basic_upload_job = BasicUploadJobConfigs.model_validate_json(job)
             # Add aws_param_store_name and temp_dir
             basic_upload_job.aws_param_store_name = os.getenv(
                 "HPC_AWS_PARAM_STORE_NAME"
@@ -170,7 +170,7 @@ async def submit_hpc_jobs(request: Request):  # noqa: C901
                 base_script = HpcJobSubmitSettings.script_command_str(
                     sif_loc_str=os.getenv("HPC_SIF_LOCATION")
                 )
-                basic_job_name = BasicUploadJobConfigs.parse_raw(
+                basic_job_name = BasicUploadJobConfigs.model_validate_json(
                     job["upload_job_settings"]
                 ).s3_prefix
             upload_job_configs = json.loads(job["upload_job_settings"])
@@ -271,7 +271,7 @@ async def jobs(request: Request):
     response = hpc_client.get_jobs()
     if response.status_code == 200:
         slurm_jobs = [
-            HpcJobStatusResponse.parse_obj(job_json)
+            HpcJobStatusResponse.model_validate(job_json)
             for job_json in response.json()["jobs"]
             if job_json["partition"] == hpc_partition
             and job_json["user_name"] == os.getenv("HPC_USERNAME")
