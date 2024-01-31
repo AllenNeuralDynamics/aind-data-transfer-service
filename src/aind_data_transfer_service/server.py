@@ -5,7 +5,7 @@ import json
 import logging
 import os
 from asyncio import sleep
-from pathlib import Path
+from pathlib import PurePosixPath
 
 import openpyxl
 from fastapi import Request
@@ -72,7 +72,7 @@ async def validate_csv(request: Request):
                     # Construct hpc job setting most of the vars from the env
                     basic_jobs.append(job.model_dump_json())
                 except Exception as e:
-                    errors.append(repr(e))
+                    errors.append(f"{e.__class__}: {e.args}")
         message = "There were errors" if len(errors) > 0 else "Valid Data"
         status_code = 406 if len(errors) > 0 else 200
         content = {
@@ -126,7 +126,7 @@ async def submit_basic_jobs(request: Request):
                 # Add pause to stagger job requests to the hpc
                 await sleep(0.2)
             except Exception as e:
-                logging.error(repr(e))
+                logging.error(f"{e.__class__}: {e.args}")
                 hpc_errors.append(
                     f"Error processing "
                     f"{hpc_job.basic_upload_job_configs.s3_prefix}"
@@ -178,7 +178,9 @@ async def submit_hpc_jobs(request: Request):  # noqa: C901
             if basic_job_name is not None:
                 hpc_settings["name"] = basic_job_name
             hpc_job = HpcJobSubmitSettings.from_upload_job_configs(
-                logging_directory=Path(os.getenv("HPC_LOGGING_DIRECTORY")),
+                logging_directory=PurePosixPath(
+                    os.getenv("HPC_LOGGING_DIRECTORY")
+                ),
                 aws_secret_access_key=SecretStr(
                     os.getenv("HPC_AWS_SECRET_ACCESS_KEY")
                 ),

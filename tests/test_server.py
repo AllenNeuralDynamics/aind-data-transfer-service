@@ -230,7 +230,12 @@ class TestServer(unittest.TestCase):
                 response = client.post(url="/api/validate_csv", files=files)
         self.assertEqual(response.status_code, 406)
         self.assertEqual(
-            ["AttributeError('Unknown Modality: WRONG_MODALITY_HERE')"],
+            [
+                (
+                    "<class 'AttributeError'>:"
+                    " ('Unknown Modality: WRONG_MODALITY_HERE',)"
+                )
+            ],
             response.json()["data"]["errors"],
         )
 
@@ -245,7 +250,12 @@ class TestServer(unittest.TestCase):
                 response = client.post(url="/api/validate_csv", files=files)
         self.assertEqual(response.status_code, 406)
         self.assertEqual(
-            ["AttributeError('Unknown Modality: WRONG_MODALITY_HERE')"],
+            [
+                (
+                    "<class 'AttributeError'>:"
+                    " ('Unknown Modality: WRONG_MODALITY_HERE',)"
+                )
+            ],
             response.json()["data"]["errors"],
         )
 
