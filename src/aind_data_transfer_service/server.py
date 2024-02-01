@@ -5,7 +5,7 @@ import json
 import logging
 import os
 from asyncio import sleep
-from pathlib import Path
+from pathlib import PurePosixPath
 
 import openpyxl
 from fastapi import Request
@@ -70,9 +70,9 @@ async def validate_csv(request: Request):
                 try:
                     job = BasicUploadJobConfigs.from_csv_row(row=row)
                     # Construct hpc job setting most of the vars from the env
-                    basic_jobs.append(job.json())
+                    basic_jobs.append(job.model_dump_json())
                 except Exception as e:
-                    errors.append(repr(e))
+                    errors.append(f"{e.__class__.__name__}{e.args}")
         message = "There were errors" if len(errors) > 0 else "Valid Data"
         status_code = 406 if len(errors) > 0 else 200
         content = {
@@ -95,7 +95,7 @@ async def submit_basic_jobs(request: Request):
     parsing_errors = []
     for job in basic_jobs:
         try:
-            basic_upload_job = BasicUploadJobConfigs.parse_raw(job)
+            basic_upload_job = BasicUploadJobConfigs.model_validate_json(job)
             # Add aws_param_store_name and temp_dir
             basic_upload_job.aws_param_store_name = os.getenv(
                 "HPC_AWS_PARAM_STORE_NAME"
@@ -106,7 +106,9 @@ async def submit_basic_jobs(request: Request):
             hpc_job = HpcJobConfigs(basic_upload_job_configs=basic_upload_job)
             hpc_jobs.append(hpc_job)
         except Exception as e:
-            parsing_errors.append(f"Error parsing {job}: {e.__class__}")
+            parsing_errors.append(
+                f"Error parsing {job}: {e.__class__.__name__}"
+            )
     if parsing_errors:
         status_code = 406
         message = "There were errors parsing the basic job configs"
@@ -126,7 +128,7 @@ async def submit_basic_jobs(request: Request):
                 # Add pause to stagger job requests to the hpc
                 await sleep(0.2)
             except Exception as e:
-                logging.error(repr(e))
+                logging.error(f"{e.__class__.__name__}{e.args}")
                 hpc_errors.append(
                     f"Error processing "
                     f"{hpc_job.basic_upload_job_configs.s3_prefix}"
@@ -170,7 +172,7 @@ async def submit_hpc_jobs(request: Request):  # noqa: C901
                 base_script = HpcJobSubmitSettings.script_command_str(
                     sif_loc_str=os.getenv("HPC_SIF_LOCATION")
                 )
-                basic_job_name = BasicUploadJobConfigs.parse_raw(
+                basic_job_name = BasicUploadJobConfigs.model_validate_json(
                     job["upload_job_settings"]
                 ).s3_prefix
             upload_job_configs = json.loads(job["upload_job_settings"])
@@ -178,7 +180,9 @@ async def submit_hpc_jobs(request: Request):  # noqa: C901
             if basic_job_name is not None:
                 hpc_settings["name"] = basic_job_name
             hpc_job = HpcJobSubmitSettings.from_upload_job_configs(
-                logging_directory=Path(os.getenv("HPC_LOGGING_DIRECTORY")),
+                logging_directory=PurePosixPath(
+                    os.getenv("HPC_LOGGING_DIRECTORY")
+                ),
                 aws_secret_access_key=SecretStr(
                     os.getenv("HPC_AWS_SECRET_ACCESS_KEY")
                 ),
@@ -271,7 +275,7 @@ async def jobs(request: Request):
     response = hpc_client.get_jobs()
     if response.status_code == 200:
         slurm_jobs = [
-            HpcJobStatusResponse.parse_obj(job_json)
+            HpcJobStatusResponse.model_validate(job_json)
             for job_json in response.json()["jobs"]
             if job_json["partition"] == hpc_partition
             and job_json["user_name"] == os.getenv("HPC_USERNAME")

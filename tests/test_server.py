@@ -62,7 +62,9 @@ class TestServer(unittest.TestCase):
                     "file": f,
                 }
                 response = client.post(url="/api/validate_csv", files=files)
-        expected_jobs = [j.json() for j in self.expected_job_configs]
+        expected_jobs = [
+            j.model_dump_json() for j in self.expected_job_configs
+        ]
         expected_response = {
             "message": "Valid Data",
             "data": {"jobs": expected_jobs, "errors": []},
@@ -79,7 +81,9 @@ class TestServer(unittest.TestCase):
                     "file": f,
                 }
                 response = client.post(url="/api/validate_csv", files=files)
-        expected_jobs = [j.json() for j in self.expected_job_configs]
+        expected_jobs = [
+            j.model_dump_json() for j in self.expected_job_configs
+        ]
         expected_response = {
             "message": "Valid Data",
             "data": {"jobs": expected_jobs, "errors": []},
@@ -188,8 +192,8 @@ class TestServer(unittest.TestCase):
                 "responses": [],
                 "errors": [
                     (
-                        'Error parsing {"malformed_key": "val"}: '
-                        "<class 'pydantic.error_wrappers.ValidationError'>"
+                        'Error parsing {"malformed_key": "val"}:'
+                        " ValidationError"
                     )
                 ],
             },
@@ -225,7 +229,7 @@ class TestServer(unittest.TestCase):
                 response = client.post(url="/api/validate_csv", files=files)
         self.assertEqual(response.status_code, 406)
         self.assertEqual(
-            ["AttributeError('WRONG_MODALITY_HERE')"],
+            [("AttributeError('Unknown Modality: WRONG_MODALITY_HERE',)")],
             response.json()["data"]["errors"],
         )
 
@@ -240,7 +244,7 @@ class TestServer(unittest.TestCase):
                 response = client.post(url="/api/validate_csv", files=files)
         self.assertEqual(response.status_code, 406)
         self.assertEqual(
-            ["AttributeError('WRONG_MODALITY_HERE')"],
+            [("AttributeError('Unknown Modality: WRONG_MODALITY_HERE',)")],
             response.json()["data"]["errors"],
         )
 

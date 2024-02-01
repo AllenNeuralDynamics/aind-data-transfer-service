@@ -4,10 +4,11 @@ import csv
 import os
 import unittest
 from datetime import datetime
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
-from aind_data_schema.data_description import Modality, Platform
-from aind_data_schema.processing import ProcessName
+from aind_data_schema.core.processing import ProcessName
+from aind_data_schema.models.modalities import Modality
+from aind_data_schema.models.platforms import Platform
 
 from aind_data_transfer_service.configs.job_configs import (
     BasicUploadJobConfigs,
@@ -30,7 +31,7 @@ class TestJobConfigs(unittest.TestCase):
             modalities=[
                 ModalityConfigs(
                     modality=Modality.ECEPHYS,
-                    source=Path("dir/data_set_1"),
+                    source=(PurePosixPath("dir") / "data_set_1"),
                     compress_raw_data=True,
                     extra_configs=None,
                     skip_staging=False,
@@ -53,14 +54,14 @@ class TestJobConfigs(unittest.TestCase):
             modalities=[
                 ModalityConfigs(
                     modality=Modality.BEHAVIOR_VIDEOS,
-                    source=Path("dir/data_set_2"),
+                    source=(PurePosixPath("dir") / "data_set_2"),
                     compress_raw_data=False,
                     extra_configs=None,
                     skip_staging=False,
                 ),
                 ModalityConfigs(
                     modality=Modality.MRI,
-                    source=Path("dir/data_set_3"),
+                    source=(PurePosixPath("dir") / "data_set_3"),
                     compress_raw_data=False,
                     extra_configs=None,
                     skip_staging=False,
@@ -83,14 +84,14 @@ class TestJobConfigs(unittest.TestCase):
             modalities=[
                 ModalityConfigs(
                     modality=Modality.BEHAVIOR_VIDEOS,
-                    source=Path("dir/data_set_2"),
+                    source=(PurePosixPath("dir") / "data_set_2"),
                     compress_raw_data=False,
                     extra_configs=None,
                     skip_staging=False,
                 ),
                 ModalityConfigs(
                     modality=Modality.BEHAVIOR_VIDEOS,
-                    source=Path("dir/data_set_3"),
+                    source=(PurePosixPath("dir") / "data_set_3"),
                     compress_raw_data=False,
                     extra_configs=None,
                     skip_staging=False,
@@ -164,10 +165,41 @@ class TestJobConfigs(unittest.TestCase):
 
         # Tests clean_csv_entry returns a default if None
         self.assertEqual(
-            BasicUploadJobConfigs.__fields__["log_level"].default,
+            BasicUploadJobConfigs.model_fields["log_level"].default,
             BasicUploadJobConfigs._clean_csv_entry(
                 csv_key="log_level", csv_value=None
             ),
+        )
+
+    def test_malformed_platform(self):
+        """Tests that an error is raised if an unknown platform is used"""
+
+        with self.assertRaises(AttributeError) as e:
+            BasicUploadJobConfigs(
+                aws_param_store_name="/some/param/store",
+                s3_bucket="some_bucket2",
+                platform="MISSING",
+                modalities=[
+                    ModalityConfigs(
+                        modality=Modality.BEHAVIOR_VIDEOS,
+                        source=(PurePosixPath("dir") / "data_set_2"),
+                        compress_raw_data=False,
+                        extra_configs=None,
+                        skip_staging=False,
+                    ),
+                ],
+                subject_id="123456",
+                acq_datetime=datetime(2020, 10, 13, 13, 10, 10),
+                process_name=ProcessName.OTHER,
+                temp_directory=None,
+                metadata_dir=None,
+                log_level="WARNING",
+                metadata_dir_force=False,
+                dry_run=False,
+                force_cloud_sync=False,
+            )
+        self.assertEqual(
+            "AttributeError('Unknown Platform: MISSING')", repr(e.exception)
         )
 
 
@@ -182,9 +214,9 @@ class TestHpcConfigs(unittest.TestCase):
             hpc_aws_secret_access_key="zxcvbnm",
             hpc_aws_access_key_id="abc-123",
             hpc_aws_default_region="us-west-2",
-            hpc_sif_location=Path("sif_location"),
-            hpc_current_working_directory=Path("hpc_cwd"),
-            hpc_logging_directory=Path("hpc_logs"),
+            hpc_sif_location=PurePosixPath("sif_location"),
+            hpc_current_working_directory=PurePosixPath("hpc_cwd"),
+            hpc_logging_directory=PurePosixPath("hpc_logs"),
             basic_upload_job_configs=job_configs,
         )
         job_name = hpc_configs._job_name()
@@ -200,13 +232,13 @@ class TestHpcConfigs(unittest.TestCase):
             hpc_aws_access_key_id="abc-123",
             hpc_aws_session_token="token-42gfwq4",
             hpc_aws_default_region="us-west-2",
-            hpc_sif_location=Path("sif_location"),
-            hpc_current_working_directory=Path("hpc_cwd"),
-            hpc_logging_directory=Path("hpc_logs"),
+            hpc_sif_location=PurePosixPath("sif_location"),
+            hpc_current_working_directory=PurePosixPath("hpc_cwd"),
+            hpc_logging_directory=PurePosixPath("hpc_logs"),
             basic_upload_job_configs=job_configs,
         )
         hpc_configs2 = HpcJobConfigs(
-            **hpc_configs.dict(exclude_none=True),
+            **hpc_configs.model_dump(exclude_none=True),
             hpc_alt_exec_command="#!/bin/bash \necho Hello",
         )
 
@@ -217,46 +249,48 @@ class TestHpcConfigs(unittest.TestCase):
                 "time_limit": "06:00:00",
                 "partition": "hpc_part",
                 "current_working_directory": "hpc_cwd",
-                "standard_output": str(
-                    Path("hpc_logs") / "ecephys_123454_2020-10-10_14-10-10.out"
+                "standard_output": (
+                    "hpc_logs/ecephys_123454_2020-10-10_14-10-10.out"
                 ),
-                "standard_error": str(
-                    Path("hpc_logs")
-                    / "ecephys_123454_2020-10-10_14-10-10_error.out"
+                "standard_error": (
+                    "hpc_logs/ecephys_123454_2020-10-10_14-10-10_error.out"
                 ),
                 "memory_per_node": "50gb",
-                "environment": (
-                    {
-                        "PATH": "/bin:/usr/bin/:/usr/local/bin/",
-                        "LD_LIBRARY_PATH": "/lib/:/lib64/:/usr/local/lib",
-                        "SINGULARITYENV_AWS_SECRET_ACCESS_KEY": "zxcvbnm",
-                        "SINGULARITYENV_AWS_ACCESS_KEY_ID": "abc-123",
-                        "SINGULARITYENV_AWS_DEFAULT_REGION": "us-west-2",
-                        "SINGULARITYENV_AWS_SESSION_TOKEN": "token-42gfwq4",
-                    }
-                ),
+                "environment": {
+                    "PATH": "/bin:/usr/bin/:/usr/local/bin/",
+                    "LD_LIBRARY_PATH": "/lib/:/lib64/:/usr/local/lib",
+                    "SINGULARITYENV_AWS_SECRET_ACCESS_KEY": "zxcvbnm",
+                    "SINGULARITYENV_AWS_ACCESS_KEY_ID": "abc-123",
+                    "SINGULARITYENV_AWS_DEFAULT_REGION": "us-west-2",
+                    "SINGULARITYENV_AWS_SESSION_TOKEN": "token-42gfwq4",
+                },
             },
             "script": (
-                "#!/bin/bash \nsingularity exec --cleanenv sif_location python"
-                " -m aind_data_transfer.jobs.basic_job --json-args '"
-                ' {"aws_param_store_name": "/some/param/store",'
-                ' "s3_bucket": "some_bucket",'
-                ' "platform": {"name": "Electrophysiology platform", '
-                '"abbreviation": "ecephys"}, "modalities": '
-                '[{"modality": {"name": '
-                '"Extracellular electrophysiology", '
-                '"abbreviation": "ecephys"}, '
-                f'"source": "{repr(str(Path("dir/data_set_1")))[1:-1]}", '
-                '"compress_raw_data": true, '
-                '"extra_configs": null,'
-                ' "skip_staging": false}],'
-                ' "subject_id": "123454",'
-                ' "acq_datetime": "2020-10-10T14:10:10",'
-                ' "process_name": "Other",'
-                ' "metadata_dir": null, "behavior_dir": null,'
-                ' "log_level": "WARNING", "metadata_dir_force": false,'
-                ' "dry_run": false, "force_cloud_sync": false,'
-                ' "temp_directory": null} \''
+                "#!/bin/bash \nsingularity exec"
+                " --cleanenv sif_location"
+                " python -m aind_data_transfer.jobs.basic_job"
+                " --json-args ' "
+                '{"aws_param_store_name":"/some/param/store",'
+                '"s3_bucket":"some_bucket",'
+                '"platform":{"name":"Electrophysiology platform",'
+                '"abbreviation":"ecephys"},'
+                '"modalities":[{"modality":'
+                '{"name":"Extracellular electrophysiology",'
+                '"abbreviation":"ecephys"},'
+                '"source":"dir/data_set_1",'
+                '"compress_raw_data":true,'
+                '"extra_configs":null,'
+                '"skip_staging":false}],'
+                '"subject_id":"123454",'
+                '"acq_datetime":"2020-10-10T14:10:10",'
+                '"process_name":"Other",'
+                '"metadata_dir":null,'
+                '"behavior_dir":null,'
+                '"log_level":"WARNING",'
+                '"metadata_dir_force":false,'
+                '"dry_run":false,'
+                '"force_cloud_sync":false,'
+                '"temp_directory":null} \''
             ),
         }
 

@@ -4,7 +4,8 @@ import json
 from typing import List, Optional, Union
 
 import requests
-from pydantic import BaseSettings, Field, SecretStr, validator
+from pydantic import Field, SecretStr, field_validator
+from pydantic_settings import BaseSettings
 from requests.models import Response
 
 from aind_data_transfer_service.hpc.models import HpcJobSubmitSettings
@@ -20,7 +21,7 @@ class HpcClientConfigs(BaseSettings):
     hpc_password: SecretStr = Field(...)
     hpc_token: SecretStr = Field(...)
 
-    @validator("hpc_host", "hpc_api_endpoint", pre=True)
+    @field_validator("hpc_host", "hpc_api_endpoint", mode="before")
     def _strip_slash(cls, input_str: Optional[str]):
         """Strips trailing slash from domain."""
         return None if input_str is None else input_str.strip("/")
@@ -132,12 +133,15 @@ class HpcClient:
         assert job is None or jobs is None
         if job is not None:
             job_def = {
-                "job": json.loads(job.json(exclude_none=True)),
+                "job": json.loads(job.model_dump_json(exclude_none=True)),
                 "script": script,
             }
         else:
             job_def = {
-                "jobs": [json.loads(j.json(exclude_none=True)) for j in jobs],
+                "jobs": [
+                    json.loads(j.model_dump_json(exclude_none=True))
+                    for j in jobs
+                ],
                 "script": script,
             }
 
