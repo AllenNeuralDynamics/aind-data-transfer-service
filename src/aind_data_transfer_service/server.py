@@ -72,7 +72,7 @@ async def validate_csv(request: Request):
                     # Construct hpc job setting most of the vars from the env
                     basic_jobs.append(job.model_dump_json())
                 except Exception as e:
-                    errors.append(f"{e.__class__}: {e.args}")
+                    errors.append(f"{e.__class__.__name__}{e.args}")
         message = "There were errors" if len(errors) > 0 else "Valid Data"
         status_code = 406 if len(errors) > 0 else 200
         content = {
@@ -106,7 +106,9 @@ async def submit_basic_jobs(request: Request):
             hpc_job = HpcJobConfigs(basic_upload_job_configs=basic_upload_job)
             hpc_jobs.append(hpc_job)
         except Exception as e:
-            parsing_errors.append(f"Error parsing {job}: {e.__class__}")
+            parsing_errors.append(
+                f"Error parsing {job}: {e.__class__.__name__}"
+            )
     if parsing_errors:
         status_code = 406
         message = "There were errors parsing the basic job configs"
@@ -126,7 +128,7 @@ async def submit_basic_jobs(request: Request):
                 # Add pause to stagger job requests to the hpc
                 await sleep(0.2)
             except Exception as e:
-                logging.error(f"{e.__class__}: {e.args}")
+                logging.error(f"{e.__class__.__name__}{e.args}")
                 hpc_errors.append(
                     f"Error processing "
                     f"{hpc_job.basic_upload_job_configs.s3_prefix}"

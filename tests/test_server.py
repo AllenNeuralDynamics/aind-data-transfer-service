@@ -192,9 +192,8 @@ class TestServer(unittest.TestCase):
                 "responses": [],
                 "errors": [
                     (
-                        'Error parsing {"malformed_key": "val"}: '
-                        "<class 'pydantic_core._pydantic_core"
-                        ".ValidationError'>"
+                        'Error parsing {"malformed_key": "val"}:'
+                        " ValidationError"
                     )
                 ],
             },
@@ -230,12 +229,7 @@ class TestServer(unittest.TestCase):
                 response = client.post(url="/api/validate_csv", files=files)
         self.assertEqual(response.status_code, 406)
         self.assertEqual(
-            [
-                (
-                    "<class 'AttributeError'>:"
-                    " ('Unknown Modality: WRONG_MODALITY_HERE',)"
-                )
-            ],
+            [("AttributeError('Unknown Modality: WRONG_MODALITY_HERE',)")],
             response.json()["data"]["errors"],
         )
 
@@ -250,12 +244,7 @@ class TestServer(unittest.TestCase):
                 response = client.post(url="/api/validate_csv", files=files)
         self.assertEqual(response.status_code, 406)
         self.assertEqual(
-            [
-                (
-                    "<class 'AttributeError'>:"
-                    " ('Unknown Modality: WRONG_MODALITY_HERE',)"
-                )
-            ],
+            [("AttributeError('Unknown Modality: WRONG_MODALITY_HERE',)")],
             response.json()["data"]["errors"],
         )
 
