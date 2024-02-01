@@ -43,6 +43,10 @@ templates = Jinja2Templates(directory=template_directory)
 # HPC_STAGING_DIRECTORY
 # HPC_AWS_PARAM_STORE_NAME
 # BASIC_JOB_SCRIPT
+# OPEN_DATA_AWS_SECRET_ACCESS_KEY
+# OPEN_DATA_AWS_ACCESS_KEY_ID
+
+OPEN_DATA_BUCKET_NAME = os.getenv("OPEN_DATA_BUCKET_NAME", "aind-open-data")
 
 
 async def validate_csv(request: Request):
@@ -176,6 +180,18 @@ async def submit_hpc_jobs(request: Request):  # noqa: C901
                     job["upload_job_settings"]
                 ).s3_prefix
             upload_job_configs = json.loads(job["upload_job_settings"])
+            # The aws creds to use are different for aind-open-data and
+            # everything else
+            if upload_job_configs.get("s3_bucket") == OPEN_DATA_BUCKET_NAME:
+                aws_secret_access_key = SecretStr(
+                    os.getenv("OPEN_DATA_AWS_SECRET_ACCESS_KEY")
+                )
+                aws_access_key_id = os.getenv("OPEN_DATA_AWS_ACCESS_KEY_ID")
+            else:
+                aws_secret_access_key = SecretStr(
+                    os.getenv("HPC_AWS_SECRET_ACCESS_KEY")
+                )
+                aws_access_key_id = os.getenv("HPC_AWS_ACCESS_KEY_ID")
             hpc_settings = json.loads(job["hpc_settings"])
             if basic_job_name is not None:
                 hpc_settings["name"] = basic_job_name
@@ -183,10 +199,8 @@ async def submit_hpc_jobs(request: Request):  # noqa: C901
                 logging_directory=PurePosixPath(
                     os.getenv("HPC_LOGGING_DIRECTORY")
                 ),
-                aws_secret_access_key=SecretStr(
-                    os.getenv("HPC_AWS_SECRET_ACCESS_KEY")
-                ),
-                aws_access_key_id=os.getenv("HPC_AWS_ACCESS_KEY_ID"),
+                aws_secret_access_key=aws_secret_access_key,
+                aws_access_key_id=aws_access_key_id,
                 aws_default_region=os.getenv("HPC_AWS_DEFAULT_REGION"),
                 aws_session_token=(
                     (
