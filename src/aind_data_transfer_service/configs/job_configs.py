@@ -14,7 +14,7 @@ from pydantic import (
     PrivateAttr,
     SecretStr,
     ValidationInfo,
-    field_validator,
+    field_validator, ConfigDict,
 )
 from pydantic_settings import BaseSettings
 
@@ -103,6 +103,9 @@ class ModalityConfigs(BaseSettings):
 
 class BasicUploadJobConfigs(BaseSettings):
     """Configuration for the basic upload job"""
+
+    # Allow users to pass in extra fields
+    model_config = ConfigDict(extra='allow',)
 
     # Need some way to extract abbreviations. Maybe a public method can be
     # added to the Platform class
