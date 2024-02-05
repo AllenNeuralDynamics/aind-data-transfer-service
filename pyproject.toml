@@ -17,6 +17,10 @@ readme = "README.md"
 dynamic = ["version"]
 
 dependencies = [
+    'boto3',
+    'aind-data-schema==0.26.5',
+    'pydantic>=2.0',
+    'pydantic-settings>=2.0',
 ]
 
 [project.optional-dependencies]
@@ -32,10 +36,6 @@ dev = [
 ]
 
 server = [
-    'boto3',
-    'aind-data-schema==0.26.5',
-    'pydantic>=2.0',
-    'pydantic-settings>=2.0',
     'fastapi',
     'httpx',
     'jinja2',
