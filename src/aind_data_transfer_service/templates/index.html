@@ -21,6 +21,10 @@
       text-align: left;
       padding: 8px;
     }
+    th, tr:hover {
+        background-color: #E8EAF6;
+        color: #3F51B5;
+    }
     #preview, #submit { 
         border: none;
         border-radius: 6px;
@@ -101,6 +105,18 @@
                 $("#message").addClass("error");
             }
         };
+        addTableRow = function(data, table, tr, td, isHeader) {
+            tr = document.createElement('tr');
+            for (var d of data) {
+                td = document.createElement(isHeader ? 'th' : 'td');
+                td.innerHTML = d.value ?? d;
+                if (d.rowspan) {
+                    td.setAttribute("rowspan", d.rowspan);
+                }
+                tr.append(td);
+            }
+            table.appendChild(tr);
+        };
         $(function() {
             $("#preview_form").on("submit", function(e) {
                 e.preventDefault();
@@ -129,39 +145,30 @@
                         jobs = data["data"]["jobs"];
                         parsing_errors = []
                         let jobsLength = jobs.length;
-                        var table = document.createElement('table'), tr, td, row, cell;
+                        var table = document.createElement('table'), tr, td, row;
+                        addTableRow(
+                            [ "s3_bucket", "platform", "subject_id", "acq_datetime", "modality", "modality.source" ],
+                            table, tr, td, true
+                        );
                         for (row = 0; row < jobsLength; row++) {
                             let job = JSON.parse(jobs[row]);
-                            tr = document.createElement('tr');
-                            td = document.createElement('td');
-                            tr.appendChild(td);
-                            td.innerHTML = job.s3_bucket;
-                            td = document.createElement('td');
-                            tr.appendChild(td);
-                            td.innerHTML = job.platform.abbreviation;
-                            td = document.createElement('td');
-                            tr.appendChild(td);
-                            td.innerHTML = job.subject_id;
-                            td = document.createElement('td');
-                            tr.appendChild(td);
-                            td.innerHTML = job.acq_datetime;
-                            td = document.createElement('td');
-                            table.appendChild(tr);
                             let modalities = job.modalities;
                             let modalitiesLength = modalities.length;
-                            for (mRow = 0; mRow < modalitiesLength; mRow++){
+                            addTableRow(
+                                [   { value: job.s3_bucket,             rowspan: modalitiesLength },
+                                    { value: job.platform.abbreviation, rowspan: modalitiesLength },
+                                    { value: job.subject_id,            rowspan: modalitiesLength },
+                                    { value: job.acq_datetime,          rowspan: modalitiesLength },
+                                    modalities ? modalities[0].modality.abbreviation : "",
+                                    modalities ? modalities[0].source : ""
+                                ], table, tr, td, false
+                            );
+                            for (mRow = 1; mRow < modalitiesLength; mRow++) {
                                 let modality = modalities[mRow]
-                                tr = document.createElement('tr');
-                                td = document.createElement('td');
-                                tr.appendChild(td);
-                                td = document.createElement('td');
-                                tr.appendChild(td);
-                                td.innerHTML = modality.modality.abbreviation;
-                                td = document.createElement('td');
-                                tr.appendChild(td);
-                                td.innerHTML = modality.source;
-                                td.setAttribute("colspan", "4");
-                                table.appendChild(tr);
+                                addTableRow(
+                                    [ modality.modality.abbreviation, modality.source ],
+                                    table, tr, td, false
+                                );
                             }
                         }
                         $("#response").html(table);
