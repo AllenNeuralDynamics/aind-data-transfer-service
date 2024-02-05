@@ -5,19 +5,37 @@
     <meta charset="UTF-8">
     <title>{% block title %} {% endblock %} AIND Data Transfer Service</title>
     <style>
+    body {
+        margin: 20px;
+        font-family: arial, sans-serif;
+    }
     fieldset {
       display:inline
     }
     table {
-      font-family: arial, sans-serif;
       border-collapse: collapse;
       width: 75%;
     }
-
     td, th {
       border: 1px solid #dddddd;
       text-align: left;
       padding: 8px;
+    }
+    #preview, #submit { 
+        border: none;
+        border-radius: 6px;
+        color: #ffffff;
+        padding: 8px;
+        width: 80px;
+        font-size: medium;
+    }
+    #preview {
+        background-color: lightsalmon;
+        &:hover { background-color: salmon; }
+    }
+    #submit {
+        background-color: #5065df;
+        &:hover { background-color: #3f51b5; }
     }
     </style>
 </head>
@@ -54,7 +72,7 @@
         <input type="file" id="file" name="file" accept=".csv,.xlsx"><br><br>
         <input type="submit" id="preview" value="Preview"><br><br>
     </form>
-    <button type="button" onclick="submitJobs()">Submit</button>
+    <button id="submit" type="button" onclick="submitJobs()">Submit</button>
     <div id="message"></div><br>
     <div id="response"></div>
     <script>
@@ -128,8 +146,8 @@
                         jobs = []
                         parsing_errors = data.responseJSON["data"]["errors"]
                         $("#message").html("Returned error");
-                        $("#response").html(parsing_errors.map((errStr) => {
-                            return `<li>${errStr}</li>`
+                        $("#response").html(parsing_errors.map((err) => {
+                            return `<li>${err}</li>`
                         }));
                     }
                 });
@@ -194,6 +212,9 @@
                         }));
                     }
                 });
+            } else if (jobs.length == 0) {
+                alert("No valid jobs to submit. Please attach a .csv or .xlsx file and click Preview first.");
+                return;
             }
         };
     </script>
