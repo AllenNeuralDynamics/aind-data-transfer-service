@@ -394,11 +394,21 @@ async def jobs(request: Request):
 async def download_job_template(request: Request):
     """Get job template as xlsx file download"""
     if not os.path.isfile(JOB_TEMPLATE_FILEPATH):
-        await create_template_xlsx()
+        try:
+            await create_template_xlsx()
+        except Exception as e:
+            return JSONResponse(
+                content={
+                    "message": "Error creating job template",
+                    "data": {"error": f"{e.__class__.__name__}{e.args}"},
+                },
+                status_code=406,
+            )
     return FileResponse(
         JOB_TEMPLATE_FILEPATH,
         media_type="application/octet-stream",
         filename=JOB_TEMPLATE_FILENAME,
+        status_code=200,
     )
 
 
@@ -446,7 +456,7 @@ routes = [
     Route("/api/submit_hpc_jobs", endpoint=submit_hpc_jobs, methods=["POST"]),
     Route("/jobs", endpoint=jobs, methods=["GET"]),
     Route(
-        "/api/download_job_template",
+        "/api/job_upload_template",
         endpoint=download_job_template,
         methods=["GET"],
     ),
