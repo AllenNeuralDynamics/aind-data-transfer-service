@@ -5,19 +5,46 @@
     <meta charset="UTF-8">
     <title>{% block title %} {% endblock %} AIND Data Transfer Service</title>
     <style>
+    body {
+        margin: 20px;
+        font-family: arial, sans-serif;
+    }
     fieldset {
       display:inline
     }
     table {
-      font-family: arial, sans-serif;
       border-collapse: collapse;
       width: 75%;
     }
-
     td, th {
       border: 1px solid #dddddd;
       text-align: left;
       padding: 8px;
+    }
+    th, tr:hover {
+        background-color: #E8EAF6;
+        color: #3F51B5;
+    }
+    #preview, #submit { 
+        border: none;
+        border-radius: 6px;
+        color: #ffffff;
+        padding: 8px;
+        width: 80px;
+        font-size: medium;
+    }
+    #preview {
+        background-color: lightsalmon;
+        &:hover { background-color: salmon; }
+    }
+    #submit {
+        background-color: #5065df;
+        &:hover { background-color: #3f51b5; }
+    }
+    #message {
+        margin-top: 20px;
+        &.success { color: green; }
+        &.error { color: red; }
     }
     </style>
 </head>
@@ -52,14 +79,44 @@
     <form id="preview_form" method="post" enctype="multipart/form-data">
         <label for="file">Please select a .csv or .xlsx file:</label>
         <input type="file" id="file" name="file" accept=".csv,.xlsx"><br><br>
-        <input type="submit" id="preview" value="preview"><br><br>
+        <input type="submit" id="preview" value="Preview"><br><br>
     </form>
-    <button type="button" onclick="submitJobs()">Submit</button>
+    <button id="submit" type="button" onclick="submitJobs()">Submit</button>
     <div id="message"></div><br>
     <div id="response"></div>
     <script>
         var jobs = []
         var parsing_errors = []
+        const msgTypes = {
+            "validatePending": "Sending...",
+            "validateSuccess": "Successfully validated jobs from file.",
+            "validateError": "Error validating jobs from file.",
+            "submitPending": "Submitting jobs. Please do not refresh or re-submit...",
+            "submitSuccess": "Successfuly submitted jobs.",
+            "submitError": "Error submitting jobs."
+        }
+        setMessage = function(msgType) {
+            $("#message").removeClass("success");
+            $("#message").removeClass("error");
+            $("#message").html(msgType);
+            if (msgType == msgTypes.validateSuccess || msgType == msgTypes.submitSuccess) {
+                $("#message").addClass("success");
+            } else if (msgType == msgTypes.validateError || msgType == msgTypes.submitError) {
+                $("#message").addClass("error");
+            }
+        };
+        addTableRow = function(data, table, tr, td, isHeader) {
+            tr = document.createElement('tr');
+            for (var d of data) {
+                td = document.createElement(isHeader ? 'th' : 'td');
+                td.innerHTML = d.value ?? d;
+                if (d.rowspan) {
+                    td.setAttribute("rowspan", d.rowspan);
+                }
+                tr.append(td);
+            }
+            table.appendChild(tr);
+        };
         $(function() {
             $("#preview_form").on("submit", function(e) {
                 e.preventDefault();
@@ -80,56 +137,49 @@
                     contentType: false,
                     processData: false,
                     beforeSend: function() {
-                        $("#message").html("sending...");
+                        setMessage(msgTypes.validatePending);
+                        $("#response").html("");
                     },
                     success: function(data) {
-                        $("#message").html("Returned response.");
+                        setMessage(msgTypes.validateSuccess);
                         jobs = data["data"]["jobs"];
                         parsing_errors = []
                         let jobsLength = jobs.length;
-                        var table = document.createElement('table'), tr, td, row, cell;
+                        var table = document.createElement('table'), tr, td, row;
+                        addTableRow(
+                            [ "s3_bucket", "platform", "subject_id", "acq_datetime", "modality", "modality.source" ],
+                            table, tr, td, true
+                        );
                         for (row = 0; row < jobsLength; row++) {
                             let job = JSON.parse(jobs[row]);
-                            tr = document.createElement('tr');
-                            td = document.createElement('td');
-                            tr.appendChild(td);
-                            td.innerHTML = job.s3_bucket;
-                            td = document.createElement('td');
-                            tr.appendChild(td);
-                            td.innerHTML = job.platform.abbreviation;
-                            td = document.createElement('td');
-                            tr.appendChild(td);
-                            td.innerHTML = job.subject_id;
-                            td = document.createElement('td');
-                            tr.appendChild(td);
-                            td.innerHTML = job.acq_datetime;
-                            td = document.createElement('td');
-                            table.appendChild(tr);
                             let modalities = job.modalities;
                             let modalitiesLength = modalities.length;
-                            for (mRow = 0; mRow < modalitiesLength; mRow++){
+                            addTableRow(
+                                [   { value: job.s3_bucket,             rowspan: modalitiesLength },
+                                    { value: job.platform.abbreviation, rowspan: modalitiesLength },
+                                    { value: job.subject_id,            rowspan: modalitiesLength },
+                                    { value: job.acq_datetime,          rowspan: modalitiesLength },
+                                    modalities ? modalities[0].modality.abbreviation : "",
+                                    modalities ? modalities[0].source : ""
+                                ], table, tr, td, false
+                            );
+                            for (mRow = 1; mRow < modalitiesLength; mRow++) {
                                 let modality = modalities[mRow]
-                                tr = document.createElement('tr');
-                                td = document.createElement('td');
-                                tr.appendChild(td);
-                                td = document.createElement('td');
-                                tr.appendChild(td);
-                                td.innerHTML = modality.modality.abbreviation;
-                                td = document.createElement('td');
-                                tr.appendChild(td);
-                                td.innerHTML = modality.source;
-                                td.setAttribute("colspan", "4");
-                                table.appendChild(tr);
+                                addTableRow(
+                                    [ modality.modality.abbreviation, modality.source ],
+                                    table, tr, td, false
+                                );
                             }
                         }
-                        document.getElementById('response').appendChild(table);
+                        $("#response").html(table);
                     },
                     error: function(data) {
                         jobs = []
                         parsing_errors = data.responseJSON["data"]["errors"]
-                        $("#message").html("Returned error");
-                        document.getElementById("response").innerHTML = "";
-                        $("#response").html(parsing_errors);
+                        setMessage(msgTypes.validateError);
+                        $("#response").html(parsing_errors.map((err) => {
+                            return `<li>${err}</li>`
+                        }));
                     }
                 });
             });
@@ -176,22 +226,27 @@
                     data: JSON.stringify({"jobs": hpc_jobs}),
                     contentType: 'application/json; charset=utf-8',
                     beforeSend: function() {
-                        $("#message").html("Submitting jobs. Please don't refresh or re-submit...");
+                        setMessage(msgTypes.submitPending);
+                        $("#response").html("");
                     },
                     success: function (data) {
                         jobs = []
                         parsing_errors = []
-                        $("#message").html("Submitted Jobs.");
+                        setMessage(msgTypes.submitSuccess);
                         $("#response").html(data);
                     },
                     error: function(data) {
                         jobs = []
-                        $("#message").html("Returned error");
-                        document.getElementById("response").innerHTML = "";
+                        setMessage(msgTypes.submitError);
                         parsing_errors = data.responseJSON["data"]["errors"]
-                        $("#response").html(parsing_errors);
+                        $("#response").html(parsing_errors.map((errStr) => {
+                            return `<li>${errStr}</li>`
+                        }));
                     }
                 });
+            } else if (jobs.length == 0) {
+                alert("No valid jobs to submit. Please attach a .csv or .xlsx file and click Preview first.");
+                return;
             }
         };
     </script>
