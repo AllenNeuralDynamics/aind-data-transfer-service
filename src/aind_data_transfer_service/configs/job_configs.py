@@ -10,11 +10,12 @@ from aind_data_schema.core.processing import ProcessName
 from aind_data_schema.models.modalities import Modality
 from aind_data_schema.models.platforms import Platform
 from pydantic import (
+    ConfigDict,
     Field,
     PrivateAttr,
     SecretStr,
     ValidationInfo,
-    field_validator, ConfigDict,
+    field_validator,
 )
 from pydantic_settings import BaseSettings
 
@@ -77,7 +78,7 @@ class ModalityConfigs(BaseSettings):
         if unable to do so."""
         if isinstance(input_modality, str):
             modality_abbreviation = cls._MODALITY_MAP.get(
-                input_modality.upper()
+                input_modality.upper().replace("-", "_")
             )
             if modality_abbreviation is None:
                 raise AttributeError(f"Unknown Modality: {input_modality}")
@@ -105,7 +106,9 @@ class BasicUploadJobConfigs(BaseSettings):
     """Configuration for the basic upload job"""
 
     # Allow users to pass in extra fields
-    model_config = ConfigDict(extra='allow',)
+    model_config = ConfigDict(
+        extra="allow",
+    )
 
     # Need some way to extract abbreviations. Maybe a public method can be
     # added to the Platform class

@@ -18,6 +18,7 @@ from aind_data_transfer_service.configs.job_configs import (
 
 RESOURCES_DIR = Path(os.path.dirname(os.path.realpath(__file__))) / "resources"
 SAMPLE_FILE = RESOURCES_DIR / "sample.csv"
+SAMPLE_ALT_MODALITY_CASE_FILE = RESOURCES_DIR / "sample_alt_modality_case.csv"
 
 
 class TestJobConfigs(unittest.TestCase):
@@ -170,6 +171,42 @@ class TestJobConfigs(unittest.TestCase):
                 csv_key="log_level", csv_value=None
             ),
         )
+
+    def test_parse_alt_csv_file(self):
+        """Tests that the jobs can be parsed from a csv file correctly where
+        the modalities are lower case."""
+
+        jobs = []
+
+        with open(SAMPLE_ALT_MODALITY_CASE_FILE, newline="") as csvfile:
+            reader = csv.DictReader(csvfile, skipinitialspace=True)
+            for row in reader:
+                jobs.append(
+                    BasicUploadJobConfigs.from_csv_row(
+                        row, aws_param_store_name="/some/param/store"
+                    )
+                )
+
+        modality_outputs = []
+        for job in jobs:
+            job_s3_prefix = job.s3_prefix
+            for modality in job.modalities:
+                modality_outputs.append(
+                    (
+                        job_s3_prefix,
+                        modality.default_output_folder_name,
+                        modality.number_id,
+                    )
+                )
+        expected_modality_outputs = [
+            ("ecephys_123454_2020-10-10_14-10-10", "ecephys", None),
+            ("behavior_123456_2020-10-13_13-10-10", "behavior-videos", None),
+            ("behavior_123456_2020-10-13_13-10-10", "MRI", None),
+            ("behavior_123456_2020-10-13_13-10-10", "behavior-videos", None),
+            ("behavior_123456_2020-10-13_13-10-10", "behavior-videos1", 1),
+        ]
+        self.assertEqual(self.expected_job_configs, jobs)
+        self.assertEqual(expected_modality_outputs, modality_outputs)
 
     def test_malformed_platform(self):
         """Tests that an error is raised if an unknown platform is used"""
