@@ -21,6 +21,9 @@ MALFORMED_SAMPLE_CSV = TEST_DIRECTORY / "resources" / "sample_malformed.csv"
 SAMPLE_XLSX = TEST_DIRECTORY / "resources" / "sample.xlsx"
 MALFORMED_SAMPLE_XLSX = TEST_DIRECTORY / "resources" / "sample_malformed.xlsx"
 MOCK_DB_FILE = TEST_DIRECTORY / "test_server" / "db.json"
+SAMPLE_JOB_TEMPLATE_FILEPATH = (
+    TEST_DIRECTORY / "resources" / "job_template.xlsx"
+)
 
 
 class TestServer(unittest.TestCase):
@@ -44,6 +47,7 @@ class TestServer(unittest.TestCase):
         "HPC_AWS_PARAM_STORE_NAME": "/some/param/store",
         "OPEN_DATA_AWS_SECRET_ACCESS_KEY": "open_data_aws_key",
         "OPEN_DATA_AWS_ACCESS_KEY_ID": "open_data_aws_key_id",
+        "JOB_TEMPLATE_FILEPATH": str(SAMPLE_JOB_TEMPLATE_FILEPATH),
     }
 
     with open(SAMPLE_CSV, "r") as file:
@@ -506,6 +510,29 @@ class TestServer(unittest.TestCase):
             response = client.get("/jobs")
         self.assertEqual(response.status_code, 200)
         self.assertIn("Submit Jobs", response.text)
+
+    @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
+    def test_create_download_template(self):
+        """Tests that job template is created correctly and
+        downloads as xlsx file."""
+        # TODO: delete job template if exists?
+        # os.remove(SAMPLE_JOB_TEMPLATE_FILEPATH)
+        with TestClient(app) as client:
+            response = client.get("/api/job_upload_template")
+        self.assertEqual(response.status_code, 200)
+        # TODO: assert job template filename and file format
+        # TODO: assert job template contents?
+        # TODO: assert job template validation columns?
+
+    @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
+    def test_redownload_existing_template(self):
+        """Tests that job template is not re-generated each time."""
+        self.assertTrue(os.path.isfile(SAMPLE_JOB_TEMPLATE_FILEPATH))
+        with TestClient(app) as client:
+            response = client.get("/api/job_upload_template")
+        self.assertEqual(response.status_code, 200)
+        # TODO: assert file was not recreated somehow?
+        os.remove(SAMPLE_JOB_TEMPLATE_FILEPATH)
 
 
 if __name__ == "__main__":

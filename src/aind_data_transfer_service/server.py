@@ -53,10 +53,7 @@ templates = Jinja2Templates(directory=template_directory)
 # OPEN_DATA_AWS_ACCESS_KEY_ID
 
 OPEN_DATA_BUCKET_NAME = os.getenv("OPEN_DATA_BUCKET_NAME", "aind-open-data")
-JOB_TEMPLATE_FILENAME = os.getenv("TEMPLATE_FILE_NAME", "job_template.xlsx")
-JOB_TEMPLATE_FILEPATH = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), JOB_TEMPLATE_FILENAME)
-)
+JOB_TEMPLATE_FILENAME = os.getenv("JOB_TEMPLATE_FILENAME", "job_template.xlsx")
 JOB_TEMPLATE_HEADERS = [
     "platform",
     "acq_datetime",
@@ -393,6 +390,12 @@ async def jobs(request: Request):
 
 async def download_job_template(request: Request):
     """Get job template as xlsx file download"""
+    JOB_TEMPLATE_FILEPATH = os.getenv(
+        "JOB_TEMPLATE_FILEPATH",
+        os.path.abspath(
+            os.path.join(os.path.dirname(__file__), JOB_TEMPLATE_FILENAME)
+        ),
+    )
     if not os.path.isfile(JOB_TEMPLATE_FILEPATH):
         try:
             await create_template_xlsx()
@@ -414,6 +417,12 @@ async def download_job_template(request: Request):
 
 async def create_template_xlsx():
     """Generate and save xlsx job template"""
+    JOB_TEMPLATE_FILEPATH = os.getenv(
+        "JOB_TEMPLATE_FILEPATH",
+        os.path.abspath(
+            os.path.join(os.path.dirname(__file__), JOB_TEMPLATE_FILENAME)
+        ),
+    )
     # create job template
     workbook = Workbook()
     worksheet = workbook.active
