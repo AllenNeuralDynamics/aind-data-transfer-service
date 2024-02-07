@@ -137,6 +137,3 @@ dmypy.json
 
 # MacOs
 **/.DS_Store
-
-# Job template files
-src/aind_data_transfer_service/job_template.xlsx

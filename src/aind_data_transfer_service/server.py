@@ -10,7 +10,7 @@ from pathlib import PurePosixPath
 
 from aind_data_schema.core.data_description import Modality, Platform
 from fastapi import Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Font
@@ -18,7 +18,6 @@ from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.datavalidation import DataValidation
 from pydantic import SecretStr
 from starlette.applications import Starlette
-from starlette.responses import FileResponse
 from starlette.routing import Route
 
 from aind_data_transfer_service.configs.job_configs import (
@@ -53,7 +52,9 @@ templates = Jinja2Templates(directory=template_directory)
 # OPEN_DATA_AWS_ACCESS_KEY_ID
 
 OPEN_DATA_BUCKET_NAME = os.getenv("OPEN_DATA_BUCKET_NAME", "aind-open-data")
-JOB_TEMPLATE_FILENAME = os.getenv("JOB_TEMPLATE_FILENAME", "job_template.xlsx")
+JOB_TEMPLATE_FILENAME = os.getenv(
+    "JOB_TEMPLATE_FILENAME", "job_upload_template.xlsx"
+)
 JOB_TEMPLATE_HEADERS = [
     "platform",
     "acq_datetime",
@@ -388,72 +389,59 @@ async def jobs(request: Request):
     )
 
 
-async def download_job_template(request: Request):
+# TODO: Add caching
+def download_job_template(request: Request):
     """Get job template as xlsx file download"""
-    JOB_TEMPLATE_FILEPATH = os.getenv(
-        "JOB_TEMPLATE_FILEPATH",
-        os.path.abspath(
-            os.path.join(os.path.dirname(__file__), JOB_TEMPLATE_FILENAME)
-        ),
-    )
-    if not os.path.isfile(JOB_TEMPLATE_FILEPATH):
-        try:
-            await create_template_xlsx()
-        except Exception as e:
-            return JSONResponse(
-                content={
-                    "message": "Error creating job template",
-                    "data": {"error": f"{e.__class__.__name__}{e.args}"},
-                },
-                status_code=406,
+    try:
+        # create job template
+        xl_io = io.BytesIO()
+        workbook = Workbook()
+        worksheet = workbook.active
+        worksheet.append(JOB_TEMPLATE_HEADERS)
+        for job in JOB_TEMPLATE_JOBS:
+            worksheet.append(job)
+        # add validation for select columns
+        for validator in JOB_TEMPLATE_VALIDATORS:
+            dv = DataValidation(
+                type="list",
+                formula1=f'"{(",").join(validator["options"])}"',
+                allow_blank=True,
+                showErrorMessage=True,
+                showInputMessage=True,
             )
-    return FileResponse(
-        JOB_TEMPLATE_FILEPATH,
-        media_type="application/octet-stream",
-        filename=JOB_TEMPLATE_FILENAME,
+            dv.prompt = f'Select a {validator["name"]} from the dropdown'
+            dv.error = f'Invalid {validator["name"]}.'
+            for r in validator["ranges"]:
+                dv.add(r)
+            worksheet.add_data_validation(dv)
+        # formatting
+        bold = Font(bold=True)
+        for header in worksheet["A1:H1"]:
+            for cell in header:
+                cell.font = bold
+                worksheet.column_dimensions[
+                    get_column_letter(cell.column)
+                ].auto_size = True
+        # save file
+        workbook.save(xl_io)
+    except Exception as e:
+        return JSONResponse(
+            content={
+                "message": "Error creating job template",
+                "data": {"error": f"{e.__class__.__name__}{e.args}"},
+            },
+            status_code=500,
+        )
+    return StreamingResponse(
+        io.BytesIO(xl_io.getvalue()),
+        media_type=(
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        ),
+        headers={
+            "Content-Disposition": f"attachment; filename={JOB_TEMPLATE_FILENAME}"
+        },
         status_code=200,
     )
-
-
-async def create_template_xlsx():
-    """Generate and save xlsx job template"""
-    JOB_TEMPLATE_FILEPATH = os.getenv(
-        "JOB_TEMPLATE_FILEPATH",
-        os.path.abspath(
-            os.path.join(os.path.dirname(__file__), JOB_TEMPLATE_FILENAME)
-        ),
-    )
-    # create job template
-    workbook = Workbook()
-    worksheet = workbook.active
-    worksheet.append(JOB_TEMPLATE_HEADERS)
-    for job in JOB_TEMPLATE_JOBS:
-        worksheet.append(job)
-    # add validation for select columns
-    for validator in JOB_TEMPLATE_VALIDATORS:
-        dv = DataValidation(
-            type="list",
-            formula1=f'"{(",").join(validator["options"])}"',
-            allow_blank=True,
-            showErrorMessage=True,
-            showInputMessage=True,
-        )
-        dv.prompt = f'Select a {validator["name"]} from the dropdown'
-        dv.error = f'Invalid {validator["name"]}.'
-        for r in validator["ranges"]:
-            dv.add(r)
-        worksheet.add_data_validation(dv)
-    # formatting
-    bold = Font(bold=True)
-    for header in worksheet["A1:H1"]:
-        for cell in header:
-            cell.font = bold
-            worksheet.column_dimensions[
-                get_column_letter(cell.column)
-            ].auto_size = True
-    # save file
-    workbook.save(JOB_TEMPLATE_FILEPATH)
-    return
 
 
 routes = [
