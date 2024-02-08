@@ -35,7 +35,6 @@ template_directory = os.path.abspath(
 templates = Jinja2Templates(directory=template_directory)
 
 # TODO: Add server configs model
-# UPLOAD_TEMPLATE_LINK
 # HPC_SIF_LOCATION
 # HPC_USERNAME
 # HPC_LOGGING_DIRECTORY
@@ -277,7 +276,6 @@ async def index(request: Request):
         context=(
             {
                 "request": request,
-                "upload_template_link": os.getenv("UPLOAD_TEMPLATE_LINK"),
             }
         ),
     )
@@ -315,7 +313,6 @@ async def jobs(request: Request):
                 "request": request,
                 "job_status_list": job_status_list,
                 "num_of_jobs": len(job_status_list),
-                "upload_template_link": os.getenv("UPLOAD_TEMPLATE_LINK"),
             }
         ),
     )
