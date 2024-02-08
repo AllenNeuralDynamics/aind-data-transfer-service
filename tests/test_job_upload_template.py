@@ -20,7 +20,7 @@ class TestJobUploadTemplate(unittest.TestCase):
     def read_xl_helper(self, source, return_validators=False):
         """Helper function to read xlsx contents and validators"""
         lines = []
-        workbook = load_workbook(source, read_only=not return_validators)
+        workbook = load_workbook(source, read_only=(not return_validators))
         worksheet = workbook.active
         for row in worksheet.rows:
             row_contents = [cell.value for cell in row]

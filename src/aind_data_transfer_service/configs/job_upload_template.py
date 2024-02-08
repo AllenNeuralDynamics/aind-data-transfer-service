@@ -113,4 +113,5 @@ class JobUploadTemplate:
                 ].auto_size = True
         # save file
         workbook.save(xl_io)
+        workbook.close()
         return xl_io

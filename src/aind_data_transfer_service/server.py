@@ -65,7 +65,7 @@ async def validate_csv(request: Request):
                 # byte chars. Adding "utf-8-sig" should remove them.
                 data = content.decode("utf-8-sig")
             else:
-                xlsx_book = load_workbook(io.BytesIO(content))
+                xlsx_book = load_workbook(io.BytesIO(content), read_only=True)
                 xlsx_sheet = xlsx_book.active
                 csv_io = io.StringIO()
                 csv_writer = csv.writer(csv_io)
