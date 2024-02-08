@@ -11,7 +11,6 @@ from aind_data_transfer_service.configs.job_upload_template import (
 )
 
 TEST_DIRECTORY = Path(os.path.dirname(os.path.realpath(__file__)))
-RESOURCES_DIR = Path(os.path.dirname(os.path.realpath(__file__))) / "resources"
 SAMPLE_JOB_TEMPLATE = TEST_DIRECTORY / "resources" / "job_upload_template.xlsx"
 
 
@@ -26,7 +25,6 @@ class TestJobUploadTemplate(unittest.TestCase):
         for row in worksheet.rows:
             row_contents = [cell.value for cell in row]
             lines.append(row_contents)
-        workbook.close()
         if return_validators:
             validators = []
             for dv in worksheet.data_validations.dataValidation:
@@ -37,8 +35,11 @@ class TestJobUploadTemplate(unittest.TestCase):
                         "ranges": str(dv.cells).split(" "),
                     }
                 )
-            return (lines, validators)
-        return lines
+            result = (lines, validators)
+        else:
+            result = lines
+        workbook.close()
+        return result
 
     def test_create_job_template(self):
         """Tests that xlsx job template is created with
@@ -49,7 +50,7 @@ class TestJobUploadTemplate(unittest.TestCase):
         )
         self.assertEqual(expected_lines, template_lines)
         self.assertCountEqual(
-            JobUploadTemplate.validators, template_validators
+            JobUploadTemplate.VALIDATORS, template_validators
         )
 
 

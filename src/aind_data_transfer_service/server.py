@@ -340,7 +340,7 @@ def download_job_template(request: Request):
         ),
         headers={
             "Content-Disposition": (
-                f"attachment; filename={JobUploadTemplate.file_name}"
+                f"attachment; filename={JobUploadTemplate.FILE_NAME}"
             )
         },
         status_code=200,

@@ -22,9 +22,6 @@ MALFORMED_SAMPLE_CSV = TEST_DIRECTORY / "resources" / "sample_malformed.csv"
 SAMPLE_XLSX = TEST_DIRECTORY / "resources" / "sample.xlsx"
 MALFORMED_SAMPLE_XLSX = TEST_DIRECTORY / "resources" / "sample_malformed.xlsx"
 MOCK_DB_FILE = TEST_DIRECTORY / "test_server" / "db.json"
-SAMPLE_JOB_TEMPLATE_FILEPATH = (
-    TEST_DIRECTORY / "resources" / "job_template.xlsx"
-)
 
 
 class TestServer(unittest.TestCase):
@@ -48,7 +45,6 @@ class TestServer(unittest.TestCase):
         "HPC_AWS_PARAM_STORE_NAME": "/some/param/store",
         "OPEN_DATA_AWS_SECRET_ACCESS_KEY": "open_data_aws_key",
         "OPEN_DATA_AWS_ACCESS_KEY_ID": "open_data_aws_key_id",
-        "JOB_TEMPLATE_FILEPATH": str(SAMPLE_JOB_TEMPLATE_FILEPATH),
     }
 
     with open(SAMPLE_CSV, "r") as file:
@@ -547,7 +543,6 @@ class TestServer(unittest.TestCase):
             "message": "Error creating job template",
             "data": {"error": "Exception('mock invalid job template',)"},
         }
-
         self.assertEqual(1, mock_create_template.call_count)
         self.assertEqual(500, response.status_code)
         self.assertEqual(expected_response, response.json())

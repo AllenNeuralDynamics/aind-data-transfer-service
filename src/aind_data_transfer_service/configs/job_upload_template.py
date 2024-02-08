@@ -13,8 +13,8 @@ from openpyxl.worksheet.datavalidation import DataValidation
 class JobUploadTemplate:
     """Class to configure and create xlsx job upload template"""
 
-    file_name = "job_upload_template.xlsx"
-    headers = [
+    FILE_NAME = "job_upload_template.xlsx"
+    HEADERS = [
         "platform",
         "acq_datetime",
         "subject_id",
@@ -24,7 +24,7 @@ class JobUploadTemplate:
         "modality1",
         "modality1.source",
     ]
-    sample_jobs = [
+    SAMPLE_JOBS = [
         [
             Platform.BEHAVIOR.abbreviation,
             datetime.datetime(2023, 10, 4, 4, 0, 0),
@@ -54,7 +54,7 @@ class JobUploadTemplate:
             "/allen/aind/stage/fake/dir",
         ],
     ]
-    validators = [
+    VALIDATORS = [
         {
             "name": "platform",
             "options": [p().abbreviation for p in Platform._ALL],
@@ -85,11 +85,11 @@ class JobUploadTemplate:
         xl_io = BytesIO()
         workbook = Workbook()
         worksheet = workbook.active
-        worksheet.append(JobUploadTemplate.headers)
-        for job in JobUploadTemplate.sample_jobs:
+        worksheet.append(JobUploadTemplate.HEADERS)
+        for job in JobUploadTemplate.SAMPLE_JOBS:
             worksheet.append(job)
         # data validators
-        for validator in JobUploadTemplate.validators:
+        for validator in JobUploadTemplate.VALIDATORS:
             dv = DataValidation(
                 type="list",
                 formula1=f'"{(",").join(validator["options"])}"',
