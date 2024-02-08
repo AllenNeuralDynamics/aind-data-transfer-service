@@ -1,6 +1,5 @@
 """Starts and Runs Starlette Service"""
 import csv
-import datetime
 import io
 import json
 import logging
@@ -8,7 +7,6 @@ import os
 from asyncio import sleep
 from pathlib import PurePosixPath
 
-from aind_data_schema.core.data_description import Modality, Platform
 from fastapi import Request
 from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
@@ -23,6 +21,12 @@ from starlette.routing import Route
 from aind_data_transfer_service.configs.job_configs import (
     BasicUploadJobConfigs,
     HpcJobConfigs,
+)
+from aind_data_transfer_service.configs.job_template_configs import (
+    TEMPLATE_HEADERS,
+    TEMPLATE_SAMPLE_JOBS,
+    TEMPLATE_VALIDATORS,
+    TEMPLATE_FILENAME,
 )
 from aind_data_transfer_service.hpc.client import HpcClient, HpcClientConfigs
 from aind_data_transfer_service.hpc.models import (
@@ -52,72 +56,6 @@ templates = Jinja2Templates(directory=template_directory)
 # OPEN_DATA_AWS_ACCESS_KEY_ID
 
 OPEN_DATA_BUCKET_NAME = os.getenv("OPEN_DATA_BUCKET_NAME", "aind-open-data")
-JOB_TEMPLATE_FILENAME = os.getenv(
-    "JOB_TEMPLATE_FILENAME", "job_upload_template.xlsx"
-)
-JOB_TEMPLATE_HEADERS = [
-    "platform",
-    "acq_datetime",
-    "subject_id",
-    "s3_bucket",
-    "modality0",
-    "modality0.source",
-    "modality1",
-    "modality1.source",
-]
-JOB_TEMPLATE_JOBS = [
-    [
-        Platform.BEHAVIOR.abbreviation,
-        datetime.datetime(2023, 10, 4, 4, 0, 0),
-        "123456",
-        "aind-behavior-data",
-        Modality.BEHAVIOR_VIDEOS.abbreviation,
-        "/allen/aind/stage/fake/dir",
-        Modality.BEHAVIOR.abbreviation,
-        "/allen/aind/stage/fake/dir",
-    ],
-    [
-        Platform.SMARTSPIM.abbreviation,
-        datetime.datetime(2023, 3, 4, 16, 30, 0),
-        "654321",
-        "aind-open-data",
-        Modality.SPIM.abbreviation,
-        "/allen/aind/stage/fake/dir",
-    ],
-    [
-        Platform.ECEPHYS.abbreviation,
-        datetime.datetime(2023, 1, 30, 19, 1, 0),
-        "654321",
-        "aind-ephys-data",
-        Modality.ECEPHYS.abbreviation,
-        "/allen/aind/stage/fake/dir",
-        Modality.BEHAVIOR_VIDEOS.abbreviation,
-        "/allen/aind/stage/fake/dir",
-    ],
-]
-JOB_TEMPLATE_VALIDATORS = [
-    {
-        "name": "platform",
-        "options": [p().abbreviation for p in Platform._ALL],
-        "ranges": ["A2:A20"],
-    },
-    {
-        "name": "modality",
-        "options": [m().abbreviation for m in Modality._ALL],
-        "ranges": ["E2:E20", "G2:G20"],
-    },
-    {
-        "name": "s3_bucket",
-        "options": [
-            "aind-ephys-data",
-            "aind-ophys-data",
-            "aind-behavior-data",
-            "aind-private-data",
-            "aind-open-data",
-        ],
-        "ranges": ["D2:D20"],
-    },
-]
 
 
 async def validate_csv(request: Request):
@@ -397,11 +335,11 @@ def download_job_template(request: Request):
         xl_io = io.BytesIO()
         workbook = Workbook()
         worksheet = workbook.active
-        worksheet.append(JOB_TEMPLATE_HEADERS)
-        for job in JOB_TEMPLATE_JOBS:
+        worksheet.append(TEMPLATE_HEADERS)
+        for job in TEMPLATE_SAMPLE_JOBS:
             worksheet.append(job)
         # add validation for select columns
-        for validator in JOB_TEMPLATE_VALIDATORS:
+        for validator in TEMPLATE_VALIDATORS:
             dv = DataValidation(
                 type="list",
                 formula1=f'"{(",").join(validator["options"])}"',
@@ -438,7 +376,7 @@ def download_job_template(request: Request):
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         ),
         headers={
-            "Content-Disposition": f"attachment; filename={JOB_TEMPLATE_FILENAME}"
+            "Content-Disposition": f"attachment; filename={TEMPLATE_FILENAME}"
         },
         status_code=200,
     )
