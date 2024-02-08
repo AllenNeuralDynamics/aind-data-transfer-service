@@ -10,10 +10,7 @@ from pathlib import PurePosixPath
 from fastapi import Request
 from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
-from openpyxl import Workbook, load_workbook
-from openpyxl.styles import Font
-from openpyxl.utils import get_column_letter
-from openpyxl.worksheet.datavalidation import DataValidation
+from openpyxl import load_workbook
 from pydantic import SecretStr
 from starlette.applications import Starlette
 from starlette.routing import Route
@@ -23,10 +20,7 @@ from aind_data_transfer_service.configs.job_configs import (
     HpcJobConfigs,
 )
 from aind_data_transfer_service.configs.job_template_configs import (
-    TEMPLATE_HEADERS,
-    TEMPLATE_SAMPLE_JOBS,
-    TEMPLATE_VALIDATORS,
-    TEMPLATE_FILENAME,
+    JobUploadTemplate,
 )
 from aind_data_transfer_service.hpc.client import HpcClient, HpcClientConfigs
 from aind_data_transfer_service.hpc.models import (
@@ -329,39 +323,9 @@ async def jobs(request: Request):
 
 # TODO: Add caching
 def download_job_template(request: Request):
-    """Get job template as xlsx file download"""
+    """Get job template as xlsx filestream for download"""
     try:
-        # create job template
-        xl_io = io.BytesIO()
-        workbook = Workbook()
-        worksheet = workbook.active
-        worksheet.append(TEMPLATE_HEADERS)
-        for job in TEMPLATE_SAMPLE_JOBS:
-            worksheet.append(job)
-        # add validation for select columns
-        for validator in TEMPLATE_VALIDATORS:
-            dv = DataValidation(
-                type="list",
-                formula1=f'"{(",").join(validator["options"])}"',
-                allow_blank=True,
-                showErrorMessage=True,
-                showInputMessage=True,
-            )
-            dv.prompt = f'Select a {validator["name"]} from the dropdown'
-            dv.error = f'Invalid {validator["name"]}.'
-            for r in validator["ranges"]:
-                dv.add(r)
-            worksheet.add_data_validation(dv)
-        # formatting
-        bold = Font(bold=True)
-        for header in worksheet["A1:H1"]:
-            for cell in header:
-                cell.font = bold
-                worksheet.column_dimensions[
-                    get_column_letter(cell.column)
-                ].auto_size = True
-        # save file
-        workbook.save(xl_io)
+        xl_io = JobUploadTemplate.create_job_template()
     except Exception as e:
         return JSONResponse(
             content={
@@ -376,7 +340,7 @@ def download_job_template(request: Request):
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         ),
         headers={
-            "Content-Disposition": f"attachment; filename={TEMPLATE_FILENAME}"
+            "Content-Disposition": f"attachment; filename={JobUploadTemplate.file_name}"
         },
         status_code=200,
     )
