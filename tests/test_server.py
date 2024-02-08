@@ -4,6 +4,7 @@ import json
 import os
 import unittest
 from copy import deepcopy
+from io import BytesIO
 from pathlib import Path, PurePosixPath
 from unittest.mock import MagicMock, patch
 
@@ -511,28 +512,45 @@ class TestServer(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn("Submit Jobs", response.text)
 
-    @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
-    def test_create_download_template(self):
-        """Tests that job template is created correctly and
-        downloads as xlsx file."""
-        # TODO: delete job template if exists?
-        # os.remove(SAMPLE_JOB_TEMPLATE_FILEPATH)
+    @patch(
+        "aind_data_transfer_service.configs.job_upload_template"
+        ".JobUploadTemplate.create_job_template"
+    )
+    def test_download_job_template(self, mock_create_template: MagicMock):
+        """Tests that job template downloads as xlsx file."""
+        mock_create_template.return_value = BytesIO(b"mock_template_stream")
         with TestClient(app) as client:
             response = client.get("/api/job_upload_template")
-        self.assertEqual(response.status_code, 200)
-        # TODO: assert job template filename and file format
-        # TODO: assert job template contents?
-        # TODO: assert job template validation columns?
+        expected_file_name_header = (
+            "attachment; filename=job_upload_template.xlsx"
+        )
+        self.assertEqual(1, mock_create_template.call_count)
+        self.assertEqual(200, response.status_code)
+        self.assertEqual(
+            expected_file_name_header, response.headers["Content-Disposition"]
+        )
 
-    @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
-    def test_redownload_existing_template(self):
-        """Tests that job template is not re-generated each time."""
-        self.assertTrue(os.path.isfile(SAMPLE_JOB_TEMPLATE_FILEPATH))
+    @patch(
+        "aind_data_transfer_service.configs.job_upload_template"
+        ".JobUploadTemplate.create_job_template"
+    )
+    def test_download_invalid_job_template(
+        self, mock_create_template: MagicMock
+    ):
+        """Tests that download invalid job template returns errors."""
+        mock_create_template.side_effect = Exception(
+            "mock invalid job template"
+        )
         with TestClient(app) as client:
             response = client.get("/api/job_upload_template")
-        self.assertEqual(response.status_code, 200)
-        # TODO: assert file was not recreated somehow?
-        os.remove(SAMPLE_JOB_TEMPLATE_FILEPATH)
+        expected_response = {
+            "message": "Error creating job template",
+            "data": {"error": "Exception('mock invalid job template',)"},
+        }
+
+        self.assertEqual(1, mock_create_template.call_count)
+        self.assertEqual(500, response.status_code)
+        self.assertEqual(expected_response, response.json())
 
 
 if __name__ == "__main__":

@@ -19,7 +19,7 @@ from aind_data_transfer_service.configs.job_configs import (
     BasicUploadJobConfigs,
     HpcJobConfigs,
 )
-from aind_data_transfer_service.configs.job_template_configs import (
+from aind_data_transfer_service.configs.job_upload_template import (
     JobUploadTemplate,
 )
 from aind_data_transfer_service.hpc.client import HpcClient, HpcClientConfigs
@@ -65,11 +65,13 @@ async def validate_csv(request: Request):
                 # byte chars. Adding "utf-8-sig" should remove them.
                 data = content.decode("utf-8-sig")
             else:
-                xlsx_sheet = load_workbook(io.BytesIO(content)).active
+                xlsx_book = load_workbook(io.BytesIO(content))
+                xlsx_sheet = xlsx_book.active
                 csv_io = io.StringIO()
                 csv_writer = csv.writer(csv_io)
                 for r in xlsx_sheet.rows:
                     csv_writer.writerow([cell.value for cell in r])
+                xlsx_book.close()
                 data = csv_io.getvalue()
             csv_reader = csv.DictReader(io.StringIO(data))
             for row in csv_reader:
@@ -337,7 +339,9 @@ def download_job_template(request: Request):
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         ),
         headers={
-            "Content-Disposition": f"attachment; filename={JobUploadTemplate.file_name}"
+            "Content-Disposition": (
+                f"attachment; filename={JobUploadTemplate.file_name}"
+            )
         },
         status_code=200,
     )

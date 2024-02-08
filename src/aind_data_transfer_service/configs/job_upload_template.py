@@ -1,11 +1,13 @@
-"""Module to configure and generate xlsx job upload template"""
+"""Module to configure and create xlsx job upload template"""
 import datetime
-from aind_data_schema.core.data_description import Modality, Platform
 from io import BytesIO
+
+from aind_data_schema.core.data_description import Modality, Platform
 from openpyxl import Workbook
 from openpyxl.styles import Font
 from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.datavalidation import DataValidation
+
 
 # TODO: convert to pydantic model
 class JobUploadTemplate:
@@ -95,6 +97,7 @@ class JobUploadTemplate:
                 showErrorMessage=True,
                 showInputMessage=True,
             )
+            dv.promptTitle = validator["name"]
             dv.prompt = f'Select a {validator["name"]} from the dropdown'
             dv.error = f'Invalid {validator["name"]}.'
             for r in validator["ranges"]:
