@@ -7,10 +7,10 @@ import os
 from asyncio import sleep
 from pathlib import PurePosixPath
 
-import openpyxl
 from fastapi import Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
+from openpyxl import load_workbook
 from pydantic import SecretStr
 from starlette.applications import Starlette
 from starlette.routing import Route
@@ -18,6 +18,9 @@ from starlette.routing import Route
 from aind_data_transfer_service.configs.job_configs import (
     BasicUploadJobConfigs,
     HpcJobConfigs,
+)
+from aind_data_transfer_service.configs.job_upload_template import (
+    JobUploadTemplate,
 )
 from aind_data_transfer_service.hpc.client import HpcClient, HpcClientConfigs
 from aind_data_transfer_service.hpc.models import (
@@ -32,7 +35,6 @@ template_directory = os.path.abspath(
 templates = Jinja2Templates(directory=template_directory)
 
 # TODO: Add server configs model
-# UPLOAD_TEMPLATE_LINK
 # HPC_SIF_LOCATION
 # HPC_USERNAME
 # HPC_LOGGING_DIRECTORY
@@ -63,11 +65,13 @@ async def validate_csv(request: Request):
                 # byte chars. Adding "utf-8-sig" should remove them.
                 data = content.decode("utf-8-sig")
             else:
-                xlsx_sheet = openpyxl.load_workbook(io.BytesIO(content)).active
+                xlsx_book = load_workbook(io.BytesIO(content), read_only=True)
+                xlsx_sheet = xlsx_book.active
                 csv_io = io.StringIO()
                 csv_writer = csv.writer(csv_io)
                 for r in xlsx_sheet.rows:
                     csv_writer.writerow([cell.value for cell in r])
+                xlsx_book.close()
                 data = csv_io.getvalue()
             csv_reader = csv.DictReader(io.StringIO(data))
             for row in csv_reader:
@@ -274,7 +278,6 @@ async def index(request: Request):
         context=(
             {
                 "request": request,
-                "upload_template_link": os.getenv("UPLOAD_TEMPLATE_LINK"),
             }
         ),
     )
@@ -312,9 +315,34 @@ async def jobs(request: Request):
                 "request": request,
                 "job_status_list": job_status_list,
                 "num_of_jobs": len(job_status_list),
-                "upload_template_link": os.getenv("UPLOAD_TEMPLATE_LINK"),
             }
         ),
+    )
+
+
+def download_job_template(request: Request):
+    """Get job template as xlsx filestream for download"""
+    try:
+        xl_io = JobUploadTemplate.create_job_template()
+    except Exception as e:
+        return JSONResponse(
+            content={
+                "message": "Error creating job template",
+                "data": {"error": f"{e.__class__.__name__}{e.args}"},
+            },
+            status_code=500,
+        )
+    return StreamingResponse(
+        io.BytesIO(xl_io.getvalue()),
+        media_type=(
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        ),
+        headers={
+            "Content-Disposition": (
+                f"attachment; filename={JobUploadTemplate.FILE_NAME}"
+            )
+        },
+        status_code=200,
     )
 
 
@@ -326,6 +354,11 @@ routes = [
     ),
     Route("/api/submit_hpc_jobs", endpoint=submit_hpc_jobs, methods=["POST"]),
     Route("/jobs", endpoint=jobs, methods=["GET"]),
+    Route(
+        "/api/job_upload_template",
+        endpoint=download_job_template,
+        methods=["GET"],
+    ),
 ]
 
 app = Starlette(routes=routes)
