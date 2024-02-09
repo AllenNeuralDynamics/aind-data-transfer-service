@@ -320,7 +320,6 @@ async def jobs(request: Request):
     )
 
 
-# TODO: Add caching
 def download_job_template(request: Request):
     """Get job template as xlsx filestream for download"""
     try:

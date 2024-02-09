@@ -72,7 +72,6 @@ class JobUploadTemplate:
                 "aind-ophys-data",
                 "aind-behavior-data",
                 "aind-private-data",
-                "aind-open-data",
             ],
             "ranges": ["D2:D20"],
         },
