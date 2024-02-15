@@ -25,19 +25,13 @@
         background-color: #E8EAF6;
         color: #3F51B5;
     }
-    #preview, #submit { 
+    #submit { 
         border: none;
         border-radius: 6px;
         color: #ffffff;
         padding: 8px;
         width: 80px;
         font-size: medium;
-    }
-    #preview {
-        background-color: lightsalmon;
-        &:hover { background-color: salmon; }
-    }
-    #submit {
         background-color: #5065df;
         &:hover { background-color: #3f51b5; }
     }
@@ -76,10 +70,9 @@
             </div>
         </fieldset>
         </div><br><br>
-    <form id="preview_form" method="post" enctype="multipart/form-data">
+    <form id="file_form" method="post" enctype="multipart/form-data">
         <label for="file">Please select a .csv or .xlsx file:</label>
-        <input type="file" id="file" name="file" accept=".csv,.xlsx"><br><br>
-        <input type="submit" id="preview" value="Preview"><br><br>
+        <input type="file" id="file" name="file" accept=".csv,.xlsx" onchange="validateJobs(this)" onclick="this.value=null"><br><br>
     </form>
     <button id="submit" type="button" onclick="submitJobs()">Submit</button>
     <div id="message"></div><br>
@@ -117,73 +110,71 @@
             }
             table.appendChild(tr);
         };
-        $(function() {
-            $("#preview_form").on("submit", function(e) {
-                e.preventDefault();
-                if ($("#file").prop("files").length != 1) {
-                    alert("No file selected. Please attach a .csv or .xlsx file.");
-                    return;
-                } 
-                if (![".csv", ".xlsx"].some(ext => $("#file").prop("files")[0].name.endsWith(ext))) {
-                    alert("Invalid file type. Please attach a .csv or .xlsx file.");
-                    return;
-                }
-                var formData = new FormData(this);
-                $.ajax({
-                    url: "/api/validate_csv",
-                    type: "POST",
-                    data: formData,
-                    cache: false,
-                    contentType: false,
-                    processData: false,
-                    beforeSend: function() {
-                        setMessage(msgTypes.validatePending);
-                        $("#response").html("");
-                    },
-                    success: function(data) {
-                        setMessage(msgTypes.validateSuccess);
-                        jobs = data["data"]["jobs"];
-                        parsing_errors = []
-                        let jobsLength = jobs.length;
-                        var table = document.createElement('table'), tr, td, row;
+        validateJobs = function(fileElement) {
+            if (fileElement.files.length != 1) {
+                // File attach was cancelled by user
+                return;
+            } 
+            if (![".csv", ".xlsx"].some(ext => fileElement.files[0].name.endsWith(ext))) {
+                fileElement.value = null;
+                alert("Invalid file type. Please attach a .csv or .xlsx file.");
+                return;
+            }
+            var formData = new FormData(document.getElementById("file_form"));
+            $.ajax({
+                url: "/api/validate_csv",
+                type: "POST",
+                data: formData,
+                cache: false,
+                contentType: false,
+                processData: false,
+                beforeSend: function() {
+                    setMessage(msgTypes.validatePending);
+                    $("#response").html("");
+                },
+                success: function(data) {
+                    setMessage(msgTypes.validateSuccess);
+                    jobs = data["data"]["jobs"];
+                    parsing_errors = []
+                    let jobsLength = jobs.length;
+                    var table = document.createElement('table'), tr, td, row;
+                    addTableRow(
+                        [ "s3_bucket", "platform", "subject_id", "acq_datetime", "modality", "modality.source" ],
+                        table, tr, td, true
+                    );
+                    for (row = 0; row < jobsLength; row++) {
+                        let job = JSON.parse(jobs[row]);
+                        let modalities = job.modalities;
+                        let modalitiesLength = modalities.length;
                         addTableRow(
-                            [ "s3_bucket", "platform", "subject_id", "acq_datetime", "modality", "modality.source" ],
-                            table, tr, td, true
+                            [   { value: job.s3_bucket,             rowspan: modalitiesLength },
+                                { value: job.platform.abbreviation, rowspan: modalitiesLength },
+                                { value: job.subject_id,            rowspan: modalitiesLength },
+                                { value: job.acq_datetime,          rowspan: modalitiesLength },
+                                modalities ? modalities[0].modality.abbreviation : "",
+                                modalities ? modalities[0].source : ""
+                            ], table, tr, td, false
                         );
-                        for (row = 0; row < jobsLength; row++) {
-                            let job = JSON.parse(jobs[row]);
-                            let modalities = job.modalities;
-                            let modalitiesLength = modalities.length;
+                        for (mRow = 1; mRow < modalitiesLength; mRow++) {
+                            let modality = modalities[mRow]
                             addTableRow(
-                                [   { value: job.s3_bucket,             rowspan: modalitiesLength },
-                                    { value: job.platform.abbreviation, rowspan: modalitiesLength },
-                                    { value: job.subject_id,            rowspan: modalitiesLength },
-                                    { value: job.acq_datetime,          rowspan: modalitiesLength },
-                                    modalities ? modalities[0].modality.abbreviation : "",
-                                    modalities ? modalities[0].source : ""
-                                ], table, tr, td, false
+                                [ modality.modality.abbreviation, modality.source ],
+                                table, tr, td, false
                             );
-                            for (mRow = 1; mRow < modalitiesLength; mRow++) {
-                                let modality = modalities[mRow]
-                                addTableRow(
-                                    [ modality.modality.abbreviation, modality.source ],
-                                    table, tr, td, false
-                                );
-                            }
                         }
-                        $("#response").html(table);
-                    },
-                    error: function(data) {
-                        jobs = []
-                        parsing_errors = data.responseJSON["data"]["errors"]
-                        setMessage(msgTypes.validateError);
-                        $("#response").html(parsing_errors.map((err) => {
-                            return `<li>${err}</li>`
-                        }));
                     }
-                });
+                    $("#response").html(table);
+                },
+                error: function(data) {
+                    jobs = []
+                    parsing_errors = data.responseJSON["data"]["errors"]
+                    setMessage(msgTypes.validateError);
+                    $("#response").html(parsing_errors.map((err) => {
+                        return `<li>${err}</li>`
+                    }));
+                }
             });
-        });
+        };
         submitJobs = function() {
             if(jobs.length > 0 && parsing_errors.length == 0){
                 let mail_user = $("#email").val();
@@ -245,7 +236,7 @@
                     }
                 });
             } else if (jobs.length == 0) {
-                alert("No valid jobs to submit. Please attach a .csv or .xlsx file and click Preview first.");
+                alert("No valid jobs to submit. Please attach a .csv or .xlsx file with valid jobs.");
                 return;
             }
         };
