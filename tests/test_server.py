@@ -268,7 +268,7 @@ class TestServer(unittest.TestCase):
                 {
                     "hpc_settings": '{"qos":"production", "name": "job1"}',
                     "upload_job_settings": (
-                        '{"s3_bucket": "some_bucket2", '
+                        '{"s3_bucket": "private", '
                         '"platform": {"name": "Behavior platform", '
                         '"abbreviation": "behavior"}, '
                         '"modalities": ['
@@ -334,7 +334,7 @@ class TestServer(unittest.TestCase):
                 {
                     "hpc_settings": '{"qos":"production", "name": "job1"}',
                     "upload_job_settings": (
-                        '{"s3_bucket": "aind-open-data", '
+                        '{"s3_bucket": "open", '
                         '"platform": {"name": "Behavior platform", '
                         '"abbreviation": "behavior"}, '
                         '"modalities": ['

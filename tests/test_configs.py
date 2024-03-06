@@ -5,6 +5,7 @@ import os
 import unittest
 from datetime import datetime
 from pathlib import Path, PurePosixPath
+from unittest.mock import patch
 
 from aind_data_schema.core.processing import ProcessName
 from aind_data_schema.models.modalities import Modality
@@ -27,7 +28,7 @@ class TestJobConfigs(unittest.TestCase):
     expected_job_configs = [
         BasicUploadJobConfigs(
             aws_param_store_name="/some/param/store",
-            s3_bucket="some_bucket",
+            s3_bucket="private",
             platform=Platform.ECEPHYS,
             modalities=[
                 ModalityConfigs(
@@ -50,7 +51,7 @@ class TestJobConfigs(unittest.TestCase):
         ),
         BasicUploadJobConfigs(
             aws_param_store_name="/some/param/store",
-            s3_bucket="some_bucket2",
+            s3_bucket="open",
             platform=Platform.BEHAVIOR,
             modalities=[
                 ModalityConfigs(
@@ -80,7 +81,7 @@ class TestJobConfigs(unittest.TestCase):
         ),
         BasicUploadJobConfigs(
             aws_param_store_name="/some/param/store",
-            s3_bucket="some_bucket2",
+            s3_bucket="scratch",
             platform=Platform.BEHAVIOR,
             modalities=[
                 ModalityConfigs(
@@ -308,7 +309,7 @@ class TestHpcConfigs(unittest.TestCase):
                 " python -m aind_data_transfer.jobs.basic_job"
                 " --json-args ' "
                 '{"aws_param_store_name":"/some/param/store",'
-                '"s3_bucket":"some_bucket",'
+                '"s3_bucket":"private",'
                 '"platform":{"name":"Electrophysiology platform",'
                 '"abbreviation":"ecephys"},'
                 '"modalities":[{"modality":'
