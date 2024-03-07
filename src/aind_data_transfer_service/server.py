@@ -15,6 +15,7 @@ from pydantic import SecretStr
 from starlette.applications import Starlette
 from starlette.routing import Route
 
+from aind_data_transfer_service import OPEN_DATA_BUCKET_NAME
 from aind_data_transfer_service.configs.job_configs import (
     BasicUploadJobConfigs,
     HpcJobConfigs,
@@ -47,8 +48,6 @@ templates = Jinja2Templates(directory=template_directory)
 # BASIC_JOB_SCRIPT
 # OPEN_DATA_AWS_SECRET_ACCESS_KEY
 # OPEN_DATA_AWS_ACCESS_KEY_ID
-
-OPEN_DATA_BUCKET_NAME = os.getenv("OPEN_DATA_BUCKET_NAME", "aind-open-data")
 
 
 async def validate_csv(request: Request):

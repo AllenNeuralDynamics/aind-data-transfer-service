@@ -19,6 +19,12 @@ from pydantic import (
 )
 from pydantic_settings import BaseSettings
 
+from aind_data_transfer_service import (
+    OPEN_DATA_BUCKET_NAME,
+    PRIVATE_BUCKET_NAME,
+    SCRATCH_BUCKET_NAME,
+)
+
 
 class ModalityConfigs(BaseSettings):
     """Class to contain configs for each modality type"""
@@ -125,10 +131,11 @@ class BasicUploadJobConfigs(BaseSettings):
 
     aws_param_store_name: Optional[str] = Field(None)
 
-    s3_bucket: str = Field(
-        ...,
+    s3_bucket: Optional[str] = Field(
+        None,
         description="Bucket where data will be uploaded",
         title="S3 Bucket",
+        validate_default=True,
     )
     platform: Platform.ONE_OF = Field(
         ..., description="Platform", title="Platform"
@@ -207,6 +214,19 @@ class BasicUploadJobConfigs(BaseSettings):
             label=f"{self.platform.abbreviation}_{self.subject_id}",
             creation_datetime=self.acq_datetime,
         )
+
+    @field_validator("s3_bucket", mode="before")
+    def map_bucket(cls, bucket: Optional[str]) -> Optional[str]:
+        """We're adding a policy that data uploaded through the service can
+        only land in a handful of buckets. As default, things will be
+        stored in the private bucket"""
+        if bucket is not None and bucket in [
+            OPEN_DATA_BUCKET_NAME,
+            SCRATCH_BUCKET_NAME,
+        ]:
+            return bucket
+        else:
+            return PRIVATE_BUCKET_NAME
 
     @field_validator("platform", mode="before")
     def parse_platform_string(
