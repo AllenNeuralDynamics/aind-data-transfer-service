@@ -5,7 +5,6 @@ import os
 import unittest
 from datetime import datetime
 from pathlib import Path, PurePosixPath
-from unittest.mock import patch
 
 from aind_data_schema.core.processing import ProcessName
 from aind_data_schema.models.modalities import Modality

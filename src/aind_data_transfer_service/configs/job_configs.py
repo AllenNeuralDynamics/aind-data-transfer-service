@@ -1,6 +1,5 @@
 """This module adds classes to handle resolving common endpoints used in the
 data transfer jobs."""
-import os
 import re
 from datetime import datetime
 from pathlib import PurePosixPath
