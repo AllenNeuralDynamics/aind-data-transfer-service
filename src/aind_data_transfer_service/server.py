@@ -183,6 +183,13 @@ async def submit_hpc_jobs(request: Request):  # noqa: C901
                     job["upload_job_settings"]
                 ).s3_prefix
             upload_job_configs = json.loads(job["upload_job_settings"])
+            # This will set the bucket to the private data one
+            if upload_job_configs.get("s3_bucket") is not None:
+                upload_job_configs = json.loads(
+                    BasicUploadJobConfigs.model_validate(
+                        upload_job_configs
+                    ).model_dump_json()
+                )
             # The aws creds to use are different for aind-open-data and
             # everything else
             if upload_job_configs.get("s3_bucket") == OPEN_DATA_BUCKET_NAME:
