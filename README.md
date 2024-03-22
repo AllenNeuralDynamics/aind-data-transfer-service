@@ -5,14 +5,65 @@ FastAPI app to upload data transfer jobs.
 ![Code Style](https://img.shields.io/badge/code%20style-black-black)
 [![semantic-release: angular](https://img.shields.io/badge/semantic--release-angular-e10079?logo=semantic-release)](https://github.com/semantic-release/semantic-release)
 
-Generated from aind-library-template
-
 ## Usage
- - To use this template, click the green `Use this template` button and `Create new repository`.
- - After github initially creates the new repository, please wait an extra minute for the initialization scripts to finish organizing the repo.
- - To enable the automatic semantic version increments: in the repository go to `Settings` and `Collaborators and teams`. Click the green `Add people` button. Add `svc-aindscicomp` as an admin. Modify the file in `.github/workflows/tag_and_publish.yml` and remove the if statement in line 10. The semantic version will now be incremented every time a code is committed into the main branch.
- - To publish to PyPI, enable semantic versioning and uncomment the publish block in `.github/workflows/tag_and_publish.yml`. The code will now be published to PyPI every time the code is committed into the main branch.
- - The `.github/workflows/test_and_lint.yml` file will run automated tests and style checks every time a Pull Request is opened. If the checks are undesired, the `test_and_lint.yml` can be deleted. The strictness of the code coverage level, etc., can be modified by altering the configurations in the `pyproject.toml` file and the `.flake8` file.
+It's possible to submit a job via the python api. Here is an example script that can be used.
+
+Assuming that the data on a shared drive is organized as:
+```
+/shared_drive/vr_foraging/690165/20240219T112517
+  - Behavior
+  - Behavior videos
+  - Configs
+```
+then a job request can be submitted as:
+```python
+from aind_data_transfer_service.configs.job_configs import ModalityConfigs, BasicUploadJobConfigs
+from pathlib import PurePosixPath
+import json
+import requests
+
+from aind_data_schema.models.modalities import Modality
+from aind_data_schema.models.platforms import Platform
+from datetime import datetime
+from time import sleep
+
+source_dir = PurePosixPath("/shared_drive/vr_foraging/690165/20240219T112517")
+
+s3_bucket = "select_a_bucket"
+subject_id = "690165"
+acq_datetime = datetime(2024, 2, 19, 11, 25, 17)
+platform = Platform.BEHAVIOR
+
+
+behavior_config = ModalityConfigs(modality=Modality.BEHAVIOR, source=(source_dir / "Behavior"))
+behavior_videos_config = ModalityConfigs(modality=Modality.BEHAVIOR_VIDEOS, source=(source_dir / "Behavior videos"))
+metadata_dir = source_dir / "Config"  # This is an optional folder of pre-compiled metadata json files
+
+upload_job_configs = BasicUploadJobConfigs(
+  s3_bucket = s3_bucket,
+  platform = platform,
+  subject_id = subject_id,
+  acq_datetime=acq_datetime,
+  modalities = [behavior_config, behavior_videos_config],
+  metadata_dir = metadata_dir
+)
+
+hpc_settings = json.dumps({})  # You can add custom settings for the hpc or add email notifications configs here if desired
+upload_job_settings = upload_job_configs.model_dump_json()
+script = ""  # We will automatically run the aind-data-transfer script if this is an empty string. You can create a custom hpc run script if needed, but isn't recommended
+
+hpc_job = {"upload_job_settings": upload_job_settings, "hpc_settings": hpc_settings, "script": script}
+
+hpc_jobs = [hpc_job]
+
+post_request_content = {"jobs": hpc_jobs}
+
+# Please stagger the requests if run in a loop
+sleep(0.4)
+submit_job_response = requests.post(url="http://aind-data-transfer-service/api/submit_hpc_jobs", json=post_request_content)
+print(submit_job_response.status_code)
+print(submit_job_response.json())
+```
 
 ## Installation
 To use the software, in the root directory, run
@@ -121,7 +172,7 @@ The table below, from [semantic release](https://github.com/semantic-release/sem
 ### Documentation
 To generate the rst files source files for documentation, run
 ```bash
-sphinx-apidoc -o doc_template/source/ src 
+sphinx-apidoc -o doc_template/source/ src
 ```
 Then to create the documentation HTML files, run
 ```bash
