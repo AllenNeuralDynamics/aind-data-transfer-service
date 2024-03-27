@@ -2,7 +2,8 @@
 import datetime
 from io import BytesIO
 
-from aind_data_schema.core.data_description import Modality, Platform
+from aind_data_schema.models.modalities import Modality
+from aind_data_schema.models.platforms import Platform
 from openpyxl import Workbook
 from openpyxl.styles import Font
 from openpyxl.utils import get_column_letter
@@ -59,7 +60,7 @@ class JobUploadTemplate:
         {
             "name": "modality",
             "options": [m().abbreviation for m in Modality._ALL],
-            "ranges": ["E2:E20", "G2:G20"],
+            "ranges": ["D2:D20", "F2:F20"],
         },
     ]
 
