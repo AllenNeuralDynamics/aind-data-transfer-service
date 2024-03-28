@@ -5,6 +5,7 @@ import unittest
 from pathlib import Path
 
 from openpyxl import load_workbook
+from openpyxl.utils import range_boundaries
 
 from aind_data_transfer_service.configs.job_upload_template import (
     JobUploadTemplate,
@@ -49,6 +50,15 @@ class TestJobUploadTemplate(unittest.TestCase):
             JobUploadTemplate.create_job_template(), True
         )
         self.assertEqual(expected_lines, template_lines)
+        for validator in template_validators:
+            validator["column_indexes"] = []
+            for r in validator["ranges"]:
+                rb = (col, *_) = range_boundaries(r)
+                self.assertTupleEqual(
+                    (col, 2, col, JobUploadTemplate.NUM_TEMPLATE_ROWS), rb
+                )
+                validator["column_indexes"].append(col - 1)
+            del validator["ranges"]
         self.assertCountEqual(
             JobUploadTemplate.VALIDATORS, template_validators
         )
