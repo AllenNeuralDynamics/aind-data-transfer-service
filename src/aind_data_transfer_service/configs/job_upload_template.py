@@ -82,6 +82,7 @@ class JobUploadTemplate:
         # job template
         xl_io = BytesIO()
         workbook = Workbook()
+        workbook.iso_dates = True
         worksheet = workbook.active
         worksheet.append(JobUploadTemplate.HEADERS)
         for job in JobUploadTemplate.SAMPLE_JOBS:
@@ -106,16 +107,18 @@ class JobUploadTemplate:
             dv = DataValidation(**dv_params)
             for i in validator["column_indexes"]:
                 col = get_column_letter(i + 1)
-                dv.add(f"{col}2:{col}{JobUploadTemplate.NUM_TEMPLATE_ROWS}")
+                col_range = f"{col}2:{col}{JobUploadTemplate.NUM_TEMPLATE_ROWS}"
+                dv.add(col_range)
+                if dv_type != "date":
+                    continue
+                for (cell,) in worksheet[col_range]:
+                    cell.number_format = JobUploadTemplate.XLSX_DATETIME_FORMAT
             worksheet.add_data_validation(dv)
         # formatting
         bold = Font(bold=True)
-        for header in worksheet["A1:G1"]:
-            for cell in header:
-                cell.font = bold
-                worksheet.column_dimensions[
-                    get_column_letter(cell.column)
-                ].auto_size = True
+        for cell in worksheet[1]:
+            cell.font = bold
+            worksheet.column_dimensions[cell.column_letter].auto_size = True
         # save file
         workbook.save(xl_io)
         workbook.close()

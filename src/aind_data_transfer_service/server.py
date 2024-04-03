@@ -68,12 +68,15 @@ async def validate_csv(request: Request):
                 xlsx_sheet = xlsx_book.active
                 csv_io = io.StringIO()
                 csv_writer = csv.writer(csv_io)
-                for r in xlsx_sheet.rows:
-                    csv_writer.writerow([cell.value for cell in r])
+                for r in xlsx_sheet.iter_rows(values_only=True):
+                    if any(r):
+                        csv_writer.writerow(r)
                 xlsx_book.close()
                 data = csv_io.getvalue()
             csv_reader = csv.DictReader(io.StringIO(data))
             for row in csv_reader:
+                if not any(row.values()):
+                    continue
                 try:
                     job = BasicUploadJobConfigs.from_csv_row(row=row)
                     # Construct hpc job setting most of the vars from the env
