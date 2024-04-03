@@ -2,7 +2,8 @@
 import datetime
 from io import BytesIO
 
-from aind_data_schema.core.data_description import Modality, Platform
+from aind_data_schema.models.modalities import Modality
+from aind_data_schema.models.platforms import Platform
 from openpyxl import Workbook
 from openpyxl.styles import Font
 from openpyxl.utils import get_column_letter
@@ -14,6 +15,7 @@ class JobUploadTemplate:
     """Class to configure and create xlsx job upload template"""
 
     FILE_NAME = "job_upload_template.xlsx"
+    NUM_TEMPLATE_ROWS = 20
     HEADERS = [
         "platform",
         "acq_datetime",
@@ -54,12 +56,15 @@ class JobUploadTemplate:
         {
             "name": "platform",
             "options": [p().abbreviation for p in Platform._ALL],
-            "ranges": ["A2:A20"],
+            "column_indexes": [HEADERS.index("platform")],
         },
         {
             "name": "modality",
             "options": [m().abbreviation for m in Modality._ALL],
-            "ranges": ["E2:E20", "G2:G20"],
+            "column_indexes": [
+                HEADERS.index("modality0"),
+                HEADERS.index("modality1"),
+            ],
         },
     ]
 
@@ -85,8 +90,9 @@ class JobUploadTemplate:
             dv.promptTitle = validator["name"]
             dv.prompt = f'Select a {validator["name"]} from the dropdown'
             dv.error = f'Invalid {validator["name"]}.'
-            for r in validator["ranges"]:
-                dv.add(r)
+            for i in validator["column_indexes"]:
+                col = get_column_letter(i + 1)
+                dv.add(f"{col}2:{col}{JobUploadTemplate.NUM_TEMPLATE_ROWS}")
             worksheet.add_data_validation(dv)
         # formatting
         bold = Font(bold=True)
