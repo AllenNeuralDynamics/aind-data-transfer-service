@@ -95,19 +95,23 @@ class JobUploadTemplate:
                 "type": dv_type,
                 "promptTitle": dv_name,
                 "error": f"Invalid {dv_name}.",
-                "allow_blank":True,
-                "showErrorMessage":True,
-                "showInputMessage":True,
+                "allow_blank": True,
+                "showErrorMessage": True,
+                "showInputMessage": True,
             }
             if dv_type == "list":
                 dv_params["formula1"] = f'"{(",").join(validator["options"])}"'
                 dv_params["prompt"] = f"Select a {dv_name} from the dropdown"
             elif dv_type == "date":
-                dv_params["prompt"] = f"Provide a {dv_name} using {JobUploadTemplate.XLSX_DATETIME_FORMAT}"
+                dv_params["prompt"] = "Provide a {} using {}".format(
+                    dv_name, JobUploadTemplate.XLSX_DATETIME_FORMAT
+                )
             dv = DataValidation(**dv_params)
             for i in validator["column_indexes"]:
                 col = get_column_letter(i + 1)
-                col_range = f"{col}2:{col}{JobUploadTemplate.NUM_TEMPLATE_ROWS}"
+                col_range = (
+                    f"{col}2:{col}{JobUploadTemplate.NUM_TEMPLATE_ROWS}"
+                )
                 dv.add(col_range)
                 if dv_type != "date":
                     continue

@@ -23,19 +23,19 @@ class TestJobUploadTemplate(unittest.TestCase):
         lines = []
         workbook = load_workbook(source, read_only=(not return_validators))
         worksheet = workbook.active
-        for row in worksheet.rows:
-            row_contents = [cell.value for cell in row]
-            lines.append(row_contents)
+        for row in worksheet.iter_rows(values_only=True):
+            lines.append(row) if any(row) else None
         if return_validators:
             validators = []
             for dv in worksheet.data_validations.dataValidation:
-                validators.append(
-                    {
-                        "name": dv.promptTitle,
-                        "options": dv.formula1.strip('"').split(","),
-                        "ranges": str(dv.cells).split(" "),
-                    }
-                )
+                validator = {
+                    "name": dv.promptTitle,
+                    "type": dv.type,
+                    "ranges": str(dv.cells).split(" "),
+                }
+                if dv.type == "list":
+                    validator["options"] = dv.formula1.strip('"').split(",")
+                validators.append(validator)
             result = (lines, validators)
         else:
             result = lines
