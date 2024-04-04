@@ -18,8 +18,12 @@ from tests.test_configs import TestJobConfigs
 TEST_DIRECTORY = Path(os.path.dirname(os.path.realpath(__file__)))
 SAMPLE_INVALID_EXT = TEST_DIRECTORY / "resources" / "sample_invalid_ext.txt"
 SAMPLE_CSV = TEST_DIRECTORY / "resources" / "sample.csv"
+SAMPLE_CSV_EMPTY_ROWS = TEST_DIRECTORY / "resources" / "sample_empty_rows.csv"
 MALFORMED_SAMPLE_CSV = TEST_DIRECTORY / "resources" / "sample_malformed.csv"
 SAMPLE_XLSX = TEST_DIRECTORY / "resources" / "sample.xlsx"
+SAMPLE_XLSX_EMPTY_ROWS = (
+    TEST_DIRECTORY / "resources" / "sample_empty_rows.xlsx"
+)
 MALFORMED_SAMPLE_XLSX = TEST_DIRECTORY / "resources" / "sample_malformed.xlsx"
 MOCK_DB_FILE = TEST_DIRECTORY / "test_server" / "db.json"
 
@@ -94,6 +98,28 @@ class TestServer(unittest.TestCase):
         }
         self.assertEqual(response.status_code, 200)
         self.assertEqual(expected_response, response.json())
+
+    @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
+    def test_validate_csv_xlsx_empty_rows(self):
+        """Tests that empty rows are ignored from valid csv and xlsx files."""
+        for file_path in [SAMPLE_CSV_EMPTY_ROWS, SAMPLE_XLSX_EMPTY_ROWS]:
+            with TestClient(app) as client:
+                with open(file_path, "rb") as f:
+                    files = {
+                        "file": f,
+                    }
+                    response = client.post(
+                        url="/api/validate_csv", files=files
+                    )
+            expected_jobs = [
+                j.model_dump_json() for j in self.expected_job_configs
+            ]
+            expected_response = {
+                "message": "Valid Data",
+                "data": {"jobs": expected_jobs, "errors": []},
+            }
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(expected_response, response.json())
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch("aind_data_transfer_service.server.sleep", return_value=None)
