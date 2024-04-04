@@ -16,7 +16,7 @@ class JobUploadTemplate:
 
     FILE_NAME = "job_upload_template.xlsx"
     NUM_TEMPLATE_ROWS = 20
-    XLSX_DATETIME_FORMAT = "yyyy-mm-dd hh:mm:ss"
+    XLSX_DATETIME_FORMAT = "YYYY-MM-DDTHH:mm:ss"
     HEADERS = [
         "platform",
         "acq_datetime",
