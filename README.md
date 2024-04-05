@@ -1,12 +1,43 @@
 # aind-data-transfer-service
-FastAPI app to upload data transfer jobs.
 
 [![License](https://img.shields.io/badge/license-MIT-brightgreen)](LICENSE)
 ![Code Style](https://img.shields.io/badge/code%20style-black-black)
 [![semantic-release: angular](https://img.shields.io/badge/semantic--release-angular-e10079?logo=semantic-release)](https://github.com/semantic-release/semantic-release)
 
+This service can be used to upload data stored in VAST drive. It uses FastAPI to upload a job submission file that will be used to trigger a data transfer job in an on-prem HPC. Based on the information provided in the file, the data upload process fetches the appropriate metadata and starts the upload process.
+
+## Metadata Sources
+
+The associated metadata files come from different sources. 
+
+- subject from LabTracks
+- procedures from NSB Sharepoint, TARS
+- instrument/rig from SLIMS
+
+
 ## Usage
-It's possible to submit a job via the python api. Here is an example script that can be used.
+
+There are two options for uploading data: a python API or a browser UI service.
+
+### Browser UI
+You can go to http://aind-data-transfer-service to submit a `.csv` or `.xlsx` file with the necessary parameters needed to launch a data upload job. Click on **Job Submit Template** to download a template which you may use as a reference. 
+
+What each column means in the job submission template:
+
+- **platform**: 
+- **acq_datetime**: The time that the data was acquired
+- **subject_id**: The unique id of the subject
+- **modality0**: 
+- **modality0.source**: The source (path to file) of **modality0** in VAST drive
+
+Modify the job template as needed and click on **Browse** to upload the file. A rendered table with a message <span style="color:green">**Successfully validated jobs from file**</span>  appears to indicate a valid file. If there are errors in the job submit file, a message that says <span style="color:red">**Error validating jobs from file**</span> appears. 
+
+To launch a data upload job, click on `Submit`. A message that says "<span style="color: green">Successfuly submitted jobs</span>" should appear. 
+
+After submission, click on `Job Status` to see the status of the data upload job process.  
+
+### Python API
+It's also possible to submit a job via a python api. Here is an example script that can be used.
 
 Assuming that the data on a shared drive is organized as:
 ```
