@@ -5,6 +5,7 @@ import unittest
 from pathlib import Path
 
 from openpyxl import load_workbook
+from openpyxl.utils import range_boundaries
 
 from aind_data_transfer_service.configs.job_upload_template import (
     JobUploadTemplate,
@@ -22,19 +23,19 @@ class TestJobUploadTemplate(unittest.TestCase):
         lines = []
         workbook = load_workbook(source, read_only=(not return_validators))
         worksheet = workbook.active
-        for row in worksheet.rows:
-            row_contents = [cell.value for cell in row]
-            lines.append(row_contents)
+        for row in worksheet.iter_rows(values_only=True):
+            lines.append(row) if any(row) else None
         if return_validators:
             validators = []
             for dv in worksheet.data_validations.dataValidation:
-                validators.append(
-                    {
-                        "name": dv.promptTitle,
-                        "options": dv.formula1.strip('"').split(","),
-                        "ranges": str(dv.cells).split(" "),
-                    }
-                )
+                validator = {
+                    "name": dv.promptTitle,
+                    "type": dv.type,
+                    "ranges": str(dv.cells).split(" "),
+                }
+                if dv.type == "list":
+                    validator["options"] = dv.formula1.strip('"').split(",")
+                validators.append(validator)
             result = (lines, validators)
         else:
             result = lines
@@ -49,6 +50,15 @@ class TestJobUploadTemplate(unittest.TestCase):
             JobUploadTemplate.create_job_template(), True
         )
         self.assertEqual(expected_lines, template_lines)
+        for validator in template_validators:
+            validator["column_indexes"] = []
+            for r in validator["ranges"]:
+                rb = (col, *_) = range_boundaries(r)
+                self.assertTupleEqual(
+                    (col, 2, col, JobUploadTemplate.NUM_TEMPLATE_ROWS), rb
+                )
+                validator["column_indexes"].append(col - 1)
+            del validator["ranges"]
         self.assertCountEqual(
             JobUploadTemplate.VALIDATORS, template_validators
         )
