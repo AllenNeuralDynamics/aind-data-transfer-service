@@ -4,11 +4,11 @@
 ![Code Style](https://img.shields.io/badge/code%20style-black-black)
 [![semantic-release: angular](https://img.shields.io/badge/semantic--release-angular-e10079?logo=semantic-release)](https://github.com/semantic-release/semantic-release)
 
-This service can be used to upload data stored in VAST drive. It uses FastAPI to upload a job submission file that will be used to trigger a data transfer job in an on-prem HPC. Based on the information provided in the file, the data upload process fetches the appropriate metadata and starts the upload process.
+This service can be used to upload data stored in a VAST drive. It uses FastAPI to upload a job submission csv file that will be used to trigger a data transfer job in an on-prem HPC. Based on the information provided in the file, the data upload process fetches the appropriate metadata and starts the upload process.
 
 ## Metadata Sources
 
-The associated metadata files come from different sources. 
+The associated metadata files get pulled from different sources. 
 
 - subject from LabTracks
 - procedures from NSB Sharepoint, TARS
@@ -30,9 +30,9 @@ What each column means in the job submission template:
 - **modality0**: 
 - **modality0.source**: The source (path to file) of **modality0** in VAST drive
 
-Modify the job template as needed and click on **Browse** to upload the file. A rendered table with a message <span style="color:green">**Successfully validated jobs from file**</span>  appears to indicate a valid file. If there are errors in the job submit file, a message that says <span style="color:red">**Error validating jobs from file**</span> appears. 
+Modify the job template as needed and click on **Browse** to upload the file. A rendered table with a message **Successfully validated jobs from file**  appears to indicate a valid file. If there are errors in the job submit file, a message that says **Error validating jobs from file** appears. 
 
-To launch a data upload job, click on `Submit`. A message that says "<span style="color: green">Successfuly submitted jobs</span>" should appear. 
+To launch a data upload job, click on `Submit`. A message that says **Successfuly submitted jobs** should appear. 
 
 After submission, click on `Job Status` to see the status of the data upload job process.  
 
