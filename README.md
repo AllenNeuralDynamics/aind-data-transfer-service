@@ -29,6 +29,7 @@ What each column means in the job submission template:
 - **subject_id**: The unique id of the subject
 - **modality0**: For a list of modalities, click [here](https://github.com/AllenNeuralDynamics/aind-data-schema/blob/main/src/aind_data_schema/models/modalities.py). 
 - **modality0.source**: The source (path to file) of **modality0** in VAST drive
+- **metadata_dir**: An optional folder for pre-compiled metadata json files
 
 Modify the job template as needed and click on **Browse** to upload the file. A rendered table with a message **Successfully validated jobs from file**  appears to indicate a valid file. If there are errors in the job submit file, a message that says **Error validating jobs from file** appears. 
 
