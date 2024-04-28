@@ -7,12 +7,14 @@ import os
 from asyncio import sleep
 from pathlib import PurePosixPath
 
+import requests
 from fastapi import Request
 from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 from openpyxl import load_workbook
 from pydantic import SecretStr
 from starlette.applications import Starlette
+from starlette.concurrency import run_in_threadpool
 from starlette.routing import Route
 
 from aind_data_transfer_service import OPEN_DATA_BUCKET_NAME
@@ -48,6 +50,7 @@ templates = Jinja2Templates(directory=template_directory)
 # BASIC_JOB_SCRIPT
 # OPEN_DATA_AWS_SECRET_ACCESS_KEY
 # OPEN_DATA_AWS_ACCESS_KEY_ID
+# AIND_PROJECT_NAMES_URL
 
 
 async def validate_csv(request: Request):
@@ -329,11 +332,36 @@ async def jobs(request: Request):
     )
 
 
-def download_job_template(request: Request):
+async def download_job_template(_: Request):
     """Get job template as xlsx filestream for download"""
+
+    # TODO: Cache list of project names
     try:
-        xl_io = JobUploadTemplate.create_job_template()
+        smart_sheet_response = await run_in_threadpool(
+            requests.get, url=os.getenv("AIND_PROJECT_NAMES_URL")
+        )
+        if smart_sheet_response.status_code == 200:
+            project_names = smart_sheet_response.json()["data"]
+        else:
+            raise Exception("Unable to get project names!")
+
+        job_template = JobUploadTemplate(project_names=project_names)
+        xl_io = job_template.excel_sheet_filestream
+        return StreamingResponse(
+            io.BytesIO(xl_io.getvalue()),
+            media_type=(
+                "application/"
+                "vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            ),
+            headers={
+                "Content-Disposition": (
+                    f"attachment; filename={job_template.FILE_NAME}"
+                )
+            },
+            status_code=200,
+        )
     except Exception as e:
+        logging.error(e)
         return JSONResponse(
             content={
                 "message": "Error creating job template",
@@ -341,18 +369,6 @@ def download_job_template(request: Request):
             },
             status_code=500,
         )
-    return StreamingResponse(
-        io.BytesIO(xl_io.getvalue()),
-        media_type=(
-            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        ),
-        headers={
-            "Content-Disposition": (
-                f"attachment; filename={JobUploadTemplate.FILE_NAME}"
-            )
-        },
-        status_code=200,
-    )
 
 
 routes = [

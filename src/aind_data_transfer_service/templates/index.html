@@ -144,7 +144,7 @@
                     let jobsLength = jobs.length;
                     var table = document.createElement('table'), tr, td, row;
                     addTableRow(
-                        [ "s3_bucket", "platform", "subject_id", "acq_datetime", "metadata_dir", "modality", "modality.source" ],
+                        [ "processor_full_name", "project_name", "process_capsule_id", "s3_bucket", "platform", "subject_id", "acq_datetime", "metadata_dir", "modality", "modality.source" ],
                         table, tr, td, true
                     );
                     for (row = 0; row < jobsLength; row++) {
@@ -152,11 +152,14 @@
                         let modalities = job.modalities;
                         let modalitiesLength = modalities.length;
                         addTableRow(
-                            [   { value: job.s3_bucket,             rowspan: modalitiesLength },
-                                { value: job.platform.abbreviation, rowspan: modalitiesLength },
-                                { value: job.subject_id,            rowspan: modalitiesLength },
-                                { value: job.acq_datetime,          rowspan: modalitiesLength },
-                                { value: job.metadata_dir ?? "",    rowspan: modalitiesLength },
+                            [   { value: job.processor_full_name,      rowspan: modalitiesLength },
+                                { value: job.project_name,             rowspan: modalitiesLength },
+                                { value: job.process_capsule_id ?? "", rowspan: modalitiesLength },
+                                { value: job.s3_bucket,                rowspan: modalitiesLength },
+                                { value: job.platform.abbreviation,    rowspan: modalitiesLength },
+                                { value: job.subject_id,               rowspan: modalitiesLength },
+                                { value: job.acq_datetime,             rowspan: modalitiesLength },
+                                { value: job.metadata_dir ?? "",       rowspan: modalitiesLength },
                                 modalities ? modalities[0].modality.abbreviation : "",
                                 modalities ? modalities[0].source : ""
                             ], table, tr, td, false

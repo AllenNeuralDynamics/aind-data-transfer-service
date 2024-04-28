@@ -1,6 +1,7 @@
 """Module to configure and create xlsx job upload template"""
 import datetime
 from io import BytesIO
+from typing import Any, Dict, List, Optional
 
 from aind_data_schema.models.modalities import Modality
 from aind_data_schema.models.platforms import Platform
@@ -14,10 +15,23 @@ from openpyxl.worksheet.datavalidation import DataValidation
 class JobUploadTemplate:
     """Class to configure and create xlsx job upload template"""
 
+    def __init__(self, project_names: Optional[List[str]] = None):
+        """
+        Class constructor to create template files.
+        Parameters
+        ----------
+        project_names : Optional[List[str]]
+          Optional list of project names. Default is None.
+        """
+        self.project_names = [] if project_names is None else project_names
+
     FILE_NAME = "job_upload_template.xlsx"
     NUM_TEMPLATE_ROWS = 20
     XLSX_DATETIME_FORMAT = "YYYY-MM-DDTHH:mm:ss"
     HEADERS = [
+        "processor_full_name",
+        "project_name",
+        "process_capsule_id",
         "platform",
         "acq_datetime",
         "subject_id",
@@ -29,6 +43,9 @@ class JobUploadTemplate:
     ]
     SAMPLE_JOBS = [
         [
+            "Anna Apple",
+            "Behavior Platform",
+            "1f999652-00a0-4c4b-99b5-64c2985ad070",
             Platform.BEHAVIOR.abbreviation,
             datetime.datetime(2023, 10, 4, 4, 0, 0),
             "123456",
@@ -39,6 +56,9 @@ class JobUploadTemplate:
             "/allen/aind/stage/fake/dir",
         ],
         [
+            "John Smith",
+            "Ophys Platform - SLAP2",
+            None,
             Platform.SMARTSPIM.abbreviation,
             datetime.datetime(2023, 3, 4, 16, 30, 0),
             "654321",
@@ -47,6 +67,9 @@ class JobUploadTemplate:
             "/allen/aind/stage/fake/dir",
         ],
         [
+            "Anna Apple",
+            "Ephys Platform",
+            None,
             Platform.ECEPHYS.abbreviation,
             datetime.datetime(2023, 1, 30, 19, 1, 0),
             "654321",
@@ -57,42 +80,57 @@ class JobUploadTemplate:
             "/allen/aind/stage/fake/dir",
         ],
     ]
-    VALIDATORS = [
-        {
-            "name": "platform",
-            "type": "list",
-            "options": [p().abbreviation for p in Platform._ALL],
-            "column_indexes": [HEADERS.index("platform")],
-        },
-        {
-            "name": "modality",
-            "type": "list",
-            "options": [m().abbreviation for m in Modality._ALL],
-            "column_indexes": [
-                HEADERS.index("modality0"),
-                HEADERS.index("modality1"),
-            ],
-        },
-        {
-            "name": "datetime",
-            "type": "date",
-            "column_indexes": [HEADERS.index("acq_datetime")],
-        },
-    ]
 
-    @staticmethod
-    def create_job_template():
+    @property
+    def validators(self) -> List[Dict[str, Any]]:
+        """
+        Returns
+        -------
+        List[Dict[str, Any]]
+          A list of validators for fields that require validation.
+
+        """
+        return [
+            {
+                "name": "platform",
+                "type": "list",
+                "options": [p().abbreviation for p in Platform._ALL],
+                "column_indexes": [self.HEADERS.index("platform")],
+            },
+            {
+                "name": "project_name",
+                "type": "list",
+                "options": [p for p in self.project_names],
+                "column_indexes": [self.HEADERS.index("project_name")],
+            },
+            {
+                "name": "modality",
+                "type": "list",
+                "options": [m().abbreviation for m in Modality._ALL],
+                "column_indexes": [
+                    self.HEADERS.index("modality0"),
+                    self.HEADERS.index("modality1"),
+                ],
+            },
+            {
+                "name": "datetime",
+                "type": "date",
+                "column_indexes": [self.HEADERS.index("acq_datetime")],
+            },
+        ]
+
+    @property
+    def excel_sheet_filestream(self) -> BytesIO:
         """Create job template as xlsx filestream"""
-        # job template
         xl_io = BytesIO()
         workbook = Workbook()
         workbook.iso_dates = True
         worksheet = workbook.active
-        worksheet.append(JobUploadTemplate.HEADERS)
-        for job in JobUploadTemplate.SAMPLE_JOBS:
+        worksheet.append(self.HEADERS)
+        for job in self.SAMPLE_JOBS:
             worksheet.append(job)
         # data validators
-        for validator in JobUploadTemplate.VALIDATORS:
+        for validator in self.validators:
             dv_type = validator["type"]
             dv_name = validator["name"]
             dv_params = {
@@ -108,19 +146,17 @@ class JobUploadTemplate:
                 dv_params["prompt"] = f"Select a {dv_name} from the dropdown"
             elif dv_type == "date":
                 dv_params["prompt"] = "Provide a {} using {}".format(
-                    dv_name, JobUploadTemplate.XLSX_DATETIME_FORMAT
+                    dv_name, self.XLSX_DATETIME_FORMAT
                 )
             dv = DataValidation(**dv_params)
             for i in validator["column_indexes"]:
                 col = get_column_letter(i + 1)
-                col_range = (
-                    f"{col}2:{col}{JobUploadTemplate.NUM_TEMPLATE_ROWS}"
-                )
+                col_range = f"{col}2:{col}{self.NUM_TEMPLATE_ROWS}"
                 dv.add(col_range)
                 if dv_type != "date":
                     continue
                 for (cell,) in worksheet[col_range]:
-                    cell.number_format = JobUploadTemplate.XLSX_DATETIME_FORMAT
+                    cell.number_format = self.XLSX_DATETIME_FORMAT
             worksheet.add_data_validation(dv)
         # formatting
         bold = Font(bold=True)

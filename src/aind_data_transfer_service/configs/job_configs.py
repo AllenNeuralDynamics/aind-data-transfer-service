@@ -131,6 +131,19 @@ class BasicUploadJobConfigs(BaseSettings):
 
     aws_param_store_name: Optional[str] = Field(None)
 
+    processor_full_name: str = Field(
+        ...,
+        description="Name of person uploading data",
+        title="Processor Full Name",
+    )
+    project_name: str = Field(
+        ..., description="Name of project", title="Project Name"
+    )
+    process_capsule_id: Optional[str] = Field(
+        None,
+        description="Use custom codeocean capsule or pipeline id",
+        title="Process Capsule ID",
+    )
     s3_bucket: Optional[str] = Field(
         None,
         description="Bucket where data will be uploaded",
