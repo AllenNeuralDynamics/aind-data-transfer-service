@@ -544,25 +544,14 @@ class TestServer(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn("Submit Jobs", response.text)
 
-    @patch("requests.get")
-    def test_download_job_template(self, mock_get: MagicMock):
+    def test_download_job_template(self):
         """Tests that job template downloads as xlsx file."""
-
-        mock_response = Response()
-        mock_response.status_code = 200
-        mock_project_names = ["Ephys Platform", "Behavior Platform"]
-        mock_response._content = json.dumps(
-            {"data": mock_project_names}
-        ).encode("utf-8")
-        mock_get.return_value = mock_response
 
         # mock_create_template.return_value = BytesIO(b"mock_template_stream")
         with TestClient(app) as client:
             response = client.get("/api/job_upload_template")
 
-        expected_job_template = JobUploadTemplate(
-            project_names=mock_project_names
-        )
+        expected_job_template = JobUploadTemplate()
         expected_file_stream = expected_job_template.excel_sheet_filestream
         expected_streaming_response = StreamingResponse(
             BytesIO(expected_file_stream.getvalue()),
@@ -584,13 +573,13 @@ class TestServer(unittest.TestCase):
         )
         self.assertEqual(200, response.status_code)
 
-    @patch("requests.get")
+    @patch("aind_data_transfer_service.server.JobUploadTemplate")
     @patch("logging.error")
     def test_download_invalid_job_template(
-        self, mock_log_error: MagicMock, mock_get: MagicMock
+        self, mock_log_error: MagicMock, mock_job_template: MagicMock
     ):
         """Tests that download invalid job template returns errors."""
-        mock_get.side_effect = Exception("mock invalid job template")
+        mock_job_template.side_effect = Exception("mock invalid job template")
         with TestClient(app) as client:
             response = client.get("/api/job_upload_template")
         expected_response = {
@@ -599,35 +588,6 @@ class TestServer(unittest.TestCase):
         }
         self.assertEqual(500, response.status_code)
         self.assertEqual(expected_response, response.json())
-        mock_log_error.assert_called_once()
-
-    @patch("requests.get")
-    @patch("logging.error")
-    def test_download_job_template_no_project_names(
-        self, mock_log_error: MagicMock, mock_get: MagicMock
-    ):
-        """Tests error is raised if there's an issue getting project names"""
-
-        mock_response = Response()
-        mock_response.status_code = 500
-        mock_project_names = []
-        mock_response._content = json.dumps(
-            {"data": mock_project_names}
-        ).encode("utf-8")
-        mock_get.return_value = mock_response
-
-        with TestClient(app) as client:
-            response = client.get("/api/job_upload_template")
-
-        expected_response_content = {
-            "message": "Error creating job template",
-            "data": {"error": "Exception('Unable to get project names!',)"},
-        }
-        self.assertEqual(
-            expected_response_content,
-            json.loads(response.content.decode("utf-8")),
-        )
-        self.assertEqual(500, response.status_code)
         mock_log_error.assert_called_once()
 
 

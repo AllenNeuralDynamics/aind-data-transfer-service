@@ -1,7 +1,7 @@
 """Module to configure and create xlsx job upload template"""
 import datetime
 from io import BytesIO
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 from aind_data_schema.models.modalities import Modality
 from aind_data_schema.models.platforms import Platform
@@ -14,16 +14,6 @@ from openpyxl.worksheet.datavalidation import DataValidation
 # TODO: convert to pydantic model
 class JobUploadTemplate:
     """Class to configure and create xlsx job upload template"""
-
-    def __init__(self, project_names: Optional[List[str]] = None):
-        """
-        Class constructor to create template files.
-        Parameters
-        ----------
-        project_names : Optional[List[str]]
-          Optional list of project names. Default is None.
-        """
-        self.project_names = [] if project_names is None else project_names
 
     FILE_NAME = "job_upload_template.xlsx"
     NUM_TEMPLATE_ROWS = 20
@@ -96,12 +86,6 @@ class JobUploadTemplate:
                 "type": "list",
                 "options": [p().abbreviation for p in Platform._ALL],
                 "column_indexes": [self.HEADERS.index("platform")],
-            },
-            {
-                "name": "project_name",
-                "type": "list",
-                "options": [p for p in self.project_names],
-                "column_indexes": [self.HEADERS.index("project_name")],
             },
             {
                 "name": "modality",

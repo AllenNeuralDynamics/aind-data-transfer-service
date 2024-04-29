@@ -18,29 +18,6 @@ SAMPLE_JOB_TEMPLATE = TEST_DIRECTORY / "resources" / "job_upload_template.xlsx"
 class TestJobUploadTemplate(unittest.TestCase):
     """Tests job upload template class"""
 
-    EXAMPLE_PROJECT_NAMES = [
-        "AIND Viral Genetic Tools",
-        "Behavior Platform",
-        "Brain Computer Interface",
-        "Cell Type LUT",
-        "Cognitive flexibility in patch foraging",
-        "Discovery-Brain Wide Circuit Dynamics",
-        "Discovery-Neuromodulator circuit dynamics during foraging",
-        "Dynamic Routing",
-        "Ephys Platform",
-        "Force Foraging",
-        "Information seeking in partially observable environments",
-        "Learning mFISH/V1omFISH",
-        "MSMA Platform",
-        "Medulla",
-        "Neurobiology of Action",
-        "OpenScope",
-        "Ophys Platform - FP and indicator testing",
-        "Ophys Platform - SLAP2",
-        "Single-neuron computations within brain-wide circuits (SCBC)",
-        "Thalamus in the middle",
-    ]
-
     @staticmethod
     def _read_xl_helper(source, return_validators=False):
         """Helper function to read xlsx contents and validators"""
@@ -70,9 +47,7 @@ class TestJobUploadTemplate(unittest.TestCase):
     def setUpClass(cls):
         """Set up test class"""
         expected_lines = cls._read_xl_helper(SAMPLE_JOB_TEMPLATE)
-        job_template = JobUploadTemplate(
-            project_names=cls.EXAMPLE_PROJECT_NAMES
-        )
+        job_template = JobUploadTemplate()
         (template_lines, template_validators) = cls._read_xl_helper(
             job_template.excel_sheet_filestream, True
         )

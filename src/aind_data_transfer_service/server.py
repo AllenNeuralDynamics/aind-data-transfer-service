@@ -7,14 +7,12 @@ import os
 from asyncio import sleep
 from pathlib import PurePosixPath
 
-import requests
 from fastapi import Request
 from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 from openpyxl import load_workbook
 from pydantic import SecretStr
 from starlette.applications import Starlette
-from starlette.concurrency import run_in_threadpool
 from starlette.routing import Route
 
 from aind_data_transfer_service import OPEN_DATA_BUCKET_NAME
@@ -337,15 +335,7 @@ async def download_job_template(_: Request):
 
     # TODO: Cache list of project names
     try:
-        smart_sheet_response = await run_in_threadpool(
-            requests.get, url=os.getenv("AIND_PROJECT_NAMES_URL")
-        )
-        if smart_sheet_response.status_code == 200:
-            project_names = smart_sheet_response.json()["data"]
-        else:
-            raise Exception("Unable to get project names!")
-
-        job_template = JobUploadTemplate(project_names=project_names)
+        job_template = JobUploadTemplate()
         xl_io = job_template.excel_sheet_filestream
         return StreamingResponse(
             io.BytesIO(xl_io.getvalue()),
