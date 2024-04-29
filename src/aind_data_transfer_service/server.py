@@ -48,7 +48,6 @@ templates = Jinja2Templates(directory=template_directory)
 # BASIC_JOB_SCRIPT
 # OPEN_DATA_AWS_SECRET_ACCESS_KEY
 # OPEN_DATA_AWS_ACCESS_KEY_ID
-# AIND_PROJECT_NAMES_URL
 
 
 async def validate_csv(request: Request):
