@@ -329,11 +329,28 @@ async def jobs(request: Request):
     )
 
 
-def download_job_template(request: Request):
+async def download_job_template(_: Request):
     """Get job template as xlsx filestream for download"""
+
+    # TODO: Cache list of project names
     try:
-        xl_io = JobUploadTemplate.create_job_template()
+        job_template = JobUploadTemplate()
+        xl_io = job_template.excel_sheet_filestream
+        return StreamingResponse(
+            io.BytesIO(xl_io.getvalue()),
+            media_type=(
+                "application/"
+                "vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            ),
+            headers={
+                "Content-Disposition": (
+                    f"attachment; filename={job_template.FILE_NAME}"
+                )
+            },
+            status_code=200,
+        )
     except Exception as e:
+        logging.error(e)
         return JSONResponse(
             content={
                 "message": "Error creating job template",
@@ -341,18 +358,6 @@ def download_job_template(request: Request):
             },
             status_code=500,
         )
-    return StreamingResponse(
-        io.BytesIO(xl_io.getvalue()),
-        media_type=(
-            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        ),
-        headers={
-            "Content-Disposition": (
-                f"attachment; filename={JobUploadTemplate.FILE_NAME}"
-            )
-        },
-        status_code=200,
-    )
 
 
 routes = [

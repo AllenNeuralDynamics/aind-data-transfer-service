@@ -8,10 +8,14 @@ from io import BytesIO
 from pathlib import Path, PurePosixPath
 from unittest.mock import MagicMock, patch
 
+from fastapi.responses import StreamingResponse
 from fastapi.testclient import TestClient
 from pydantic import SecretStr
 from requests import Response
 
+from aind_data_transfer_service.configs.job_upload_template import (
+    JobUploadTemplate,
+)
 from aind_data_transfer_service.server import app
 from tests.test_configs import TestJobConfigs
 
@@ -294,7 +298,10 @@ class TestServer(unittest.TestCase):
                 {
                     "hpc_settings": '{"qos":"production", "name": "job1"}',
                     "upload_job_settings": (
-                        '{"s3_bucket": "private", '
+                        '{"processor_full_name":"Anna Apple", '
+                        '"project_name":"Ephys Platform", '
+                        '"process_capsule_id":null, '
+                        '"s3_bucket": "private", '
                         '"platform": {"name": "Behavior platform", '
                         '"abbreviation": "behavior"}, '
                         '"modalities": ['
@@ -360,7 +367,10 @@ class TestServer(unittest.TestCase):
                 {
                     "hpc_settings": '{"qos":"production", "name": "job1"}',
                     "upload_job_settings": (
-                        '{"s3_bucket": "open", '
+                        '{"processor_full_name":"Anna Apple", '
+                        '"project_name":"Ephys Platform", '
+                        '"process_capsule_id":null, '
+                        '"s3_bucket": "open", '
                         '"platform": {"name": "Behavior platform", '
                         '"abbreviation": "behavior"}, '
                         '"modalities": ['
@@ -534,44 +544,50 @@ class TestServer(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn("Submit Jobs", response.text)
 
-    @patch(
-        "aind_data_transfer_service.configs.job_upload_template"
-        ".JobUploadTemplate.create_job_template"
-    )
-    def test_download_job_template(self, mock_create_template: MagicMock):
+    def test_download_job_template(self):
         """Tests that job template downloads as xlsx file."""
-        mock_create_template.return_value = BytesIO(b"mock_template_stream")
+
         with TestClient(app) as client:
             response = client.get("/api/job_upload_template")
-        expected_file_name_header = (
-            "attachment; filename=job_upload_template.xlsx"
-        )
-        self.assertEqual(1, mock_create_template.call_count)
-        self.assertEqual(200, response.status_code)
-        self.assertEqual(
-            expected_file_name_header, response.headers["Content-Disposition"]
+
+        expected_job_template = JobUploadTemplate()
+        expected_file_stream = expected_job_template.excel_sheet_filestream
+        expected_streaming_response = StreamingResponse(
+            BytesIO(expected_file_stream.getvalue()),
+            media_type=(
+                "application/"
+                "vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            ),
+            headers={
+                "Content-Disposition": (
+                    f"attachment; filename={expected_job_template.FILE_NAME}"
+                )
+            },
+            status_code=200,
         )
 
-    @patch(
-        "aind_data_transfer_service.configs.job_upload_template"
-        ".JobUploadTemplate.create_job_template"
-    )
+        self.assertEqual(
+            expected_streaming_response.headers.items(),
+            list(response.headers.items()),
+        )
+        self.assertEqual(200, response.status_code)
+
+    @patch("aind_data_transfer_service.server.JobUploadTemplate")
+    @patch("logging.error")
     def test_download_invalid_job_template(
-        self, mock_create_template: MagicMock
+        self, mock_log_error: MagicMock, mock_job_template: MagicMock
     ):
         """Tests that download invalid job template returns errors."""
-        mock_create_template.side_effect = Exception(
-            "mock invalid job template"
-        )
+        mock_job_template.side_effect = Exception("mock invalid job template")
         with TestClient(app) as client:
             response = client.get("/api/job_upload_template")
         expected_response = {
             "message": "Error creating job template",
             "data": {"error": "Exception('mock invalid job template',)"},
         }
-        self.assertEqual(1, mock_create_template.call_count)
         self.assertEqual(500, response.status_code)
         self.assertEqual(expected_response, response.json())
+        mock_log_error.assert_called_once()
 
 
 if __name__ == "__main__":
