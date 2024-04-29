@@ -547,7 +547,6 @@ class TestServer(unittest.TestCase):
     def test_download_job_template(self):
         """Tests that job template downloads as xlsx file."""
 
-        # mock_create_template.return_value = BytesIO(b"mock_template_stream")
         with TestClient(app) as client:
             response = client.get("/api/job_upload_template")
 
