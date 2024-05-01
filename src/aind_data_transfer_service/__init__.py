@@ -1,7 +1,7 @@
 """Init package"""
 import os
 
-__version__ = "0.11.0"
+__version__ = "0.11.1"
 
 # Global constants
 OPEN_DATA_BUCKET_NAME = os.getenv("OPEN_DATA_BUCKET_NAME", "open")
