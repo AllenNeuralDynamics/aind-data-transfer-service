@@ -27,7 +27,7 @@
         <a href="/">Submit Jobs</a> |
         <a href="/jobs">Job Status</a> |
         <a title="Download job template as .xslx" href= "/api/job_upload_template" download>Job Submit Template</a> |
-        <a title="List of project names" href= "http://aind-metadata-service/project_names" >Project Names</a> |
+        <a title="List of project names" href= "{{ project_names_url }}" target="_blank" >Project Names</a> |
         <a title="For more information click here" href="https://github.com/AllenNeuralDynamics/aind-data-transfer-service/tree/main?tab=readme-ov-file#aind-data-transfer-service"  target="_blank" >Help</a>
     </nav>
     <h2>Jobs Submitted: {{num_of_jobs}}</h2>

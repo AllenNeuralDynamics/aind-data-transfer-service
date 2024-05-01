@@ -48,6 +48,7 @@ templates = Jinja2Templates(directory=template_directory)
 # BASIC_JOB_SCRIPT
 # OPEN_DATA_AWS_SECRET_ACCESS_KEY
 # OPEN_DATA_AWS_ACCESS_KEY_ID
+# AIND_METADATA_SERVICE_PROJECT_NAMES_URL
 
 
 async def validate_csv(request: Request):
@@ -287,6 +288,9 @@ async def index(request: Request):
         context=(
             {
                 "request": request,
+                "project_names_url": os.getenv(
+                    "AIND_METADATA_SERVICE_PROJECT_NAMES_URL"
+                ),
             }
         ),
     )
@@ -324,6 +328,9 @@ async def jobs(request: Request):
                 "request": request,
                 "job_status_list": job_status_list,
                 "num_of_jobs": len(job_status_list),
+                "project_names_url": os.getenv(
+                    "AIND_METADATA_SERVICE_PROJECT_NAMES_URL"
+                ),
             }
         ),
     )
