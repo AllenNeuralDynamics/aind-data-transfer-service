@@ -143,6 +143,7 @@ export HPC_NODES='[1,1]'
 export HPC_TASKS='1'
 export HPC_TIME_LIMIT='360'
 export HPC_QOS='dev'
+export AIND_METADATA_SERVICE_PROJECT_NAMES_URL='http://aind-metadata-service-dev/project_names'
 uvicorn aind_data_transfer_service.server:app --host 0.0.0.0 --port 5000
 ```
 You can now access `http://localhost:5000/jobs`.
