@@ -27,7 +27,6 @@ class TestJobConfigs(unittest.TestCase):
     expected_job_configs = [
         BasicUploadJobConfigs(
             aws_param_store_name="/some/param/store",
-            processor_full_name="Anna Apple",
             project_name="Ephys Platform",
             process_capsule_id=None,
             s3_bucket="private",
@@ -53,7 +52,6 @@ class TestJobConfigs(unittest.TestCase):
         ),
         BasicUploadJobConfigs(
             aws_param_store_name="/some/param/store",
-            processor_full_name="John Smith",
             project_name="Behavior Platform",
             process_capsule_id="1f999652-00a0-4c4b-99b5-64c2985ad070",
             s3_bucket="open",
@@ -86,7 +84,6 @@ class TestJobConfigs(unittest.TestCase):
         ),
         BasicUploadJobConfigs(
             aws_param_store_name="/some/param/store",
-            processor_full_name="Anna Apple",
             project_name="Behavior Platform",
             process_capsule_id=None,
             s3_bucket="scratch",
@@ -158,7 +155,6 @@ class TestJobConfigs(unittest.TestCase):
         # not formatted correctly
         with self.assertRaises(Exception) as e1:
             BasicUploadJobConfigs(
-                processor_full_name="Anna Apple",
                 project_name="Behavior Platform",
                 s3_bucket="",
                 platform=Platform.BEHAVIOR,
@@ -225,7 +221,6 @@ class TestJobConfigs(unittest.TestCase):
         with self.assertRaises(AttributeError) as e:
             BasicUploadJobConfigs(
                 aws_param_store_name="/some/param/store",
-                processor_full_name="Anna Apple",
                 project_name="Behavior Platform",
                 s3_bucket="some_bucket2",
                 platform="MISSING",
@@ -321,7 +316,6 @@ class TestHpcConfigs(unittest.TestCase):
                 " python -m aind_data_transfer.jobs.basic_job"
                 " --json-args ' "
                 '{"aws_param_store_name":"/some/param/store",'
-                '"processor_full_name":"Anna Apple",'
                 '"project_name":"Ephys Platform",'
                 '"process_capsule_id":null,'
                 '"s3_bucket":"private",'

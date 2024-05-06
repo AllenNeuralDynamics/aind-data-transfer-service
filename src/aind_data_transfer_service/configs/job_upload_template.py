@@ -19,7 +19,6 @@ class JobUploadTemplate:
     NUM_TEMPLATE_ROWS = 20
     XLSX_DATETIME_FORMAT = "YYYY-MM-DDTHH:mm:ss"
     HEADERS = [
-        "processor_full_name",
         "project_name",
         "process_capsule_id",
         "platform",
@@ -33,7 +32,6 @@ class JobUploadTemplate:
     ]
     SAMPLE_JOBS = [
         [
-            "Anna Apple",
             "Behavior Platform",
             "1f999652-00a0-4c4b-99b5-64c2985ad070",
             Platform.BEHAVIOR.abbreviation,
@@ -46,7 +44,6 @@ class JobUploadTemplate:
             "/allen/aind/stage/fake/dir",
         ],
         [
-            "John Smith",
             "Ophys Platform - SLAP2",
             None,
             Platform.SMARTSPIM.abbreviation,
@@ -57,7 +54,6 @@ class JobUploadTemplate:
             "/allen/aind/stage/fake/dir",
         ],
         [
-            "Anna Apple",
             "Ephys Platform",
             None,
             Platform.ECEPHYS.abbreviation,
