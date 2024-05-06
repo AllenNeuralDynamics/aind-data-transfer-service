@@ -131,11 +131,6 @@ class BasicUploadJobConfigs(BaseSettings):
 
     aws_param_store_name: Optional[str] = Field(None)
 
-    processor_full_name: str = Field(
-        ...,
-        description="Name of person uploading data",
-        title="Processor Full Name",
-    )
     project_name: str = Field(
         ..., description="Name of project", title="Project Name"
     )

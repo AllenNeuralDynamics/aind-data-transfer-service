@@ -298,8 +298,7 @@ class TestServer(unittest.TestCase):
                 {
                     "hpc_settings": '{"qos":"production", "name": "job1"}',
                     "upload_job_settings": (
-                        '{"processor_full_name":"Anna Apple", '
-                        '"project_name":"Ephys Platform", '
+                        '{"project_name":"Ephys Platform", '
                         '"process_capsule_id":null, '
                         '"s3_bucket": "private", '
                         '"platform": {"name": "Behavior platform", '
@@ -367,8 +366,7 @@ class TestServer(unittest.TestCase):
                 {
                     "hpc_settings": '{"qos":"production", "name": "job1"}',
                     "upload_job_settings": (
-                        '{"processor_full_name":"Anna Apple", '
-                        '"project_name":"Ephys Platform", '
+                        '{"project_name":"Ephys Platform", '
                         '"process_capsule_id":null, '
                         '"s3_bucket": "open", '
                         '"platform": {"name": "Behavior platform", '
