@@ -133,7 +133,6 @@ class TestHpcJobSubmitSettings(unittest.TestCase):
 
     example_config = BasicUploadJobConfigs(
         aws_param_store_name="/some/param/store",
-        processor_full_name="John Smith",
         project_name="Behavior Platform",
         s3_bucket="some_bucket",
         platform=Platform.ECEPHYS,

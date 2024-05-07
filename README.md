@@ -24,7 +24,6 @@ You can go to http://aind-data-transfer-service to submit a `.csv` or `.xlsx` fi
 
 What each column means in the job submission template:
 
-- **processor_full_name**: Name of the person submitting the upload job
 - **project_name**: Project name. A full list can be downloaded at [Project Names](http://aind-metadata-service/project_names)
 - **process_capsule_id**: Optional Code Ocean capsule or pipeline to run when data is uploaded
 - **platform**: For a list of platforms click [here](https://github.com/AllenNeuralDynamics/aind-data-schema/blob/main/src/aind_data_schema/models/platforms.py).
@@ -73,11 +72,9 @@ platform = Platform.BEHAVIOR
 behavior_config = ModalityConfigs(modality=Modality.BEHAVIOR, source=(source_dir / "Behavior"))
 behavior_videos_config = ModalityConfigs(modality=Modality.BEHAVIOR_VIDEOS, source=(source_dir / "Behavior videos"))
 metadata_dir = source_dir / "Config"  # This is an optional folder of pre-compiled metadata json files
-processor_full_name="Anna Apple"
 project_name="Ephys Platform"
 
 upload_job_configs = BasicUploadJobConfigs(
-  processor_full_name=processor_full_name,
   project_name=project_name,
   s3_bucket = s3_bucket,
   platform = platform,
