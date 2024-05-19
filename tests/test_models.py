@@ -42,7 +42,6 @@ class TestJobStatus(unittest.TestCase):
         )
         job_status_0 = JobStatus.from_airflow_dag_run(dag_response.dag_runs[4])
         jinja_dict = job_status_0.jinja_dict
-        print(jinja_dict)
         expected_output = {
             "end_time": datetime(
                 2024, 5, 18, 23, 51, 17, 716003, tzinfo=timezone.utc
