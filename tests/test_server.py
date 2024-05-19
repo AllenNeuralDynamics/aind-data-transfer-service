@@ -34,6 +34,10 @@ MOCK_DB_FILE = TEST_DIRECTORY / "test_server" / "db.json"
 NEW_SAMPLE_CSV = TEST_DIRECTORY / "resources" / "new_sample.csv"
 MALFORMED_SAMPLE2_CSV = TEST_DIRECTORY / "resources" / "sample_malformed_2.csv"
 
+DAG_RUN_RESPONSE = (
+    TEST_DIRECTORY / "resources" / "airflow_dag_runs_response.json"
+)
+
 
 class TestServer(unittest.TestCase):
     """Tests main server."""
@@ -63,6 +67,9 @@ class TestServer(unittest.TestCase):
 
     with open(MOCK_DB_FILE) as f:
         json_contents = json.load(f)
+
+    with open(DAG_RUN_RESPONSE) as f:
+        dag_run_response = json.load(f)
 
     expected_job_configs = deepcopy(TestJobConfigs.expected_job_configs)
     for config in expected_job_configs:
@@ -521,7 +528,7 @@ class TestServer(unittest.TestCase):
         """Tests that job status page renders at startup as expected."""
         mock_response = Response()
         mock_response.status_code = 200
-        mock_response._content = json.dumps(self.json_contents["jobs"]).encode(
+        mock_response._content = json.dumps(self.dag_run_response).encode(
             "utf-8"
         )
         mock_get.return_value = mock_response

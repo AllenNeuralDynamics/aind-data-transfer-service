@@ -5,6 +5,7 @@ import json
 import logging
 import os
 from asyncio import sleep
+from datetime import datetime, timedelta
 from pathlib import PurePosixPath
 
 import requests
@@ -27,11 +28,8 @@ from aind_data_transfer_service.configs.job_upload_template import (
     JobUploadTemplate,
 )
 from aind_data_transfer_service.hpc.client import HpcClient, HpcClientConfigs
-from aind_data_transfer_service.hpc.models import (
-    HpcJobStatusResponse,
-    HpcJobSubmitSettings,
-    JobStatus,
-)
+from aind_data_transfer_service.hpc.models import HpcJobSubmitSettings
+from aind_data_transfer_service.models import AirflowDagRunsResponse, JobStatus
 
 template_directory = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "templates")
@@ -53,6 +51,7 @@ templates = Jinja2Templates(directory=template_directory)
 # OPEN_DATA_AWS_ACCESS_KEY_ID
 # AIND_METADATA_SERVICE_PROJECT_NAMES_URL
 # AIND_AIRFLOW_SERVICE_URL
+# AIND_AIRFLOW_SERVICE_JOBS_URL
 # AIND_AIRFLOW_SERVICE_PASSWORD
 # AIND_AIRFLOW_SERVICE_USER
 
@@ -400,42 +399,55 @@ async def index(request: Request):
 
 async def jobs(request: Request):
     """Get status of jobs"""
-    hpc_client_conf = HpcClientConfigs()
-    hpc_client = HpcClient(configs=hpc_client_conf)
-    hpc_partition = os.getenv("HPC_PARTITION")
-    hpc_qos = os.getenv("HPC_QOS")
-    response = hpc_client.get_jobs()
-    if response.status_code == 200:
-        slurm_jobs = [
-            HpcJobStatusResponse.model_validate(job_json)
-            for job_json in response.json()["jobs"]
-            if job_json["partition"] == hpc_partition
-            and job_json["user_name"] == os.getenv("HPC_USERNAME")
-            and (
-                hpc_qos is None
-                or (hpc_qos == "production" and job_json["qos"] == hpc_qos)
-            )
-        ]
-        job_status_list = [
-            JobStatus.from_hpc_job_status(slurm_job).jinja_dict
-            for slurm_job in slurm_jobs
-        ]
-        job_status_list.sort(key=lambda x: x["submit_time"], reverse=True)
-    else:
-        job_status_list = []
-    return templates.TemplateResponse(
-        name="job_status.html",
-        context=(
-            {
-                "request": request,
-                "job_status_list": job_status_list,
-                "num_of_jobs": len(job_status_list),
-                "project_names_url": os.getenv(
-                    "AIND_METADATA_SERVICE_PROJECT_NAMES_URL"
-                ),
-            }
+    # TODO: Use httpx async client
+    # TODO: Paginate results. Maybe render 50 at a time.
+    response_jobs = requests.get(
+        url=os.getenv("AIND_AIRFLOW_SERVICE_JOBS_URL"),
+        auth=(
+            os.getenv("AIND_AIRFLOW_SERVICE_USER"),
+            os.getenv("AIND_AIRFLOW_SERVICE_PASSWORD"),
         ),
+        params={
+            "start_date_gte": (datetime.utcnow() - timedelta(days=7)).strftime(
+                "%Y-%m-%dT%H:%M:%SZ"
+            )
+        },
     )
+    if response_jobs.status_code == 200:
+        dag_runs = AirflowDagRunsResponse.model_validate_json(
+            json.dumps(response_jobs.json())
+        )
+        job_status_list = [
+            JobStatus.from_airflow_dag_run(d) for d in dag_runs.dag_runs
+        ]
+        return templates.TemplateResponse(
+            name="job_status.html",
+            context=(
+                {
+                    "request": request,
+                    "job_status_list": job_status_list,
+                    "num_of_jobs": len(job_status_list),
+                    "project_names_url": os.getenv(
+                        "AIND_METADATA_SERVICE_PROJECT_NAMES_URL"
+                    ),
+                }
+            ),
+        )
+    # TODO: Pass information to user about response failures
+    else:
+        return templates.TemplateResponse(
+            name="job_status.html",
+            context=(
+                {
+                    "request": request,
+                    "job_status_list": [],
+                    "num_of_jobs": 0,
+                    "project_names_url": os.getenv(
+                        "AIND_METADATA_SERVICE_PROJECT_NAMES_URL"
+                    ),
+                }
+            ),
+        )
 
 
 async def download_job_template(_: Request):
