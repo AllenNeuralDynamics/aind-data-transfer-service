@@ -7,19 +7,22 @@ import os
 from asyncio import sleep
 from pathlib import PurePosixPath
 
+import requests
+from aind_data_transfer_models.core import SubmitJobRequest
 from fastapi import Request
 from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 from openpyxl import load_workbook
-from pydantic import SecretStr
+from pydantic import SecretStr, ValidationError
 from starlette.applications import Starlette
 from starlette.routing import Route
 
 from aind_data_transfer_service import OPEN_DATA_BUCKET_NAME
+from aind_data_transfer_service.configs.csv_handler import map_csv_row_to_job
 from aind_data_transfer_service.configs.job_configs import (
-    BasicUploadJobConfigs,
-    HpcJobConfigs,
+    BasicUploadJobConfigs as LegacyBasicUploadJobConfigs,
 )
+from aind_data_transfer_service.configs.job_configs import HpcJobConfigs
 from aind_data_transfer_service.configs.job_upload_template import (
     JobUploadTemplate,
 )
@@ -49,6 +52,9 @@ templates = Jinja2Templates(directory=template_directory)
 # OPEN_DATA_AWS_SECRET_ACCESS_KEY
 # OPEN_DATA_AWS_ACCESS_KEY_ID
 # AIND_METADATA_SERVICE_PROJECT_NAMES_URL
+# AIND_AIRFLOW_SERVICE_URL
+# AIND_AIRFLOW_SERVICE_PASSWORD
+# AIND_AIRFLOW_SERVICE_USER
 
 
 async def validate_csv(request: Request):
@@ -79,7 +85,57 @@ async def validate_csv(request: Request):
                 if not any(row.values()):
                     continue
                 try:
-                    job = BasicUploadJobConfigs.from_csv_row(row=row)
+                    job = map_csv_row_to_job(row=row)
+                    # Construct hpc job setting most of the vars from the env
+                    basic_jobs.append(
+                        json.loads(job.model_dump_json(round_trip=True))
+                    )
+                except ValidationError as e:
+                    errors.append(e.json())
+                except Exception as e:
+                    errors.append(f"{str(e.args)}")
+        message = "There were errors" if len(errors) > 0 else "Valid Data"
+        status_code = 406 if len(errors) > 0 else 200
+        content = {
+            "message": message,
+            "data": {"jobs": basic_jobs, "errors": errors},
+        }
+        return JSONResponse(
+            content=content,
+            status_code=status_code,
+        )
+
+
+# TODO: Deprecate this endpoint
+async def validate_csv_legacy(request: Request):
+    """Validate a csv or xlsx file. Return parsed contents as json."""
+    async with request.form() as form:
+        basic_jobs = []
+        errors = []
+        if not form["file"].filename.endswith((".csv", ".xlsx")):
+            errors.append("Invalid input file type")
+        else:
+            content = await form["file"].read()
+            if form["file"].filename.endswith(".csv"):
+                # A few csv files created from excel have extra unicode
+                # byte chars. Adding "utf-8-sig" should remove them.
+                data = content.decode("utf-8-sig")
+            else:
+                xlsx_book = load_workbook(io.BytesIO(content), read_only=True)
+                xlsx_sheet = xlsx_book.active
+                csv_io = io.StringIO()
+                csv_writer = csv.writer(csv_io)
+                for r in xlsx_sheet.iter_rows(values_only=True):
+                    if any(r):
+                        csv_writer.writerow(r)
+                xlsx_book.close()
+                data = csv_io.getvalue()
+            csv_reader = csv.DictReader(io.StringIO(data))
+            for row in csv_reader:
+                if not any(row.values()):
+                    continue
+                try:
+                    job = LegacyBasicUploadJobConfigs.from_csv_row(row=row)
                     # Construct hpc job setting most of the vars from the env
                     basic_jobs.append(job.model_dump_json())
                 except Exception as e:
@@ -96,6 +152,48 @@ async def validate_csv(request: Request):
         )
 
 
+async def submit_jobs(request: Request):
+    """Post BasicJobConfigs raw json to hpc server to process."""
+    content = await request.json()
+    try:
+        model = SubmitJobRequest.model_validate_json(json.dumps(content))
+        full_content = json.loads(model.model_dump_json())
+        # TODO: Replace with httpx async client
+        response = requests.post(
+            url=os.getenv("AIND_AIRFLOW_SERVICE_URL"),
+            auth=(
+                os.getenv("AIND_AIRFLOW_SERVICE_USER"),
+                os.getenv("AIND_AIRFLOW_SERVICE_PASSWORD"),
+            ),
+            json={"conf": full_content},
+        )
+        return JSONResponse(
+            status_code=response.status_code,
+            content={
+                "message": "Submitted request to airflow",
+                "data": {"responses": [response.json()], "errors": []},
+            },
+        )
+
+    except ValidationError as e:
+        return JSONResponse(
+            status_code=406,
+            content={
+                "message": "There were validation errors",
+                "data": {"responses": [], "errors": e.json()},
+            },
+        )
+    except Exception as e:
+        return JSONResponse(
+            status_code=500,
+            content={
+                "message": "There was an internal server error",
+                "data": {"responses": [], "errors": str(e.args)},
+            },
+        )
+
+
+# TODO: Deprecate this endpoint
 async def submit_basic_jobs(request: Request):
     """Post BasicJobConfigs raw json to hpc server to process."""
     content = await request.json()
@@ -106,7 +204,9 @@ async def submit_basic_jobs(request: Request):
     parsing_errors = []
     for job in basic_jobs:
         try:
-            basic_upload_job = BasicUploadJobConfigs.model_validate_json(job)
+            basic_upload_job = LegacyBasicUploadJobConfigs.model_validate_json(
+                job
+            )
             # Add aws_param_store_name and temp_dir
             basic_upload_job.aws_param_store_name = os.getenv(
                 "HPC_AWS_PARAM_STORE_NAME"
@@ -160,7 +260,7 @@ async def submit_basic_jobs(request: Request):
     )
 
 
-# TODO: Refactor to make less complex
+# TODO: Deprecate this endpoint
 async def submit_hpc_jobs(request: Request):  # noqa: C901
     """Post HpcJobSubmitSettings to hpc server to process."""
 
@@ -183,14 +283,16 @@ async def submit_hpc_jobs(request: Request):  # noqa: C901
                 base_script = HpcJobSubmitSettings.script_command_str(
                     sif_loc_str=os.getenv("HPC_SIF_LOCATION")
                 )
-                basic_job_name = BasicUploadJobConfigs.model_validate_json(
-                    job["upload_job_settings"]
-                ).s3_prefix
+                basic_job_name = (
+                    LegacyBasicUploadJobConfigs.model_validate_json(
+                        job["upload_job_settings"]
+                    ).s3_prefix
+                )
             upload_job_configs = json.loads(job["upload_job_settings"])
             # This will set the bucket to the private data one
             if upload_job_configs.get("s3_bucket") is not None:
                 upload_job_configs = json.loads(
-                    BasicUploadJobConfigs.model_validate(
+                    LegacyBasicUploadJobConfigs.model_validate(
                         upload_job_configs
                     ).model_dump_json()
                 )
@@ -339,7 +441,6 @@ async def jobs(request: Request):
 async def download_job_template(_: Request):
     """Get job template as xlsx filestream for download"""
 
-    # TODO: Cache list of project names
     try:
         job_template = JobUploadTemplate()
         xl_io = job_template.excel_sheet_filestream
@@ -369,11 +470,13 @@ async def download_job_template(_: Request):
 
 routes = [
     Route("/", endpoint=index, methods=["GET", "POST"]),
-    Route("/api/validate_csv", endpoint=validate_csv, methods=["POST"]),
+    Route("/api/validate_csv", endpoint=validate_csv_legacy, methods=["POST"]),
     Route(
         "/api/submit_basic_jobs", endpoint=submit_basic_jobs, methods=["POST"]
     ),
     Route("/api/submit_hpc_jobs", endpoint=submit_hpc_jobs, methods=["POST"]),
+    Route("/api/v1/validate_csv", endpoint=validate_csv, methods=["POST"]),
+    Route("/api/v1/submit_jobs", endpoint=submit_jobs, methods=["POST"]),
     Route("/jobs", endpoint=jobs, methods=["GET"]),
     Route(
         "/api/job_upload_template",

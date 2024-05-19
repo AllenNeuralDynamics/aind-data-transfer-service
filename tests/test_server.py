@@ -31,6 +31,9 @@ SAMPLE_XLSX_EMPTY_ROWS = (
 MALFORMED_SAMPLE_XLSX = TEST_DIRECTORY / "resources" / "sample_malformed.xlsx"
 MOCK_DB_FILE = TEST_DIRECTORY / "test_server" / "db.json"
 
+NEW_SAMPLE_CSV = TEST_DIRECTORY / "resources" / "new_sample.csv"
+MALFORMED_SAMPLE2_CSV = TEST_DIRECTORY / "resources" / "sample_malformed_2.csv"
+
 
 class TestServer(unittest.TestCase):
     """Tests main server."""
@@ -586,6 +589,184 @@ class TestServer(unittest.TestCase):
         self.assertEqual(500, response.status_code)
         self.assertEqual(expected_response, response.json())
         mock_log_error.assert_called_once()
+
+    @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
+    def test_validate_v1_csv(self):
+        """Tests that valid csv file is returned."""
+        with TestClient(app) as client:
+            with open(NEW_SAMPLE_CSV, "rb") as f:
+                files = {
+                    "file": f,
+                }
+                response = client.post(url="/api/v1/validate_csv", files=files)
+
+        self.assertEqual(200, response.status_code)
+
+    @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
+    def test_validate_v1_null_csv(self):
+        """Tests that invalid file type returns FileNotFoundError"""
+        with TestClient(app) as client:
+            with open(SAMPLE_INVALID_EXT, "rb") as f:
+                files = {
+                    "file": f,
+                }
+                response = client.post(url="/api/v1/validate_csv", files=files)
+        self.assertEqual(response.status_code, 406)
+        self.assertEqual(
+            ["Invalid input file type"],
+            response.json()["data"]["errors"],
+        )
+
+    @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
+    def test_validate_v1_malformed_xlsx(self):
+        """Tests that invalid xlsx returns errors"""
+        with TestClient(app) as client:
+            with open(MALFORMED_SAMPLE_XLSX, "rb") as f:
+                files = {
+                    "file": f,
+                }
+                response = client.post(url="/api/v1/validate_csv", files=files)
+        self.assertEqual(response.status_code, 406)
+        self.assertEqual(
+            ["('Unknown Modality: WRONG_MODALITY_HERE',)"],
+            response.json()["data"]["errors"],
+        )
+
+    @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
+    def test_validate_v1_csv_xlsx_empty_rows(self):
+        """Tests that empty rows are ignored from valid csv and xlsx files."""
+        for file_path in [SAMPLE_CSV_EMPTY_ROWS, SAMPLE_XLSX_EMPTY_ROWS]:
+            with TestClient(app) as client:
+                with open(file_path, "rb") as f:
+                    files = {
+                        "file": f,
+                    }
+                    response = client.post(
+                        url="/api/v1/validate_csv", files=files
+                    )
+            self.assertEqual(200, response.status_code)
+
+    @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
+    def test_validate_v1_malformed_csv2(self):
+        """Tests that invalid csv returns errors"""
+        with TestClient(app) as client:
+            with open(MALFORMED_SAMPLE2_CSV, "rb") as f:
+                files = {
+                    "file": f,
+                }
+                response = client.post(url="/api/v1/validate_csv", files=files)
+        self.assertEqual(response.status_code, 406)
+
+    @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
+    @patch("requests.post")
+    def test_submit_v1_jobs_406(
+        self,
+        mock_post: MagicMock,
+    ):
+        """Tests submit jobs 406 response."""
+        with TestClient(app) as client:
+            submit_job_response = client.post(
+                url="/api/v1/submit_jobs", json={}
+            )
+        self.assertEqual(406, submit_job_response.status_code)
+        mock_post.assert_not_called()
+
+    @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
+    @patch("requests.post")
+    def test_submit_v1_jobs_200(
+        self,
+        mock_post: MagicMock,
+    ):
+        """Tests submit jobs success."""
+        mock_response = Response()
+        mock_response.status_code = 200
+        mock_response._content = json.dumps({"message": "sent"}).encode(
+            "utf-8"
+        )
+        mock_post.return_value = mock_response
+        request_json = {
+            "user_email": None,
+            "email_notification_types": ["fail"],
+            "upload_jobs": [
+                {
+                    "project_name": "Ephys Platform",
+                    "process_capsule_id": None,
+                    "s3_bucket": "private",
+                    "platform": {
+                        "name": "Electrophysiology platform",
+                        "abbreviation": "ecephys",
+                    },
+                    "modalities": [
+                        {
+                            "modality": {
+                                "name": "Extracellular electrophysiology",
+                                "abbreviation": "ecephys",
+                            },
+                            "source": "dir/source1",
+                            "compress_raw_data": True,
+                            "extra_configs": None,
+                            "slurm_settings": None,
+                        },
+                    ],
+                    "subject_id": "655019",
+                    "acq_datetime": "2000-01-01T01:40:04",
+                    "metadata_dir": None,
+                    "metadata_dir_force": False,
+                    "force_cloud_sync": False,
+                },
+            ],
+        }
+        with TestClient(app) as client:
+            submit_job_response = client.post(
+                url="/api/v1/submit_jobs", json=request_json
+            )
+        self.assertEqual(200, submit_job_response.status_code)
+
+    @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
+    @patch("requests.post")
+    def test_submit_v1_jobs_500(
+        self,
+        mock_post: MagicMock,
+    ):
+        """Tests submit jobs 500 response."""
+        mock_post.side_effect = Exception("Something went wrong")
+        request_json = {
+            "user_email": None,
+            "email_notification_types": ["fail"],
+            "upload_jobs": [
+                {
+                    "project_name": "Ephys Platform",
+                    "process_capsule_id": None,
+                    "s3_bucket": "private",
+                    "platform": {
+                        "name": "Electrophysiology platform",
+                        "abbreviation": "ecephys",
+                    },
+                    "modalities": [
+                        {
+                            "modality": {
+                                "name": "Extracellular electrophysiology",
+                                "abbreviation": "ecephys",
+                            },
+                            "source": "dir/source1",
+                            "compress_raw_data": True,
+                            "extra_configs": None,
+                            "slurm_settings": None,
+                        },
+                    ],
+                    "subject_id": "655019",
+                    "acq_datetime": "2000-01-01T01:40:04",
+                    "metadata_dir": None,
+                    "metadata_dir_force": False,
+                    "force_cloud_sync": False,
+                },
+            ],
+        }
+        with TestClient(app) as client:
+            submit_job_response = client.post(
+                url="/api/v1/submit_jobs", json=request_json
+            )
+        self.assertEqual(500, submit_job_response.status_code)
 
 
 if __name__ == "__main__":
