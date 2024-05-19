@@ -46,11 +46,10 @@ class JobStatus(BaseModel):
     @classmethod
     def from_airflow_dag_run(cls, airflow_dag_run: AirflowDagRun):
         """Maps the fields from the HpcJobStatusResponse to this model"""
-        job_id = airflow_dag_run.dag_run_id
-        name = airflow_dag_run.conf.get("s3_prefix", job_id)
+        name = airflow_dag_run.conf.get("s3_prefix", "")
         return cls(
             end_time=airflow_dag_run.end_date,
-            job_id=job_id,
+            job_id=airflow_dag_run.dag_run_id,
             job_state=airflow_dag_run.state,
             name=name,
             comment=airflow_dag_run.note,

@@ -40,22 +40,24 @@ class TestJobStatus(unittest.TestCase):
         dag_response = AirflowDagRunsResponse.model_validate_json(
             json.dumps(self.dag_run_response)
         )
-        job_status_0 = JobStatus.from_airflow_dag_run(dag_response.dag_runs[0])
+        job_status_0 = JobStatus.from_airflow_dag_run(dag_response.dag_runs[4])
         jinja_dict = job_status_0.jinja_dict
+        print(jinja_dict)
         expected_output = {
             "end_time": datetime(
-                2024, 5, 18, 22, 9, 28, 530534, tzinfo=timezone.utc
+                2024, 5, 18, 23, 51, 17, 716003, tzinfo=timezone.utc
             ),
-            "job_id": "manual__2024-05-18T22:08:52.286765+00:00",
+            "job_id": "manual__2024-05-18T23:43:19.184853+00:00",
             "job_state": "failed",
-            "name": "manual__2024-05-18T22:08:52.286765+00:00",
+            "name": "ecephys_655019_2000-10-10_01-00-24",
             "start_time": datetime(
-                2024, 5, 18, 22, 8, 52, 637098, tzinfo=timezone.utc
+                2024, 5, 18, 23, 43, 19, 428659, tzinfo=timezone.utc
             ),
             "submit_time": datetime(
-                2024, 5, 18, 22, 8, 52, 286765, tzinfo=timezone.utc
+                2024, 5, 18, 23, 43, 19, 184853, tzinfo=timezone.utc
             ),
         }
+
         self.assertEqual(expected_output, jinja_dict)
 
 
