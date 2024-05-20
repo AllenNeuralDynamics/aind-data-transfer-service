@@ -5,30 +5,31 @@ import json
 import logging
 import os
 from asyncio import sleep
+from datetime import datetime, timedelta
 from pathlib import PurePosixPath
 
+import requests
+from aind_data_transfer_models.core import SubmitJobRequest
 from fastapi import Request
 from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 from openpyxl import load_workbook
-from pydantic import SecretStr
+from pydantic import SecretStr, ValidationError
 from starlette.applications import Starlette
 from starlette.routing import Route
 
 from aind_data_transfer_service import OPEN_DATA_BUCKET_NAME
+from aind_data_transfer_service.configs.csv_handler import map_csv_row_to_job
 from aind_data_transfer_service.configs.job_configs import (
-    BasicUploadJobConfigs,
-    HpcJobConfigs,
+    BasicUploadJobConfigs as LegacyBasicUploadJobConfigs,
 )
+from aind_data_transfer_service.configs.job_configs import HpcJobConfigs
 from aind_data_transfer_service.configs.job_upload_template import (
     JobUploadTemplate,
 )
 from aind_data_transfer_service.hpc.client import HpcClient, HpcClientConfigs
-from aind_data_transfer_service.hpc.models import (
-    HpcJobStatusResponse,
-    HpcJobSubmitSettings,
-    JobStatus,
-)
+from aind_data_transfer_service.hpc.models import HpcJobSubmitSettings
+from aind_data_transfer_service.models import AirflowDagRunsResponse, JobStatus
 
 template_directory = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "templates")
@@ -49,6 +50,10 @@ templates = Jinja2Templates(directory=template_directory)
 # OPEN_DATA_AWS_SECRET_ACCESS_KEY
 # OPEN_DATA_AWS_ACCESS_KEY_ID
 # AIND_METADATA_SERVICE_PROJECT_NAMES_URL
+# AIND_AIRFLOW_SERVICE_URL
+# AIND_AIRFLOW_SERVICE_JOBS_URL
+# AIND_AIRFLOW_SERVICE_PASSWORD
+# AIND_AIRFLOW_SERVICE_USER
 
 
 async def validate_csv(request: Request):
@@ -79,7 +84,57 @@ async def validate_csv(request: Request):
                 if not any(row.values()):
                     continue
                 try:
-                    job = BasicUploadJobConfigs.from_csv_row(row=row)
+                    job = map_csv_row_to_job(row=row)
+                    # Construct hpc job setting most of the vars from the env
+                    basic_jobs.append(
+                        json.loads(job.model_dump_json(round_trip=True))
+                    )
+                except ValidationError as e:
+                    errors.append(e.json())
+                except Exception as e:
+                    errors.append(f"{str(e.args)}")
+        message = "There were errors" if len(errors) > 0 else "Valid Data"
+        status_code = 406 if len(errors) > 0 else 200
+        content = {
+            "message": message,
+            "data": {"jobs": basic_jobs, "errors": errors},
+        }
+        return JSONResponse(
+            content=content,
+            status_code=status_code,
+        )
+
+
+# TODO: Deprecate this endpoint
+async def validate_csv_legacy(request: Request):
+    """Validate a csv or xlsx file. Return parsed contents as json."""
+    async with request.form() as form:
+        basic_jobs = []
+        errors = []
+        if not form["file"].filename.endswith((".csv", ".xlsx")):
+            errors.append("Invalid input file type")
+        else:
+            content = await form["file"].read()
+            if form["file"].filename.endswith(".csv"):
+                # A few csv files created from excel have extra unicode
+                # byte chars. Adding "utf-8-sig" should remove them.
+                data = content.decode("utf-8-sig")
+            else:
+                xlsx_book = load_workbook(io.BytesIO(content), read_only=True)
+                xlsx_sheet = xlsx_book.active
+                csv_io = io.StringIO()
+                csv_writer = csv.writer(csv_io)
+                for r in xlsx_sheet.iter_rows(values_only=True):
+                    if any(r):
+                        csv_writer.writerow(r)
+                xlsx_book.close()
+                data = csv_io.getvalue()
+            csv_reader = csv.DictReader(io.StringIO(data))
+            for row in csv_reader:
+                if not any(row.values()):
+                    continue
+                try:
+                    job = LegacyBasicUploadJobConfigs.from_csv_row(row=row)
                     # Construct hpc job setting most of the vars from the env
                     basic_jobs.append(job.model_dump_json())
                 except Exception as e:
@@ -96,6 +151,48 @@ async def validate_csv(request: Request):
         )
 
 
+async def submit_jobs(request: Request):
+    """Post BasicJobConfigs raw json to hpc server to process."""
+    content = await request.json()
+    try:
+        model = SubmitJobRequest.model_validate_json(json.dumps(content))
+        full_content = json.loads(model.model_dump_json())
+        # TODO: Replace with httpx async client
+        response = requests.post(
+            url=os.getenv("AIND_AIRFLOW_SERVICE_URL"),
+            auth=(
+                os.getenv("AIND_AIRFLOW_SERVICE_USER"),
+                os.getenv("AIND_AIRFLOW_SERVICE_PASSWORD"),
+            ),
+            json={"conf": full_content},
+        )
+        return JSONResponse(
+            status_code=response.status_code,
+            content={
+                "message": "Submitted request to airflow",
+                "data": {"responses": [response.json()], "errors": []},
+            },
+        )
+
+    except ValidationError as e:
+        return JSONResponse(
+            status_code=406,
+            content={
+                "message": "There were validation errors",
+                "data": {"responses": [], "errors": e.json()},
+            },
+        )
+    except Exception as e:
+        return JSONResponse(
+            status_code=500,
+            content={
+                "message": "There was an internal server error",
+                "data": {"responses": [], "errors": str(e.args)},
+            },
+        )
+
+
+# TODO: Deprecate this endpoint
 async def submit_basic_jobs(request: Request):
     """Post BasicJobConfigs raw json to hpc server to process."""
     content = await request.json()
@@ -106,7 +203,9 @@ async def submit_basic_jobs(request: Request):
     parsing_errors = []
     for job in basic_jobs:
         try:
-            basic_upload_job = BasicUploadJobConfigs.model_validate_json(job)
+            basic_upload_job = LegacyBasicUploadJobConfigs.model_validate_json(
+                job
+            )
             # Add aws_param_store_name and temp_dir
             basic_upload_job.aws_param_store_name = os.getenv(
                 "HPC_AWS_PARAM_STORE_NAME"
@@ -160,7 +259,7 @@ async def submit_basic_jobs(request: Request):
     )
 
 
-# TODO: Refactor to make less complex
+# TODO: Deprecate this endpoint
 async def submit_hpc_jobs(request: Request):  # noqa: C901
     """Post HpcJobSubmitSettings to hpc server to process."""
 
@@ -183,14 +282,16 @@ async def submit_hpc_jobs(request: Request):  # noqa: C901
                 base_script = HpcJobSubmitSettings.script_command_str(
                     sif_loc_str=os.getenv("HPC_SIF_LOCATION")
                 )
-                basic_job_name = BasicUploadJobConfigs.model_validate_json(
-                    job["upload_job_settings"]
-                ).s3_prefix
+                basic_job_name = (
+                    LegacyBasicUploadJobConfigs.model_validate_json(
+                        job["upload_job_settings"]
+                    ).s3_prefix
+                )
             upload_job_configs = json.loads(job["upload_job_settings"])
             # This will set the bucket to the private data one
             if upload_job_configs.get("s3_bucket") is not None:
                 upload_job_configs = json.loads(
-                    BasicUploadJobConfigs.model_validate(
+                    LegacyBasicUploadJobConfigs.model_validate(
                         upload_job_configs
                     ).model_dump_json()
                 )
@@ -298,48 +399,60 @@ async def index(request: Request):
 
 async def jobs(request: Request):
     """Get status of jobs"""
-    hpc_client_conf = HpcClientConfigs()
-    hpc_client = HpcClient(configs=hpc_client_conf)
-    hpc_partition = os.getenv("HPC_PARTITION")
-    hpc_qos = os.getenv("HPC_QOS")
-    response = hpc_client.get_jobs()
-    if response.status_code == 200:
-        slurm_jobs = [
-            HpcJobStatusResponse.model_validate(job_json)
-            for job_json in response.json()["jobs"]
-            if job_json["partition"] == hpc_partition
-            and job_json["user_name"] == os.getenv("HPC_USERNAME")
-            and (
-                hpc_qos is None
-                or (hpc_qos == "production" and job_json["qos"] == hpc_qos)
-            )
-        ]
-        job_status_list = [
-            JobStatus.from_hpc_job_status(slurm_job).jinja_dict
-            for slurm_job in slurm_jobs
-        ]
-        job_status_list.sort(key=lambda x: x["submit_time"], reverse=True)
-    else:
-        job_status_list = []
-    return templates.TemplateResponse(
-        name="job_status.html",
-        context=(
-            {
-                "request": request,
-                "job_status_list": job_status_list,
-                "num_of_jobs": len(job_status_list),
-                "project_names_url": os.getenv(
-                    "AIND_METADATA_SERVICE_PROJECT_NAMES_URL"
-                ),
-            }
+    # TODO: Use httpx async client
+    # TODO: Paginate results. Maybe render 50 at a time.
+    response_jobs = requests.get(
+        url=os.getenv("AIND_AIRFLOW_SERVICE_JOBS_URL"),
+        auth=(
+            os.getenv("AIND_AIRFLOW_SERVICE_USER"),
+            os.getenv("AIND_AIRFLOW_SERVICE_PASSWORD"),
         ),
+        params={
+            "start_date_gte": (datetime.utcnow() - timedelta(days=7)).strftime(
+                "%Y-%m-%dT%H:%M:%SZ"
+            )
+        },
     )
+    if response_jobs.status_code == 200:
+        dag_runs = AirflowDagRunsResponse.model_validate_json(
+            json.dumps(response_jobs.json())
+        )
+        job_status_list = [
+            JobStatus.from_airflow_dag_run(d) for d in dag_runs.dag_runs
+        ]
+        return templates.TemplateResponse(
+            name="job_status.html",
+            context=(
+                {
+                    "request": request,
+                    "job_status_list": job_status_list,
+                    "num_of_jobs": len(job_status_list),
+                    "project_names_url": os.getenv(
+                        "AIND_METADATA_SERVICE_PROJECT_NAMES_URL"
+                    ),
+                }
+            ),
+        )
+    # TODO: Pass information to user about response failures
+    else:
+        return templates.TemplateResponse(
+            name="job_status.html",
+            context=(
+                {
+                    "request": request,
+                    "job_status_list": [],
+                    "num_of_jobs": 0,
+                    "project_names_url": os.getenv(
+                        "AIND_METADATA_SERVICE_PROJECT_NAMES_URL"
+                    ),
+                }
+            ),
+        )
 
 
 async def download_job_template(_: Request):
     """Get job template as xlsx filestream for download"""
 
-    # TODO: Cache list of project names
     try:
         job_template = JobUploadTemplate()
         xl_io = job_template.excel_sheet_filestream
@@ -369,11 +482,13 @@ async def download_job_template(_: Request):
 
 routes = [
     Route("/", endpoint=index, methods=["GET", "POST"]),
-    Route("/api/validate_csv", endpoint=validate_csv, methods=["POST"]),
+    Route("/api/validate_csv", endpoint=validate_csv_legacy, methods=["POST"]),
     Route(
         "/api/submit_basic_jobs", endpoint=submit_basic_jobs, methods=["POST"]
     ),
     Route("/api/submit_hpc_jobs", endpoint=submit_hpc_jobs, methods=["POST"]),
+    Route("/api/v1/validate_csv", endpoint=validate_csv, methods=["POST"]),
+    Route("/api/v1/submit_jobs", endpoint=submit_jobs, methods=["POST"]),
     Route("/jobs", endpoint=jobs, methods=["GET"]),
     Route(
         "/api/job_upload_template",

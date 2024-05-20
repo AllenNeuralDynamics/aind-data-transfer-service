@@ -56,14 +56,14 @@ from pathlib import PurePosixPath
 import json
 import requests
 
-from aind_data_schema.models.modalities import Modality
-from aind_data_schema.models.platforms import Platform
+from aind_data_transfer_models.core import ModalityConfigs, BasicUploadJobConfigs, SubmitJobRequest
+from aind_data_schema_models.modalities import Modality
+from aind_data_schema_models.platforms import Platform
 from datetime import datetime
-from time import sleep
 
 source_dir = PurePosixPath("/shared_drive/vr_foraging/690165/20240219T112517")
 
-s3_bucket = "select_a_bucket"
+s3_bucket = "private"
 subject_id = "690165"
 acq_datetime = datetime(2024, 2, 19, 11, 25, 17)
 platform = Platform.BEHAVIOR
@@ -84,19 +84,20 @@ upload_job_configs = BasicUploadJobConfigs(
   metadata_dir = metadata_dir
 )
 
-hpc_settings = json.dumps({})  # You can add custom settings for the hpc or add email notifications configs here if desired
-upload_job_settings = upload_job_configs.model_dump_json()
-script = ""  # We will automatically run the aind-data-transfer script if this is an empty string. You can create a custom hpc run script if needed, but isn't recommended
+# Add more to the list if needed
+upload_jobs=[upload_job_configs]
 
-hpc_job = {"upload_job_settings": upload_job_settings, "hpc_settings": hpc_settings, "script": script}
+# Optional email address and notification types if desired
+user_email = "my_email_address"
+email_notification_types = ["fail"]
+submit_request = SubmitJobRequest(
+    upload_jobs=upload_jobs,
+    user_email=user_email,
+    email_notification_types=email_notification_types,
+)
 
-hpc_jobs = [hpc_job]
-
-post_request_content = {"jobs": hpc_jobs}
-
-# Please stagger the requests if run in a loop
-sleep(0.4)
-submit_job_response = requests.post(url="http://aind-data-transfer-service/api/submit_hpc_jobs", json=post_request_content)
+post_request_content = json.loads(submit_request.model_dump_json(round_trip=True))
+submit_job_response = requests.post(url="http://aind-data-transfer-service/api/v1/submit_jobs", json=post_request_content)
 print(submit_job_response.status_code)
 print(submit_job_response.json())
 ```
@@ -113,37 +114,16 @@ pip install -e .[dev]
 ```
 
 ## Local Development
-Assuming docker is installed, navigate to tests/test_server and run
+Run uvicorn:
 ```bash
-docker build . -t aind-test-hpc-server:latest
-docker run -p 3000:3000 aind-test-hpc-server
-```
-A mock server will be created. You can then create a mock environment to run uvicorn:
-```bash
-export HPC_HOST="localhost"
-export HPC_PORT=3000
-export HPC_USERNAME='some.user'
-export HPC_PASSWORD='password'
-export HPC_TOKEN='some_token'
-export HPC_PARTITION='part'
-export HPC_SIF_LOCATION='/dir/my_container.sif'
-export HPC_CURRENT_WORKING_DIRECTORY='/hpc/working_dir'
-export HPC_LOGGING_DIRECTORY='/hpc/logging_dir'
-export HPC_AWS_ACCESS_KEY_ID='abc-123'
-export HPC_AWS_SECRET_ACCESS_KEY='def-456'
-export HPC_AWS_DEFAULT_REGION='us-west-2'
-export HPC_STAGING_DIRECTORY='/hpc/staging_dir'
-export HPC_AWS_PARAM_STORE_NAME='/param/store/name'
-export HPC_MINIMUM_CPUS_PER_NODE='8'
-export HPC_MEMORY_PER_CPU='8000'
-export HPC_NODES='[1,1]'
-export HPC_TASKS='1'
-export HPC_TIME_LIMIT='360'
-export HPC_QOS='dev'
 export AIND_METADATA_SERVICE_PROJECT_NAMES_URL='http://aind-metadata-service-dev/project_names'
+export AIND_AIRFLOW_SERVICE_URL='http://localhost:8080/api/v1/dags/run_list_of_jobs/dagRuns'
+export AIND_AIRFLOW_SERVICE_JOBS_URL='http://localhost:8080/api/v1/dags/transform_and_upload/dagRuns'
+export AIND_AIRFLOW_SERVICE_PASSWORD='*****'
+export AIND_AIRFLOW_SERVICE_USER='user'
 uvicorn aind_data_transfer_service.server:app --host 0.0.0.0 --port 5000
 ```
-You can now access `http://localhost:5000/jobs`.
+You can now access `http://localhost:5000`.
 
 ## Contributing
 

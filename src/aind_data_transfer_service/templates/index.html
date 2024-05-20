@@ -69,8 +69,8 @@
                 <label for="end">END</label> |
                 <input type="checkbox" id="fail" name="fail" checked />
                 <label for="fail">FAIL</label> |
-                <input type="checkbox" id="requeue" name="requeue" />
-                <label for="requeue">REQUEUE</label> |
+                <input type="checkbox" id="retry" name="retry" />
+                <label for="retry">RETRY</label> |
                 <input type="checkbox" id="all" name="all" />
                 <label for="all">ALL</label>
             </div>
@@ -91,7 +91,7 @@
             "validateSuccess": "Successfully validated jobs from file.",
             "validateError": "Error validating jobs from file.",
             "submitPending": "Submitting jobs. Please do not refresh or re-submit...",
-            "submitSuccess": "Successfuly submitted jobs.",
+            "submitSuccess": "Successfully submitted jobs.",
             "submitError": "Error submitting jobs."
         }
         setMessage = function(msgType) {
@@ -128,7 +128,7 @@
             }
             var formData = new FormData(document.getElementById("file_form"));
             $.ajax({
-                url: "/api/validate_csv",
+                url: "/api/v1/validate_csv",
                 type: "POST",
                 data: formData,
                 cache: false,
@@ -149,7 +149,7 @@
                         table, tr, td, true
                     );
                     for (row = 0; row < jobsLength; row++) {
-                        let job = JSON.parse(jobs[row]);
+                        let job = jobs[row];
                         let modalities = job.modalities;
                         let modalitiesLength = modalities.length;
                         addTableRow(
@@ -186,44 +186,33 @@
         };
         submitJobs = function() {
             if(jobs.length > 0 && parsing_errors.length == 0){
+                let job_settings = {};
                 let mail_user = $("#email").val();
-                let hpc_settings = {};
                 if (mail_user !== "" && mail_user !== undefined) {
-                    let mail_type = [];
-                    hpc_settings["mail_user"] = mail_user;
-                    hpc_settings["comment"] = mail_user;
-                    if ($("#all").is(":checked")) {
-                        mail_type = ["ALL"];
-                    } else {
-                        if ($("#begin").is(":checked")) {
-                            mail_type.push("BEGIN");
-                        };
-                        if ($("#end").is(":checked")) {
-                            mail_type.push("END");
-                        };
-                        if ($("#fail").is(":checked")) {
-                            mail_type.push("FAIL");
-                        };
-                        if ($("#requeue").is(":checked")) {
-                            mail_type.push("REQUEUE");
-                        };
-                    };
-                    if (mail_type.length == 0) {
-                        hpc_settings["mail_type"] = "NONE";
-                    } else {
-                        hpc_settings["mail_type"] = mail_type.join()
-                    };
+                    job_settings["user_email"] = mail_user;
                 };
-                let hpc_jobs = []
-                for (row = 0; row < jobs.length; row++) {
-                    let job = jobs[row];
-                    hpc_job = {"upload_job_settings": job, "hpc_settings": JSON.stringify(hpc_settings), "script": ""};
-                    hpc_jobs.push(hpc_job);
+                let mail_type = [];
+                if ($("#all").is(":checked")) {
+                    mail_type = ["all"];
                 };
+                if ($("#begin").is(":checked")) {
+                    mail_type.push("begin");
+                };
+                if ($("#end").is(":checked")) {
+                    mail_type.push("end");
+                };
+                if ($("#fail").is(":checked")) {
+                    mail_type.push("fail");
+                };
+                if ($("#retry").is(":checked")) {
+                    mail_type.push("retry");
+                };
+                job_settings["email_notification_types"] = mail_type
+                job_settings["upload_jobs"] = jobs
                 $.ajax({
-                    url: "/api/submit_hpc_jobs",
+                    url: "/api/v1/submit_jobs",
                     type: "POST",
-                    data: JSON.stringify({"jobs": hpc_jobs}),
+                    data: JSON.stringify(job_settings),
                     contentType: 'application/json; charset=utf-8',
                     beforeSend: function() {
                         setMessage(msgTypes.submitPending);

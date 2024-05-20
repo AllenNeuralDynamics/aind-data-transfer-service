@@ -18,9 +18,10 @@ dynamic = ["version"]
 
 dependencies = [
     'boto3',
-    'aind-data-schema==0.33.3',
     'pydantic>=2.0',
     'pydantic-settings>=2.0',
+    'aind-data-schema==0.33.3',
+    'aind-data-transfer-models==0.3.0'
 ]
 
 [project.optional-dependencies]
