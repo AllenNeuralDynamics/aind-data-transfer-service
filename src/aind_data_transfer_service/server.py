@@ -410,7 +410,8 @@ async def jobs(request: Request):
         params={
             "start_date_gte": (datetime.utcnow() - timedelta(days=7)).strftime(
                 "%Y-%m-%dT%H:%M:%SZ"
-            )
+            ),
+            "order_by": "-start_date",
         },
     )
     if response_jobs.status_code == 200:
