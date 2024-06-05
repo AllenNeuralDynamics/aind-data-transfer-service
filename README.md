@@ -26,6 +26,7 @@ What each column means in the job submission template:
 
 - **project_name**: Project name. A full list can be downloaded at [Project Names](http://aind-metadata-service/project_names)
 - **process_capsule_id**: Optional Code Ocean capsule or pipeline to run when data is uploaded
+- **input_data_mount**: Optional data mount when running a custom pipeline
 - **platform**: For a list of platforms click [here](https://github.com/AllenNeuralDynamics/aind-data-schema/blob/main/src/aind_data_schema/models/platforms.py).
 - **acq_datetime**: The time that the data was acquired
 - **subject_id**: The unique id of the subject

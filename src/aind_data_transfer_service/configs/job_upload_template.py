@@ -21,6 +21,7 @@ class JobUploadTemplate:
     HEADERS = [
         "project_name",
         "process_capsule_id",
+        "input_data_mount",
         "platform",
         "acq_datetime",
         "subject_id",
@@ -34,6 +35,7 @@ class JobUploadTemplate:
         [
             "Behavior Platform",
             "1f999652-00a0-4c4b-99b5-64c2985ad070",
+            "data_mount",
             Platform.BEHAVIOR.abbreviation,
             datetime.datetime(2023, 10, 4, 4, 0, 0),
             "123456",
@@ -46,6 +48,7 @@ class JobUploadTemplate:
         [
             "Ophys Platform - SLAP2",
             None,
+            None,
             Platform.SMARTSPIM.abbreviation,
             datetime.datetime(2023, 3, 4, 16, 30, 0),
             "654321",
@@ -55,6 +58,7 @@ class JobUploadTemplate:
         ],
         [
             "Ephys Platform",
+            None,
             None,
             Platform.ECEPHYS.abbreviation,
             datetime.datetime(2023, 1, 30, 19, 1, 0),
