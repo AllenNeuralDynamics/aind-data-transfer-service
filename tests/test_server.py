@@ -4,10 +4,19 @@ import json
 import os
 import unittest
 from copy import deepcopy
+from datetime import datetime
 from io import BytesIO
 from pathlib import Path, PurePosixPath
 from unittest.mock import MagicMock, patch
 
+from aind_data_schema_models.modalities import Modality
+from aind_data_schema_models.platforms import Platform
+from aind_data_transfer_models.core import (
+    BasicUploadJobConfigs,
+    ModalityConfigs,
+    SubmitJobRequest,
+    V0036JobProperties,
+)
 from fastapi.responses import StreamingResponse
 from fastapi.testclient import TestClient
 from pydantic import SecretStr
@@ -774,6 +783,61 @@ class TestServer(unittest.TestCase):
                 url="/api/v1/submit_jobs", json=request_json
             )
         self.assertEqual(500, submit_job_response.status_code)
+
+    @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
+    @patch("requests.post")
+    def test_submit_v1_jobs_200_slurm_settings(
+        self,
+        mock_post: MagicMock,
+    ):
+        """Tests submit jobs success when user adds custom slurm settings."""
+        mock_response = Response()
+        mock_response.status_code = 200
+        mock_response._content = json.dumps({"message": "sent"}).encode(
+            "utf-8"
+        )
+        mock_post.return_value = mock_response
+        ephys_source_dir = PurePosixPath("/shared_drive/ephys_data/690165")
+
+        s3_bucket = "private"
+        subject_id = "690165"
+        acq_datetime = datetime(2024, 2, 19, 11, 25, 17)
+        platform = Platform.ECEPHYS
+
+        slurm_settings = V0036JobProperties(
+            environment=dict(),
+            time_limit=720,
+            minimum_cpus_per_node=16,
+        )
+
+        ephys_config = ModalityConfigs(
+            modality=Modality.ECEPHYS,
+            source=ephys_source_dir,
+            slurm_settings=slurm_settings,
+        )
+        project_name = "Ephys Platform"
+
+        upload_job_configs = BasicUploadJobConfigs(
+            project_name=project_name,
+            s3_bucket=s3_bucket,
+            platform=platform,
+            subject_id=subject_id,
+            acq_datetime=acq_datetime,
+            modalities=[ephys_config],
+        )
+
+        upload_jobs = [upload_job_configs]
+        submit_request = SubmitJobRequest(upload_jobs=upload_jobs)
+
+        post_request_content = json.loads(
+            submit_request.model_dump_json(round_trip=True)
+        )
+
+        with TestClient(app) as client:
+            submit_job_response = client.post(
+                url="/api/v1/submit_jobs", json=post_request_content
+            )
+        self.assertEqual(200, submit_job_response.status_code)
 
 
 if __name__ == "__main__":
