@@ -1,20 +1,19 @@
-name: Tag and publish
+name: Publish dev
 on:
   push:
     branches:
-      - main
+      - dev
+
 jobs:
-  tag:
-    uses: AllenNeuralDynamics/aind-github-actions/.github/workflows/tag.yml@main
-    secrets:
-      SERVICE_TOKEN: ${{ secrets.SERVICE_TOKEN }}
   publish:
     runs-on: ubuntu-latest
-    needs: tag
     steps:
       - uses: actions/checkout@v3
-      - name: Pull latest changes
-        run: git pull origin main
+      - name: Compute new docker image tag
+        run: |
+          echo "sha_short=$(git rev-parse --short "$GITHUB_SHA")" >> "$GITHUB_ENV"
+          echo "branch=$(echo ${GITHUB_REF_NAME})" >> "$GITHUB_ENV"
+          echo "docker_tag=$(echo ${GITHUB_REF_NAME})-$(git rev-parse --short "$GITHUB_SHA")" >> "$GITHUB_ENV"
       - name: Set up Docker Buildx
         id: buildx
         uses: docker/setup-buildx-action@v2
@@ -31,5 +30,5 @@ jobs:
           context: .
           push: true
           tags: |
-            ghcr.io/allenneuraldynamics/aind-data-transfer-service:${{ needs.tag.outputs.new_version }}
-            ghcr.io/allenneuraldynamics/aind-data-transfer-service:latest
+            ghcr.io/allenneuraldynamics/aind-data-transfer-service:${{ env.docker_tag }}
+            ghcr.io/allenneuraldynamics/aind-data-transfer-service:dev
