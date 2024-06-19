@@ -31,9 +31,13 @@ dev = [
     'coverage',
     'flake8',
     'interrogate',
-    'isort',
+    'isort'
+]
+
+docs = [
     'Sphinx',
-    'furo'
+    'furo',
+    'gitchangelog'
 ]
 
 server = [
