@@ -36,8 +36,7 @@ dev = [
 
 docs = [
     'Sphinx',
-    'furo',
-    'gitchangelog'
+    'furo'
 ]
 
 server = [
