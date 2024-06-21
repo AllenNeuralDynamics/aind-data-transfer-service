@@ -99,6 +99,57 @@ Using the REST API
 Jobs can also be submitted via a REST API at the endpoint
 ``http://aind-data-transfer-service/api/v1/submit_jobs``
 
+.. code-block:: python
+
+  from aind_data_transfer_service.configs.job_configs import ModalityConfigs, BasicUploadJobConfigs
+  from pathlib import PurePosixPath
+  import json
+  import requests
+
+  from aind_data_transfer_models.core import ModalityConfigs, BasicUploadJobConfigs, SubmitJobRequest
+  from aind_data_schema_models.modalities import Modality
+  from aind_data_schema_models.platforms import Platform
+  from datetime import datetime
+
+  source_dir = PurePosixPath("/shared_drive/vr_foraging/690165/20240219T112517")
+
+  s3_bucket = "private"
+  subject_id = "690165"
+  acq_datetime = datetime(2024, 2, 19, 11, 25, 17)
+  platform = Platform.BEHAVIOR
+
+  behavior_config = ModalityConfigs(modality=Modality.BEHAVIOR, source=(source_dir / "Behavior"))
+  behavior_videos_config = ModalityConfigs(modality=Modality.BEHAVIOR_VIDEOS, source=(source_dir / "Behavior videos"))
+  metadata_dir = source_dir / "Config"  # This is an optional folder of pre-compiled metadata json files
+  project_name = "Ephys Platform"
+
+  upload_job_configs = BasicUploadJobConfigs(
+    project_name=project_name,
+    s3_bucket=s3_bucket,
+    platform=platform,
+    subject_id=subject_id,
+    acq_datetime=acq_datetime,
+    modalities=[behavior_config, behavior_videos_config],
+    metadata_dir=metadata_dir
+  )
+
+  # Add more to the list if needed
+  upload_jobs = [upload_job_configs]
+
+  # Optional email address and notification types if desired
+  user_email = "my_email_address"
+  email_notification_types = ["fail"]
+  submit_request = SubmitJobRequest(
+    upload_jobs=upload_jobs,
+    user_email=user_email,
+    email_notification_types=email_notification_types,
+  )
+
+  post_request_content = json.loads(submit_request.model_dump_json(round_trip=True, exclude_none=True))
+  # submit_job_response = requests.post(url="http://aind-data-transfer-service/api/v1/submit_jobs", json=post_request_content)
+  # print(submit_job_response.status_code)
+  # print(submit_job_response.json())
+
 Adding a notifications email address
 ------------------------------------
 
