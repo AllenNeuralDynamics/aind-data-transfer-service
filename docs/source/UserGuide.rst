@@ -146,6 +146,7 @@ Jobs can also be submitted via a REST API at the endpoint
   )
 
   post_request_content = json.loads(submit_request.model_dump_json(round_trip=True, exclude_none=True))
+  # Uncomment the following to submit the request
   # submit_job_response = requests.post(url="http://aind-data-transfer-service/api/v1/submit_jobs", json=post_request_content)
   # print(submit_job_response.status_code)
   # print(submit_job_response.json())
