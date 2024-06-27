@@ -492,8 +492,8 @@ async def jobs(request: Request):
         context=(
             {
                 "request": request,
-                "limit": 25,
-                "offset": 0,
+                "default_limit": 25,
+                "default_offset": 0,
                 "project_names_url": os.getenv(
                     "AIND_METADATA_SERVICE_PROJECT_NAMES_URL"
                 ),
