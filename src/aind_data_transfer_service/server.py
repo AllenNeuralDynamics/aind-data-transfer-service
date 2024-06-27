@@ -455,58 +455,51 @@ async def index(request: Request):
     )
 
 
-async def jobs(request: Request):
-    """Get status of jobs"""
-    # TODO: Use httpx async client
-    # TODO: Paginate results. Maybe render 50 at a time.
-    response_jobs = requests.get(
-        url=os.getenv("AIND_AIRFLOW_SERVICE_JOBS_URL"),
-        auth=(
-            os.getenv("AIND_AIRFLOW_SERVICE_USER"),
-            os.getenv("AIND_AIRFLOW_SERVICE_PASSWORD"),
-        ),
-        params={
-            "start_date_gte": (datetime.utcnow() - timedelta(days=7)).strftime(
-                "%Y-%m-%dT%H:%M:%SZ"
-            ),
-            "order_by": "-start_date",
-        },
-    )
-    if response_jobs.status_code == 200:
-        dag_runs = AirflowDagRunsResponse.model_validate_json(
-            json.dumps(response_jobs.json())
-        )
-        job_status_list = [
-            JobStatus.from_airflow_dag_run(d) for d in dag_runs.dag_runs
-        ]
-        return templates.TemplateResponse(
-            name="job_status.html",
-            context=(
-                {
-                    "request": request,
-                    "job_status_list": job_status_list,
-                    "num_of_jobs": len(job_status_list),
-                    "project_names_url": os.getenv(
-                        "AIND_METADATA_SERVICE_PROJECT_NAMES_URL"
-                    ),
-                }
-            ),
-        )
+async def job_status_table(request: Request):
+    """Get Job Status table with pagination"""
+    response_jobs = await get_job_status_list(request)
+    response_jobs_json= json.loads(response_jobs.body)
+    status_code = response_jobs.status_code
+    message = response_jobs_json.get("message")
+    data = response_jobs_json.get("data")
     # TODO: Pass information to user about response failures
-    else:
-        return templates.TemplateResponse(
-            name="job_status.html",
-            context=(
-                {
-                    "request": request,
-                    "job_status_list": [],
-                    "num_of_jobs": 0,
-                    "project_names_url": os.getenv(
-                        "AIND_METADATA_SERVICE_PROJECT_NAMES_URL"
-                    ),
-                }
-            ),
-        )
+    return templates.TemplateResponse(
+        name="job_status_table.html",
+        context=(
+            {
+                "request": request,
+                "status_code": status_code,
+                "message": message,
+                "limit": data.get("limit", 10),
+                "offset": data.get("offset", 0),
+                "start_date_gte": data.get("start_date_gte", ""),
+                "order_by": data.get("order_by", ""),
+                "total_entries": data.get("total_entries", 0),
+                "num_of_jobs": data.get("num_of_jobs", 0),
+                "job_status_list": data.get("job_status_list", []),
+                "project_names_url": os.getenv(
+                    "AIND_METADATA_SERVICE_PROJECT_NAMES_URL"
+                ),
+            }
+        ),
+    )
+
+
+async def jobs(request: Request):
+    """Get Job Status page with pagination"""
+    return templates.TemplateResponse(
+        name="job_status.html",
+        context=(
+            {
+                "request": request,
+                "limit": 25,
+                "offset": 0,
+                "project_names_url": os.getenv(
+                    "AIND_METADATA_SERVICE_PROJECT_NAMES_URL"
+                ),
+            }
+        ),
+    )
 
 
 async def download_job_template(_: Request):
@@ -550,6 +543,7 @@ routes = [
     Route("/api/v1/submit_jobs", endpoint=submit_jobs, methods=["POST"]),
     Route("/api/v1/get_job_status_list", endpoint=get_job_status_list, methods=["GET"]),
     Route("/jobs", endpoint=jobs, methods=["GET"]),
+    Route("/job_status_table", endpoint=job_status_table, methods=["GET"]),
     Route(
         "/api/job_upload_template",
         endpoint=download_job_template,

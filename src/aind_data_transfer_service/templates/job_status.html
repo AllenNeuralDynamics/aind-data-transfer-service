@@ -5,20 +5,10 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.3/moment.min.js"></script>
     <title>{% block title %} {% endblock %} AIND Data Transfer Service Jobs</title>
     <style>
-    table {
-      font-family: arial, sans-serif;
-      border-collapse: collapse;
-      width: 75%;
-    }
-
-    td, th {
-      border: 1px solid #dddddd;
-      text-align: left;
-      padding: 8px;
-    }
-
-    tr:nth-child(even) {
-      background-color: #dddddd;
+    iframe {
+        width: 100%;
+        min-height: 70vh;
+        border: none;
     }
     </style>
 </head>
@@ -30,38 +20,58 @@
         <a title="List of project names" href= "{{ project_names_url }}" target="_blank" >Project Names</a> |
         <a title="For more information click here" href="https://github.com/AllenNeuralDynamics/aind-data-transfer-service/tree/main?tab=readme-ov-file#aind-data-transfer-service"  target="_blank" >Help</a>
     </nav>
-    <h2>Jobs Submitted: {{num_of_jobs}}</h2>
-    <table>
-        <tr>
-            <th>Asset Name</th>
-            <th>Job ID</th>
-            <th>Status</th>
-            <th>Submit Time</th>
-            <th>Start Time</th>
-            <th>End time</th>
-            <th>Comment</th>
-        </tr>
-        {% for job_status in job_status_list %}
-        <tr>
-            <td>{{job_status.name}}</td>
-            <td>{{job_status.job_id}}</td>
-            <td>{{job_status.job_state}}</td>
-            <td class="datetime_to_be_adjusted">{{job_status.submit_time}}</td>
-            <td class="datetime_to_be_adjusted">{{job_status.start_time}}</td>
-            <td class="datetime_to_be_adjusted">{{job_status.end_time}}</td>
-            <td>{{job_status.comment}}</td>
-        </tr>
-        {% endfor %}
-    </table>
+    <div class="container">
+        <button id="firstPage">First</button>
+        <button id="prevPage">Previous</button>
+        <button id="nextPage">Next</button>
+        <button id="lastPage">Last</button>
+        <iframe
+        id="jobsIframe"
+            src="{{ url_for('job_status_table').include_query_params(limit=limit, offset=offset)}}"
+        ></iframe>
+     </div>
     <script>
-        window.onload = function() {
-            document.querySelectorAll(".datetime_to_be_adjusted").forEach(function(el){
-            if (el.innerHTML !== "") {
-                var utcTime = moment.utc(el.innerText);  // This is the time in UTC
-                utcTime.local();  // Switch to using the browser's local timezone
-                el.innerText = utcTime.format('YYYY-MM-DD h:mm:ss a');  // Write the local time back to the element
-            };
-          });
+        const PaginateTo = {
+            NEXT: 'next',
+            PREV: 'prev',
+            FIRST: 'first',
+            LAST: 'last'
+        };
+        document.getElementById('nextPage').addEventListener('click', function() {
+            updateJobStatusTable(PaginateTo.NEXT);
+        });
+        document.getElementById('prevPage').addEventListener('click', function() {
+            updateJobStatusTable(PaginateTo.PREV);
+        });
+        document.getElementById('firstPage').addEventListener('click', function() {
+            updateJobStatusTable(PaginateTo.FIRST);
+        });
+        document.getElementById('lastPage').addEventListener('click', function() {
+            updateJobStatusTable(PaginateTo.LAST);
+        });
+        function updateJobStatusTable(paginateTo) {
+            var iframe = document.getElementById('jobsIframe');
+            var currentUrl = new URL(iframe.src);
+            var offset = parseInt(currentUrl.searchParams.get('offset'));
+            var limit = parseInt(currentUrl.searchParams.get('limit'));
+            switch (paginateTo) {
+                case PaginateTo.NEXT:
+                    offset += limit;
+                    break;
+                case PaginateTo.PREV:
+                    offset -= limit;
+                    if (offset < 0) offset = 0; // Prevent negative offset
+                    break;
+                case PaginateTo.FIRST:
+                    offset = 0;
+                    break;
+                case PaginateTo.LAST:
+                    // TODO: implement this
+                    console.error('Last page not implemented yet');
+                    break;
+            }
+            currentUrl.searchParams.set('offset', offset);
+            iframe.src = currentUrl.toString();
         }
     </script>
     </body>
