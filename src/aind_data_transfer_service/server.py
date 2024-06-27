@@ -382,6 +382,64 @@ async def submit_hpc_jobs(request: Request):  # noqa: C901
     )
 
 
+async def get_job_status_list(request: Request):
+    """Get status of jobs. Results are paginated with default limit=25 and offset=0."""
+    # TODO: Use httpx async client
+    limit = request.query_params.get("limit", 25)
+    offset = request.query_params.get("offset", 0)
+    start_date_gte = (datetime.utcnow() - timedelta(days=7)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    order_by = "-start_date"
+    response_jobs = requests.get(
+        url=os.getenv("AIND_AIRFLOW_SERVICE_JOBS_URL"),
+        auth=(
+            os.getenv("AIND_AIRFLOW_SERVICE_USER"),
+            os.getenv("AIND_AIRFLOW_SERVICE_PASSWORD"),
+        ),
+        params={
+            "limit": limit,
+            "offset": offset,
+            "start_date_gte": start_date_gte,
+            "order_by": order_by,
+        },
+    )
+    if response_jobs.status_code == 200:
+        dag_runs = AirflowDagRunsResponse.model_validate_json(
+            json.dumps(response_jobs.json())
+        )
+        job_status_list = [
+            JobStatus.from_airflow_dag_run(d) for d in dag_runs.dag_runs
+        ]
+        content = {
+            "message": "Retrieved job status list from airflow",
+            "data": {
+                "limit": limit,
+                "offset": offset,
+                "start_date_gte": start_date_gte,
+                "order_by": order_by,
+                "total_entries": dag_runs.total_entries,
+                "num_of_jobs": len(job_status_list),
+                "job_status_list": [json.loads(j.model_dump_json()) for j in job_status_list],
+            },
+        }
+    else:
+        content = {
+            "message": "Error retrieving job status list from airflow",
+            "data": {
+                "limit": limit,
+                "offset": offset,
+                "start_date_gte": start_date_gte,
+                "order_by": order_by,
+                # "total_entries": 0,
+                # "num_of_jobs": 0,
+                # "job_status_list": [],
+                "errors": response_jobs.json(),
+            },
+        }
+    return JSONResponse(
+        status_code=response_jobs.status_code,
+        content=content,
+    )
+
 async def index(request: Request):
     """GET|POST /: form handler"""
     return templates.TemplateResponse(
@@ -490,6 +548,7 @@ routes = [
     Route("/api/submit_hpc_jobs", endpoint=submit_hpc_jobs, methods=["POST"]),
     Route("/api/v1/validate_csv", endpoint=validate_csv, methods=["POST"]),
     Route("/api/v1/submit_jobs", endpoint=submit_jobs, methods=["POST"]),
+    Route("/api/v1/get_job_status_list", endpoint=get_job_status_list, methods=["GET"]),
     Route("/jobs", endpoint=jobs, methods=["GET"]),
     Route(
         "/api/job_upload_template",
