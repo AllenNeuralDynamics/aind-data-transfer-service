@@ -34,6 +34,18 @@
     </tr>
     {% endfor %}
   </table>
+  {% if status_code != 200 %}
+  <div class="alert alert-danger" role="alert">
+    <h4 class="alert-heading">{{ message }}</h4>
+    {% if error %}
+    <p>
+      {% for key, value in error.items() %}
+        <strong>{{ key }}:</strong> {{ value }}<br>
+      {% endfor %}
+    </p>
+    {% endif %}
+  </div>
+  {% endif %}
   <script>
     window.onload = function () {
       if (parent.location.pathname === '/jobs') {

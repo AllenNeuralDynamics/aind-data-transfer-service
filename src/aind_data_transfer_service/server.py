@@ -402,6 +402,12 @@ async def get_job_status_list(request: Request):
             "order_by": order_by,
         },
     )
+    data = {
+        "limit": limit,
+        "offset": offset,
+        "start_date_gte": start_date_gte,
+        "order_by": order_by,
+    }
     if response_jobs.status_code == 200:
         dag_runs = AirflowDagRunsResponse.model_validate_json(
             json.dumps(response_jobs.json())
@@ -409,35 +415,19 @@ async def get_job_status_list(request: Request):
         job_status_list = [
             JobStatus.from_airflow_dag_run(d) for d in dag_runs.dag_runs
         ]
-        content = {
-            "message": "Retrieved job status list from airflow",
-            "data": {
-                "limit": limit,
-                "offset": offset,
-                "start_date_gte": start_date_gte,
-                "order_by": order_by,
-                "total_entries": dag_runs.total_entries,
-                "num_of_jobs": len(job_status_list),
-                "job_status_list": [json.loads(j.model_dump_json()) for j in job_status_list],
-            },
-        }
+        message = "Retrieved job status list from airflow"
+        data["total_entries"] = dag_runs.total_entries
+        data["num_of_jobs"] = len(job_status_list)
+        data["job_status_list"] = [json.loads(j.model_dump_json()) for j in job_status_list]
     else:
-        content = {
-            "message": "Error retrieving job status list from airflow",
-            "data": {
-                "limit": limit,
-                "offset": offset,
-                "start_date_gte": start_date_gte,
-                "order_by": order_by,
-                # "total_entries": 0,
-                # "num_of_jobs": 0,
-                # "job_status_list": [],
-                "errors": response_jobs.json(),
-            },
-        }
+        message = "Error retrieving job status list from airflow"
+        data["error"] = response_jobs.json()
     return JSONResponse(
         status_code=response_jobs.status_code,
-        content=content,
+        content={
+            "message": message,
+            "data": data,
+        },
     )
 
 async def index(request: Request):
@@ -462,7 +452,6 @@ async def job_status_table(request: Request):
     status_code = response_jobs.status_code
     message = response_jobs_json.get("message")
     data = response_jobs_json.get("data")
-    # TODO: Pass information to user about response failures
     return templates.TemplateResponse(
         name="job_status_table.html",
         context=(
@@ -470,16 +459,12 @@ async def job_status_table(request: Request):
                 "request": request,
                 "status_code": status_code,
                 "message": message,
-                "limit": data.get("limit", 10),
-                "offset": data.get("offset", 0),
-                "start_date_gte": data.get("start_date_gte", ""),
-                "order_by": data.get("order_by", ""),
+                "error": data.get("error", ""),
+                "limit": data.get("limit"),
+                "offset": data.get("offset"),
                 "total_entries": data.get("total_entries", 0),
                 "num_of_jobs": data.get("num_of_jobs", 0),
                 "job_status_list": data.get("job_status_list", []),
-                "project_names_url": os.getenv(
-                    "AIND_METADATA_SERVICE_PROJECT_NAMES_URL"
-                ),
             }
         ),
     )
