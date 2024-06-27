@@ -1,6 +1,6 @@
 """Module for data models used in application"""
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import List, Optional
 
 from pydantic import AwareDatetime, BaseModel, Field
@@ -30,6 +30,20 @@ class AirflowDagRunsResponse(BaseModel):
 
     dag_runs: List[AirflowDagRun]
     total_entries: int
+
+
+class AirflowDagRunsRequestParameters(BaseModel):
+    """Model for request parameters when requesting info from dag_runs endpoint"""
+
+    limit: int = 25
+    offset: int = 0
+    start_date_gte: datetime = (datetime.utcnow() - timedelta(days=7)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    order_by: str = "-start_date"
+
+    @classmethod
+    def from_query_params(cls, query_params: dict):
+        """Maps the query parameters to the model"""
+        return cls(**query_params)
 
 
 class JobStatus(BaseModel):

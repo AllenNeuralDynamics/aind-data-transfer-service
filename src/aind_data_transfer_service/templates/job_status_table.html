@@ -37,17 +37,25 @@
   {% if status_code != 200 %}
   <div class="alert alert-danger" role="alert">
     <h4 class="alert-heading">{{ message }}</h4>
-    {% if error %}
     <p>
-      {% for key, value in error.items() %}
-        <strong>{{ key }}:</strong> {{ value }}<br>
+      {% for error in errors %}
+        {% if error is string %}
+          {{ error }}
+        {% elif error is mapping %}
+          {% for key, value in error.items() %}
+          <strong>{{ key }}:</strong> {{ value }}<br>
+          {% endfor %}
+        {% endif %}
       {% endfor %}
     </p>
-    {% endif %}
   </div>
   {% endif %}
   <script>
     window.onload = function () {
+      status_code = parseInt('{{ status_code }}')
+      if (status_code !== 200) {
+        return;
+      }
       if (parent.location.pathname === '/jobs') {
         // If loaded from the /jobs page, update parent page with result params
         offset = parseInt('{{offset}}');
