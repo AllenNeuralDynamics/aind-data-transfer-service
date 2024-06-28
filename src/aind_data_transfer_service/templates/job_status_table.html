@@ -9,6 +9,7 @@
 </head>
 
 <body>
+  <!-- job status table -->
   <table class="table table-bordered table-striped table-hover table-sm">
     <tr>
       <th>Asset Name</th>
@@ -34,16 +35,16 @@
     </tr>
     {% endfor %}
   </table>
+  <!-- display errors to user -->
   {% if status_code != 200 %}
   <div class="alert alert-danger" role="alert">
     <h4 class="alert-heading">{{ message }}</h4>
     <p>
       {% for error in errors %}
-        {% if error is string %}
-          {{ error }}
+        {% if error is string %}{{ error }}
         {% elif error is mapping %}
           {% for key, value in error.items() %}
-          <strong>{{ key }}:</strong> {{ value }}<br>
+            <strong>{{ key }}:</strong> {{ value }}<br>
           {% endfor %}
         {% endif %}
       {% endfor %}

@@ -33,11 +33,13 @@ class AirflowDagRunsResponse(BaseModel):
 
 
 class AirflowDagRunsRequestParameters(BaseModel):
-    """Model for request parameters when requesting info from dag_runs endpoint"""
+    """Model for parameters when requesting info from dag_runs endpoint"""
 
     limit: int = 25
     offset: int = 0
-    start_date_gte: datetime = (datetime.utcnow() - timedelta(days=7)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    start_date_gte: str = (datetime.utcnow() - timedelta(days=14)).strftime(
+        "%Y-%m-%dT%H:%M:%SZ"
+    )
     order_by: str = "-start_date"
 
     @classmethod

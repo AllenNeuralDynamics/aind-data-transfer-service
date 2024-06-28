@@ -6,7 +6,6 @@ import json
 import logging
 import os
 from asyncio import sleep
-from datetime import datetime, timedelta
 from pathlib import PurePosixPath
 
 import requests
@@ -388,7 +387,7 @@ async def submit_hpc_jobs(request: Request):  # noqa: C901
 
 
 async def get_job_status_list(request: Request):
-    """Get status of jobs. Results are paginated with default limit=25 and offset=0."""
+    """Get status of jobs with default pagination of limit=25 and offset=0."""
     # TODO: Use httpx async client
     try:
         params = AirflowDagRunsRequestParameters.from_query_params(
@@ -444,10 +443,10 @@ async def get_job_status_list(request: Request):
 async def index(request: Request):
     """GET|POST /: form handler"""
     return templates.TemplateResponse(
+        request=request,
         name="index.html",
         context=(
             {
-                "request": request,
                 "project_names_url": os.getenv(
                     "AIND_METADATA_SERVICE_PROJECT_NAMES_URL"
                 ),
@@ -463,10 +462,10 @@ async def job_status_table(request: Request):
     data = response_jobs_json.get("data")
     params = data.get("params")
     return templates.TemplateResponse(
+        request=request,
         name="job_status_table.html",
         context=(
             {
-                "request": request,
                 "status_code": response_jobs.status_code,
                 "message": response_jobs_json.get("message"),
                 "errors": data.get("errors", []),
@@ -488,10 +487,10 @@ async def jobs(request: Request):
         "offset"
     ].default
     return templates.TemplateResponse(
+        request=request,
         name="job_status.html",
         context=(
             {
-                "request": request,
                 "default_limit": default_limit,
                 "default_offset": default_offset,
                 "project_names_url": os.getenv(
