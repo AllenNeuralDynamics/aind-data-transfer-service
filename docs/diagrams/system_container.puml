@@ -1,0 +1,26 @@
+@startuml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+' uncomment the following line and comment the first to use locally
+' !include C4_Container.puml
+
+' LAYOUT_TOP_DOWN()
+' LAYOUT_AS_SKETCH()
+LAYOUT_WITH_LEGEND()
+
+title Container diagram for AIND Data Transfer Service
+
+Person(user, "User", "A scientist or engineer that wants to upload data to the cloud.")
+
+System_Boundary(c1, "AIND Data Transfer Service") {
+    Container(app, "API Application", "FastAPI, Docker Container", "Validates and submits request to aind-airflow-service. Runs in K8s cluster managed by Central IT.")
+}
+
+System_Ext(aind_airflow_service, "AIND Airflow Service", "Receives job requests, does additional validation checks, submits and monitors jobs.")
+System_Ext(slurm, "Slurm", "High performance computing cluster that runs data transformation and data upload jobs.")
+
+Rel(user, app, "Uses", "HTTP, REST")
+
+Rel_Back(user, aind_airflow_service, "Sends e-mails to", "SMTP")
+Rel(app, aind_airflow_service, "Uses", "REST API")
+Rel(aind_airflow_service, slurm, "Uses", "REST API")
+@enduml
