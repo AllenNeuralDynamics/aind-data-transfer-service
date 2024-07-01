@@ -1,6 +1,6 @@
 """Module for data models used in application"""
 
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import List, Optional
 
 from pydantic import AwareDatetime, BaseModel, Field
@@ -37,9 +37,6 @@ class AirflowDagRunsRequestParameters(BaseModel):
 
     limit: int = 25
     offset: int = 0
-    start_date_gte: str = (datetime.utcnow() - timedelta(days=14)).strftime(
-        "%Y-%m-%dT%H:%M:%SZ"
-    )
     order_by: str = "-start_date"
 
     @classmethod
