@@ -45,10 +45,17 @@ From the root directory, run:
 
 to install the relevant code for development.
 
-We will work on setting up a local dev server to mock airflow responses.
+We are working on setting up a local dev server to mock airflow responses.
 In the meantime, it’s assumed that you are able to connect to our
 development backend. Please reach out to us if you need an airflow
 account.
+
+To mock airflow responses for job status list:
+
+.. code:: bash
+   cd tests/test_server
+   docker build -t json_server .
+   docker run -p 8080:3000 json_server
 
 To run uvicorn locally:
 
@@ -56,7 +63,8 @@ To run uvicorn locally:
 
    export AIND_METADATA_SERVICE_PROJECT_NAMES_URL='http://aind-metadata-service-dev/project_names'
    export AIND_AIRFLOW_SERVICE_URL='http://aind-airflow-service-dev:8080/api/v1/dags/run_list_of_jobs/dagRuns'
-   export AIND_AIRFLOW_SERVICE_JOBS_URL='http://aind-airflow-service-dev:8080/api/v1/dags/transform_and_upload/dagRuns'
+   # export AIND_AIRFLOW_SERVICE_JOBS_URL='http://aind-airflow-service-dev:8080/api/v1/dags/transform_and_upload/dagRuns'
+   export AIND_AIRFLOW_SERVICE_JOBS_URL='http://localhost:8080/transform_and_upload'
    export AIND_AIRFLOW_SERVICE_PASSWORD='*****'
    export AIND_AIRFLOW_SERVICE_USER='user'
    uvicorn aind_data_transfer_service.server:app --host 0.0.0.0 --port 5000 --reload

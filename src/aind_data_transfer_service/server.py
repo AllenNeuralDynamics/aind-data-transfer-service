@@ -1,11 +1,11 @@
 """Starts and Runs Starlette Service"""
+
 import csv
 import io
 import json
 import logging
 import os
 from asyncio import sleep
-from datetime import datetime, timedelta
 from pathlib import PurePosixPath
 
 import requests
@@ -29,7 +29,11 @@ from aind_data_transfer_service.configs.job_upload_template import (
 )
 from aind_data_transfer_service.hpc.client import HpcClient, HpcClientConfigs
 from aind_data_transfer_service.hpc.models import HpcJobSubmitSettings
-from aind_data_transfer_service.models import AirflowDagRunsResponse, JobStatus
+from aind_data_transfer_service.models import (
+    AirflowDagRunsRequestParameters,
+    AirflowDagRunsResponse,
+    JobStatus,
+)
 
 template_directory = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "templates")
@@ -382,6 +386,60 @@ async def submit_hpc_jobs(request: Request):  # noqa: C901
     )
 
 
+async def get_job_status_list(request: Request):
+    """Get status of jobs with default pagination of limit=25 and offset=0."""
+    # TODO: Use httpx async client
+    try:
+        params = AirflowDagRunsRequestParameters.from_query_params(
+            request.query_params
+        )
+        params_dict = json.loads(params.model_dump_json())
+        response_jobs = requests.get(
+            url=os.getenv("AIND_AIRFLOW_SERVICE_JOBS_URL"),
+            auth=(
+                os.getenv("AIND_AIRFLOW_SERVICE_USER"),
+                os.getenv("AIND_AIRFLOW_SERVICE_PASSWORD"),
+            ),
+            params=params_dict,
+        )
+        status_code = response_jobs.status_code
+        if response_jobs.status_code == 200:
+            dag_runs = AirflowDagRunsResponse.model_validate_json(
+                json.dumps(response_jobs.json())
+            )
+            job_status_list = [
+                JobStatus.from_airflow_dag_run(d) for d in dag_runs.dag_runs
+            ]
+            message = "Retrieved job status list from airflow"
+            data = {
+                "params": params_dict,
+                "total_entries": dag_runs.total_entries,
+                "job_status_list": [
+                    json.loads(j.model_dump_json()) for j in job_status_list
+                ],
+            }
+        else:
+            message = "Error retrieving job status list from airflow"
+            data = {"params": params_dict, "errors": [response_jobs.json()]}
+    except ValidationError as e:
+        logging.error(e)
+        status_code = 406
+        message = "Error validating request parameters"
+        data = {"errors": json.loads(e.json())}
+    except Exception as e:
+        logging.error(e)
+        status_code = 500
+        message = "Unable to retrieve job status list from airflow"
+        data = {"errors": [f"{e.__class__.__name__}{e.args}"]}
+    return JSONResponse(
+        status_code=status_code,
+        content={
+            "message": message,
+            "data": data,
+        },
+    )
+
+
 async def index(request: Request):
     """GET|POST /: form handler"""
     return templates.TemplateResponse(
@@ -397,58 +455,50 @@ async def index(request: Request):
     )
 
 
-async def jobs(request: Request):
-    """Get status of jobs"""
-    # TODO: Use httpx async client
-    # TODO: Paginate results. Maybe render 50 at a time.
-    response_jobs = requests.get(
-        url=os.getenv("AIND_AIRFLOW_SERVICE_JOBS_URL"),
-        auth=(
-            os.getenv("AIND_AIRFLOW_SERVICE_USER"),
-            os.getenv("AIND_AIRFLOW_SERVICE_PASSWORD"),
+async def job_status_table(request: Request):
+    """Get Job Status table with pagination"""
+    response_jobs = await get_job_status_list(request)
+    response_jobs_json = json.loads(response_jobs.body)
+    data = response_jobs_json.get("data")
+    params = data.get("params")
+    return templates.TemplateResponse(
+        name="job_status_table.html",
+        context=(
+            {
+                "request": request,
+                "status_code": response_jobs.status_code,
+                "message": response_jobs_json.get("message"),
+                "errors": data.get("errors", []),
+                "limit": params.get("limit") if params else None,
+                "offset": params.get("offset") if params else None,
+                "total_entries": data.get("total_entries", 0),
+                "job_status_list": data.get("job_status_list", []),
+            }
         ),
-        params={
-            "start_date_gte": (datetime.utcnow() - timedelta(days=7)).strftime(
-                "%Y-%m-%dT%H:%M:%SZ"
-            ),
-            "order_by": "-start_date",
-        },
     )
-    if response_jobs.status_code == 200:
-        dag_runs = AirflowDagRunsResponse.model_validate_json(
-            json.dumps(response_jobs.json())
-        )
-        job_status_list = [
-            JobStatus.from_airflow_dag_run(d) for d in dag_runs.dag_runs
-        ]
-        return templates.TemplateResponse(
-            name="job_status.html",
-            context=(
-                {
-                    "request": request,
-                    "job_status_list": job_status_list,
-                    "num_of_jobs": len(job_status_list),
-                    "project_names_url": os.getenv(
-                        "AIND_METADATA_SERVICE_PROJECT_NAMES_URL"
-                    ),
-                }
-            ),
-        )
-    # TODO: Pass information to user about response failures
-    else:
-        return templates.TemplateResponse(
-            name="job_status.html",
-            context=(
-                {
-                    "request": request,
-                    "job_status_list": [],
-                    "num_of_jobs": 0,
-                    "project_names_url": os.getenv(
-                        "AIND_METADATA_SERVICE_PROJECT_NAMES_URL"
-                    ),
-                }
-            ),
-        )
+
+
+async def jobs(request: Request):
+    """Get Job Status page with pagination"""
+    default_limit = AirflowDagRunsRequestParameters.model_fields[
+        "limit"
+    ].default
+    default_offset = AirflowDagRunsRequestParameters.model_fields[
+        "offset"
+    ].default
+    return templates.TemplateResponse(
+        name="job_status.html",
+        context=(
+            {
+                "request": request,
+                "default_limit": default_limit,
+                "default_offset": default_offset,
+                "project_names_url": os.getenv(
+                    "AIND_METADATA_SERVICE_PROJECT_NAMES_URL"
+                ),
+            }
+        ),
+    )
 
 
 async def download_job_template(_: Request):
@@ -490,7 +540,13 @@ routes = [
     Route("/api/submit_hpc_jobs", endpoint=submit_hpc_jobs, methods=["POST"]),
     Route("/api/v1/validate_csv", endpoint=validate_csv, methods=["POST"]),
     Route("/api/v1/submit_jobs", endpoint=submit_jobs, methods=["POST"]),
+    Route(
+        "/api/v1/get_job_status_list",
+        endpoint=get_job_status_list,
+        methods=["GET"],
+    ),
     Route("/jobs", endpoint=jobs, methods=["GET"]),
+    Route("/job_status_table", endpoint=job_status_table, methods=["GET"]),
     Route(
         "/api/job_upload_template",
         endpoint=download_job_template,

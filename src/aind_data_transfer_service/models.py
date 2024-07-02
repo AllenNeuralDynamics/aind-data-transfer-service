@@ -32,6 +32,19 @@ class AirflowDagRunsResponse(BaseModel):
     total_entries: int
 
 
+class AirflowDagRunsRequestParameters(BaseModel):
+    """Model for parameters when requesting info from dag_runs endpoint"""
+
+    limit: int = 25
+    offset: int = 0
+    order_by: str = "-start_date"
+
+    @classmethod
+    def from_query_params(cls, query_params: dict):
+        """Maps the query parameters to the model"""
+        return cls(**query_params)
+
+
 class JobStatus(BaseModel):
     """Model for what we want to render to the user."""
 
