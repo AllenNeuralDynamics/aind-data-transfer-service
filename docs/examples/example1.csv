@@ -1,0 +1,4 @@
+project_name, process_capsule_id, modality0, modality0.source, modality1, modality1.source, s3-bucket, subject-id, platform, acq-datetime
+Ephys Platform, , ECEPHYS, dir/data_set_1, ,, some_bucket, 123454, ecephys, 2020-10-10 14:10:10
+Behavior Platform, 1f999652-00a0-4c4b-99b5-64c2985ad070, BEHAVIOR_VIDEOS, dir/data_set_2, MRI, dir/data_set_3, open, 123456, BEHAVIOR, 10/13/2020 1:10:10 PM
+Behavior Platform, , BEHAVIOR_VIDEOS, dir/data_set_2, BEHAVIOR_VIDEOS, dir/data_set_3, scratch, 123456, BEHAVIOR, 10/13/2020 1:10:10 PM
