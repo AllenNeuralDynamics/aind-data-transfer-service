@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="UTF-8">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.3/moment.min.js"></script>
+</head>
+
+<body>
+  <!-- job status table -->
+  <table class="table table-bordered table-striped table-hover table-sm">
+    <tr>
+      <th>Asset Name</th>
+      <th>Job ID</th>
+      <th>Status</th>
+      <th>Submit Time</th>
+      <th>Start Time</th>
+      <th>End time</th>
+      <th>Comment</th>
+    </tr>
+    {% for job_status in job_status_list %}
+    <tr>
+      <td>{{job_status.name}}</td>
+      <td>{{job_status.job_id}}</td>
+      <td class="{% if job_status.job_state == 'success' %}table-success
+                {% elif job_status.job_state == 'failed' %}table-danger
+                {% elif job_status.job_state == 'running' %}table-info
+                {% endif %}">{{job_status.job_state}}</td>
+      <td class="datetime_to_be_adjusted">{{job_status.submit_time}}</td>
+      <td class="datetime_to_be_adjusted">{{job_status.start_time}}</td>
+      <td class="datetime_to_be_adjusted">{{job_status.end_time}}</td>
+      <td>{{job_status.comment}}</td>
+    </tr>
+    {% endfor %}
+  </table>
+  <!-- display errors to user -->
+  {% if status_code != 200 %}
+  <div class="alert alert-danger" role="alert">
+    <h4 class="alert-heading">{{ message }}</h4>
+    <p>
+      {% for error in errors %}
+        {% if error is string %}{{ error }}
+        {% elif error is mapping %}
+          {% for key, value in error.items() %}
+            <strong>{{ key }}:</strong> {{ value }}<br>
+          {% endfor %}
+        {% endif %}
+      {% endfor %}
+    </p>
+  </div>
+  {% endif %}
+  <script>
+    window.onload = function () {
+      status_code = parseInt('{{ status_code }}')
+      if (status_code !== 200) {
+        return;
+      }
+      if (parent.location.pathname === '/jobs') {
+        // If loaded from the /jobs page, update parent page with result params
+        offset = parseInt('{{offset}}');
+        limit = parseInt('{{limit}}');
+        total_entries = parseInt('{{total_entries}}');
+        parent.document.getElementById('jobs-iframe-total-entries').innerText = '{{total_entries}}';
+        parent.document.getElementById('jobs-iframe-showing').innerText = `${offset + 1} to ${Math.min(offset + limit, total_entries)} of ${total_entries}`;
+        // also update the pagination buttons
+        isFirst = (offset == 0);
+        isLast = (offset + limit >= total_entries);
+        parent.document.getElementById('jobs-page-btn-first').disabled = isFirst;
+        parent.document.getElementById('jobs-page-btn-prev').disabled = isFirst;
+        parent.document.getElementById('jobs-page-btn-next').disabled = isLast;
+        parent.document.getElementById('jobs-page-btn-last').disabled = isLast;
+      }
+      document.querySelectorAll(".datetime_to_be_adjusted").forEach(function (el) {
+        if (el.innerHTML !== "") {
+          var utcTime = moment.utc(el.innerText);  // This is the time in UTC
+          utcTime.local();  // Switch to using the browser's local timezone
+          el.innerText = utcTime.format('YYYY-MM-DD h:mm:ss a');  // Write the local time back to the element
+        };
+      });
+    }
+  </script>
+</body>
+
+</html>

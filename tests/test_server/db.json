@@ -811,5 +811,274 @@
             "current_working_directory": "/"
          }
       ]
+   },
+   "transform_and_upload": {
+      "dag_runs": [
+         {
+            "conf": {
+               "acq_datetime": "2024-05-09T08:22:05",
+               "email_notification_types": [
+                  "fail"
+               ],
+               "force_cloud_sync": true,
+               "input_data_mount": "multiplane-ophys_123456_2023-07-18_10-38-22",
+               "metadata_dir": "/fake/dir/to/123456_2024-06-17_13-02-30",
+               "metadata_dir_force": false,
+               "modalities": [
+                  {
+                     "compress_raw_data": false,
+                     "extra_configs": null,
+                     "modality": {
+                        "abbreviation": "ophys",
+                        "name": "Planar optical physiology"
+                     },
+                     "output_folder_name": "ophys",
+                     "platform": "multiplane-ophys",
+                     "slurm_settings": null,
+                     "source": "/fake/dir/to/123456_2024-06-17_13-02-30/ophys"
+                  },
+                  {
+                     "compress_raw_data": false,
+                     "extra_configs": null,
+                     "modality": {
+                        "abbreviation": "behavior-videos",
+                        "name": "Behavior videos"
+                     },
+                     "output_folder_name": "behavior-videos",
+                     "platform": "multiplane-ophys",
+                     "slurm_settings": null,
+                     "source": "/fake/dir/to/123456_2024-06-17_13-02-30/behavior_videos"
+                  },
+                  {
+                     "compress_raw_data": false,
+                     "extra_configs": null,
+                     "modality": {
+                        "abbreviation": "behavior",
+                        "name": "Behavior"
+                     },
+                     "output_folder_name": "behavior",
+                     "platform": "multiplane-ophys",
+                     "slurm_settings": null,
+                     "source": "/fake/dir/to/123456_2024-06-17_13-02-30/behavior"
+                  }
+               ],
+               "platform": {
+                  "abbreviation": "multiplane-ophys",
+                  "name": "Multiplane optical physiology platform"
+               },
+               "process_capsule_id": "process_capsule_id_1",
+               "project_name": "project_name_1",
+               "s3_bucket": "private",
+               "s3_prefix": "multiplane-ophys_123456_2024-05-09_08-22-05",
+               "subject_id": "123456",
+               "user_email": null
+            },
+            "dag_id": "transform_and_upload",
+            "dag_run_id": "dag_run_id_1",
+            "data_interval_end": "2024-06-17T20:04:51.761534+00:00",
+            "data_interval_start": "2024-06-17T20:04:51.761534+00:00",
+            "end_date": "2024-06-17T20:17:31.404703+00:00",
+            "execution_date": "2024-06-17T20:04:51.761534+00:00",
+            "external_trigger": true,
+            "last_scheduling_decision": "2024-06-17T20:17:31.399929+00:00",
+            "logical_date": "2024-06-17T20:04:51.761534+00:00",
+            "note": null,
+            "run_type": "manual",
+            "start_date": "2024-06-17T20:04:52.586093+00:00",
+            "state": "queued"
+         },
+         {
+            "conf": {
+               "acq_datetime": "2023-10-18T20:30:30",
+               "email_notification_types": null,
+               "force_cloud_sync": false,
+               "input_data_mount": null,
+               "metadata_dir": null,
+               "metadata_dir_force": false,
+               "modalities": [
+                  {
+                     "compress_raw_data": false,
+                     "extra_configs": null,
+                     "modality": {
+                        "abbreviation": "SPIM",
+                        "name": "Selective plane illumination microscopy"
+                     },
+                     "output_folder_name": "SPIM",
+                     "platform": "SmartSPIM",
+                     "slurm_settings": null,
+                     "source": "/fake/dir/to/SmartSPIM_123456_2023-10-18_20-30-30"
+                  }
+               ],
+               "platform": {
+                  "abbreviation": "SmartSPIM",
+                  "name": "SmartSPIM platform"
+               },
+               "process_capsule_id": null,
+               "project_name": "project_name_2",
+               "s3_bucket": "private",
+               "s3_prefix": "SmartSPIM_123456_2023-10-18_20-30-30",
+               "subject_id": "123456",
+               "user_email": null
+            },
+            "dag_id": "transform_and_upload",
+            "dag_run_id": "dag_run_id_2",
+            "data_interval_end": "2024-06-10T15:38:24.510088+00:00",
+            "data_interval_start": "2024-06-10T15:38:24.510088+00:00",
+            "end_date": "2024-06-13T18:07:12.419634+00:00",
+            "execution_date": "2024-06-10T15:38:24.510088+00:00",
+            "external_trigger": true,
+            "last_scheduling_decision": "2024-06-13T18:07:12.415321+00:00",
+            "logical_date": "2024-06-10T15:38:24.510088+00:00",
+            "note": null,
+            "run_type": "manual",
+            "start_date": "2024-06-13T17:01:29.149319+00:00",
+            "state": "running"
+         },
+         {
+            "conf": {
+               "acq_datetime": "2000-10-10T01:00:24",
+               "email_notification_types": [
+                  "fail"
+               ],
+               "force_cloud_sync": false,
+               "input_data_mount": "input_mount",
+               "metadata_dir": null,
+               "metadata_dir_force": false,
+               "modalities": [
+                  {
+                     "compress_raw_data": true,
+                     "extra_configs": null,
+                     "modality": {
+                        "abbreviation": "ecephys",
+                        "name": "Extracellular electrophysiology"
+                     },
+                     "output_folder_name": "ecephys",
+                     "platform": "ecephys",
+                     "slurm_settings": null,
+                     "source": "/fake/dir/to/ecephys/123456_2023-04-03_18-17-07"
+                  }
+               ],
+               "platform": {
+                  "abbreviation": "ecephys",
+                  "name": "Electrophysiology platform"
+               },
+               "process_capsule_id": "process_capsule_id_2",
+               "project_name": "Ephys Platform",
+               "s3_bucket": "private",
+               "s3_prefix": "ecephys_123456_2000-10-10_01-00-24",
+               "subject_id": "123456",
+               "user_email": null
+            },
+            "dag_id": "transform_and_upload",
+            "dag_run_id": "dag_run_id_3",
+            "data_interval_end": "2024-06-09T18:15:07.808880+00:00",
+            "data_interval_start": "2024-06-09T18:15:07.808880+00:00",
+            "end_date": "2024-06-09T18:30:52.266012+00:00",
+            "execution_date": "2024-06-09T18:15:07.808880+00:00",
+            "external_trigger": true,
+            "last_scheduling_decision": "2024-06-09T18:30:52.259815+00:00",
+            "logical_date": "2024-06-09T18:15:07.808880+00:00",
+            "note": null,
+            "run_type": "manual",
+            "start_date": "2024-06-09T18:15:08.763308+00:00",
+            "state": "success"
+         },
+         {
+            "conf": {
+               "acq_datetime": "2023-03-22T15:12:36",
+               "email_notification_types": [
+                  "fail"
+               ],
+               "force_cloud_sync": false,
+               "metadata_dir": "/fake/dir/to/123456_2023-03-22/aind_metadata",
+               "metadata_dir_force": false,
+               "modalities": [
+                  {
+                     "compress_raw_data": false,
+                     "extra_configs": null,
+                     "modality": {
+                        "abbreviation": "behavior",
+                        "name": "Behavior"
+                     },
+                     "output_folder_name": "behavior",
+                     "platform": "behavior",
+                     "slurm_settings": null,
+                     "source": "/fake/dir/to/123456_2023-03-22/behavior"
+                  }
+               ],
+               "platform": {
+                  "abbreviation": "behavior",
+                  "name": "Behavior platform"
+               },
+               "process_capsule_id": null,
+               "project_name": "Dynamic Routing",
+               "s3_bucket": "private",
+               "s3_prefix": "behavior_123456_2023-03-22_15-12-36",
+               "subject_id": "123456",
+               "user_email": null
+            },
+            "dag_id": "transform_and_upload",
+            "dag_run_id": "dag_run_id_4",
+            "data_interval_end": "2024-06-06T16:19:53.763569+00:00",
+            "data_interval_start": "2024-06-06T16:19:53.763569+00:00",
+            "end_date": "2024-06-06T16:20:45.091591+00:00",
+            "execution_date": "2024-06-06T16:19:53.763569+00:00",
+            "external_trigger": true,
+            "last_scheduling_decision": "2024-06-06T16:20:45.085445+00:00",
+            "logical_date": "2024-06-06T16:19:53.763569+00:00",
+            "note": null,
+            "run_type": "manual",
+            "start_date": "2024-06-06T16:19:54.109005+00:00",
+            "state": "failed"
+         },
+         {
+            "conf": {
+               "acq_datetime": "2000-01-01T01:41:15",
+               "email_notification_types": [
+                  "fail"
+               ],
+               "force_cloud_sync": false,
+               "metadata_dir": "/fake/dir/to/ecephys/ecephys_618197_2022-06-21_14-08-06",
+               "metadata_dir_force": true,
+               "modalities": [
+                  {
+                     "compress_raw_data": false,
+                     "extra_configs": null,
+                     "modality": {
+                        "abbreviation": "behavior-videos",
+                        "name": "Behavior videos"
+                     },
+                     "output_folder_name": "behavior-videos",
+                     "slurm_settings": null,
+                     "source": "/fake/dir/to/697062_2023-12-15_09-31-11/VideoFolder"
+                  }
+               ],
+               "platform": {
+                  "abbreviation": "ecephys",
+                  "name": "Electrophysiology platform"
+               },
+               "process_capsule_id": null,
+               "project_name": "Ephys Platform",
+               "s3_bucket": "private",
+               "s3_prefix": "ecephys_123456_2000-01-01_01-41-15",
+               "subject_id": "123456",
+               "user_email": null
+            },
+            "dag_id": "transform_and_upload",
+            "dag_run_id": "dag_run_id_5",
+            "data_interval_end": "2024-05-31T22:26:46.808099+00:00",
+            "data_interval_start": "2024-05-31T22:26:46.808099+00:00",
+            "end_date": "2024-05-31T22:40:27.387613+00:00",
+            "execution_date": "2024-05-31T22:26:46.808099+00:00",
+            "external_trigger": true,
+            "last_scheduling_decision": "2024-05-31T22:40:27.382761+00:00",
+            "logical_date": "2024-05-31T22:26:46.808099+00:00",
+            "note": null,
+            "run_type": "manual",
+            "start_date": "2024-05-31T22:26:47.986082+00:00",
+            "state": "success"
+         }
+      ],
+      "total_entries": 5
    }
 }
