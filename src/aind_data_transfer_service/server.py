@@ -486,6 +486,9 @@ async def jobs(request: Request):
     default_offset = AirflowDagRunsRequestParameters.model_fields[
         "offset"
     ].default
+    default_state = AirflowDagRunsRequestParameters.model_fields[
+        "state"
+    ].default
     return templates.TemplateResponse(
         name="job_status.html",
         context=(
@@ -493,6 +496,7 @@ async def jobs(request: Request):
                 "request": request,
                 "default_limit": default_limit,
                 "default_offset": default_offset,
+                "default_state": default_state,
                 "project_names_url": os.getenv(
                     "AIND_METADATA_SERVICE_PROJECT_NAMES_URL"
                 ),

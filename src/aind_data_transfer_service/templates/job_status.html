@@ -48,6 +48,21 @@
                 </select>
                 <span class="input-group-text">jobs per page</span>
             </div>
+            <div class="input-group">
+                <select class="form-select" onchange="updateJobStatusTableState(this.value);this.blur();">
+                    {% for s in [
+                        {"label": "all", "value": []},
+                        {"label": "running", "value": ['running']},
+                        {"label": "failed", "value": ['failed']},
+                        {"label": "success", "value": ['success']},
+                    ] %}
+                    {% if s.value==default_state %}<option value="{{ s.value }}" selected>{{ s.label }}</option>
+                    {% else %}<option value="{{ s.value }}">{{ s.label }}</option>
+                    {% endif %}
+                    {% endfor %}
+                </select>
+                <span class="input-group-text">status</span>
+            </div>
             <div class="btn-group" role="group">
                 <!-- display current jobs range e.g, "1 to 10 of 100" -->
                 <span id="jobs-iframe-showing" class="btn" style="cursor:default;"></span>
@@ -65,7 +80,7 @@
             </div>
         </div>
         <!-- iframe to display paginated job status table -->
-        <iframe id="jobs-iframe" src="{{ url_for('job_status_table').include_query_params(limit=default_limit, offset=default_offset)}}"></iframe>
+        <iframe id="jobs-iframe" src="{{ url_for('job_status_table').include_query_params(limit=default_limit, offset=default_offset,state=default_state)}}"></iframe>
     </div>
     <script>
         const PaginateTo = {
@@ -74,6 +89,12 @@
             FIRST: 'first',
             LAST: 'last'
         };
+        function updateJobStatusTableState(newState) {
+            var iframe = document.getElementById('jobs-iframe');
+            var currentUrl = new URL(iframe.src);
+            currentUrl.searchParams.set('state', newState);
+            iframe.src = currentUrl.toString();
+        }
         function updateJobStatusTableLimit(newLimit) {
             var iframe = document.getElementById('jobs-iframe');
             var currentUrl = new URL(iframe.src);

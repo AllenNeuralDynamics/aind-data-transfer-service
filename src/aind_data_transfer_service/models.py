@@ -1,5 +1,5 @@
 """Module for data models used in application"""
-
+import ast
 from datetime import datetime
 from typing import List, Optional
 
@@ -37,12 +37,16 @@ class AirflowDagRunsRequestParameters(BaseModel):
 
     limit: int = 25
     offset: int = 0
+    state: Optional[list[str]] = []
     order_by: str = "-start_date"
 
     @classmethod
     def from_query_params(cls, query_params: dict):
         """Maps the query parameters to the model"""
-        return cls(**query_params)
+        params = dict(query_params)
+        if 'state' in params and isinstance(params['state'], str):
+            params['state'] = ast.literal_eval(params['state'])
+        return cls(**params)
 
 
 class JobStatus(BaseModel):
