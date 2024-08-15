@@ -63,6 +63,23 @@
                 </select>
                 <span class="input-group-text">status</span>
             </div>
+            <div class="input-group">
+                <select class="form-select" onchange="updateJobStatusTableSubmitTimeWindow(this.value);this.blur();">
+                    {% for t in [
+                        {"label": "all", "value": "all"},
+                        {"label": "last 6 hours", "value": "6h"},
+                        {"label": "last 1 day", "value": "1d"},
+                        {"label": "last 3 days", "value": "3d"},
+                        {"label": "last 7 days", "value": "7d"},
+                        {"label": "last 14 days", "value": "14d" },
+                    ] %}
+                    {% if t.value=="all" %}<option value="{{ t.value }}" selected>{{ t.label }}</option>
+                    {% else %}<option value="{{ t.value }}">{{ t.label }}</option>
+                    {% endif %}
+                    {% endfor %}
+                </select>
+                <span class="input-group-text">submit time</span>
+            </div>
             <div class="btn-group" role="group">
                 <!-- display current jobs range e.g, "1 to 10 of 100" -->
                 <span id="jobs-iframe-showing" class="btn" style="cursor:default;"></span>
@@ -83,6 +100,7 @@
         <iframe id="jobs-iframe" src="{{ url_for('job_status_table').include_query_params(limit=default_limit, offset=default_offset,state=default_state)}}"></iframe>
     </div>
     <script>
+        const SUBMIT_TIME_WINDOW_REGEX = /(\d+)([hd])/;
         const PaginateTo = {
             NEXT: 'next',
             PREV: 'prev',
@@ -93,6 +111,25 @@
             var iframe = document.getElementById('jobs-iframe');
             var currentUrl = new URL(iframe.src);
             currentUrl.searchParams.set('state', newState);
+            iframe.src = currentUrl.toString();
+        }
+        function updateJobStatusTableSubmitTimeWindow(newWindow) {
+            var iframe = document.getElementById('jobs-iframe');
+            var currentUrl = new URL(iframe.src);
+            if (newWindow === "all") {
+                currentUrl.searchParams.delete('execution_date_gte');
+                console.log("currentUrl", currentUrl.toString());
+            } else {
+                // set new execution_date_gte for jobs submitted within the time window (e.g., 6h, 3d)
+                const match = newWindow.match(SUBMIT_TIME_WINDOW_REGEX);
+                if (!match) {
+                    console.error("Invalid time window format. Expected format: <number><h|d> (e.g., 6h, 1d, 3d, 7d, 14d)");
+                    return;
+                }
+                const [_, amount, unit] = match;
+                const execution_date_gte = moment().subtract(parseInt(amount), unit).toISOString();
+                currentUrl.searchParams.set('execution_date_gte', execution_date_gte);
+            }
             iframe.src = currentUrl.toString();
         }
         function updateJobStatusTableLimit(newLimit) {
