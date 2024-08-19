@@ -1,4 +1,5 @@
 """Module for data models used in application"""
+
 import ast
 from datetime import datetime
 from typing import List, Optional
@@ -38,7 +39,7 @@ class AirflowDagRunsRequestParameters(BaseModel):
     limit: int = 25
     offset: int = 0
     state: Optional[list[str]] = []
-    order_by: str = "-start_date"
+    order_by: str = "-execution_date"
     execution_date_gte: Optional[str] = None
 
     @classmethod

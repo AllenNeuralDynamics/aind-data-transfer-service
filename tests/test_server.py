@@ -541,8 +541,7 @@ class TestServer(unittest.TestCase):
         expected_default_params = {
             "limit": 25,
             "offset": 0,
-            "start_date_gte": "mock_start_date_gte",
-            "order_by": "-start_date",
+            "order_by": "-execution_date",
         }
         expected_job_status_list = [
             {
@@ -594,10 +593,6 @@ class TestServer(unittest.TestCase):
         with TestClient(app) as client:
             response = client.get("/api/v1/get_job_status_list")
         response_content = response.json()
-        # small hack to mock the date
-        response_content["data"]["params"][
-            "start_date_gte"
-        ] = "mock_start_date_gte"
         self.assertEqual(response.status_code, 200)
         self.assertEqual(
             response_content,
