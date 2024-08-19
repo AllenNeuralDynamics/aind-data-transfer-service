@@ -16,7 +16,7 @@
         }
         .content {
             width: 100%;
-            height: calc(100vh - 200px);
+            height: calc(100vh - 300px);
             iframe {
                 border: none;
                 width: 100%;
@@ -35,28 +35,28 @@
     </nav>
     <div class="content">
         <!-- display total entries from child iframe -->
-        <h2 class="mb-3">Jobs Submitted: <span id="jobs-iframe-total-entries"></h2>
+        <h2 class="mb-2">Jobs Submitted: <span id="jobs-iframe-total-entries"></h2>
         <!-- filters for job status results-->
-        <div class="card">
-            <div class="card-header">Filter by</div>
-            <div class="card-body">
-                <div class="input-group">
-                    <span class="input-group-text">status</span>
+        <div class="card mb-4" style="width:350px">
+            <div class="card-header py-1">Filter by</div>
+            <div class="card-body p-2">
+                <div class="input-group input-group-sm mb-1">
+                    <span class="input-group-text" style="width:40%">status</span>
                     <select class="form-select" onchange="updateJobStatusTableState(this.value);this.blur();">
                         {% for s in [
                             {"label": "all", "value": []},
-                            {"label": "running", "value": ['running']},
-                            {"label": "failed", "value": ['failed']},
-                            {"label": "success", "value": ['success']},
+                            {"label": "running", "value": ['running'], "class": "text-info"},
+                            {"label": "failed", "value": ['failed'], "class": "text-danger"},
+                            {"label": "success", "value": ['success'], "class": "text-success"},
                         ] %}
-                        {% if s.value==default_state %}<option value="{{ s.value }}" selected>{{ s.label }}</option>
-                        {% else %}<option value="{{ s.value }}">{{ s.label }}</option>
+                        {% if s.value==default_state %}<option class="{{ s.class }}" value="{{ s.value }}" selected>{{ s.label }}</option>
+                        {% else %}<option class="{{ s.class }}" value="{{ s.value }}">{{ s.label }}</option>
                         {% endif %}
                         {% endfor %}
                     </select>
                 </div>
-                <div class="input-group">
-                    <span class="input-group-text">submit time</span>
+                <div class="input-group input-group-sm">
+                    <span class="input-group-text" style="width:40%">submit time</span>
                     <select class="form-select" onchange="updateJobStatusTableSubmitTimeWindow(this.value);this.blur();">
                         {% for t in [
                             {"label": "all", "value": "all"},
