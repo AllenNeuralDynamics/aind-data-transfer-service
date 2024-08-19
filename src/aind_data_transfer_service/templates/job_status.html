@@ -36,6 +36,44 @@
     <div class="content">
         <!-- display total entries from child iframe -->
         <h2 class="mb-3">Jobs Submitted: <span id="jobs-iframe-total-entries"></h2>
+        <!-- filters for job status results-->
+        <div class="card">
+            <div class="card-header">Filter by</div>
+            <div class="card-body">
+                <div class="input-group">
+                    <span class="input-group-text">status</span>
+                    <select class="form-select" onchange="updateJobStatusTableState(this.value);this.blur();">
+                        {% for s in [
+                            {"label": "all", "value": []},
+                            {"label": "running", "value": ['running']},
+                            {"label": "failed", "value": ['failed']},
+                            {"label": "success", "value": ['success']},
+                        ] %}
+                        {% if s.value==default_state %}<option value="{{ s.value }}" selected>{{ s.label }}</option>
+                        {% else %}<option value="{{ s.value }}">{{ s.label }}</option>
+                        {% endif %}
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="input-group">
+                    <span class="input-group-text">submit time</span>
+                    <select class="form-select" onchange="updateJobStatusTableSubmitTimeWindow(this.value);this.blur();">
+                        {% for t in [
+                            {"label": "all", "value": "all"},
+                            {"label": "last 6 hours", "value": "6h"},
+                            {"label": "last 1 day", "value": "1d"},
+                            {"label": "last 3 days", "value": "3d"},
+                            {"label": "last 7 days", "value": "7d"},
+                            {"label": "last 14 days", "value": "14d" },
+                        ] %}
+                        {% if t.value=="all" %}<option value="{{ t.value }}" selected>{{ t.label }}</option>
+                        {% else %}<option value="{{ t.value }}">{{ t.label }}</option>
+                        {% endif %}
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+        </div>
         <!-- toolbar to change jobs per page and navigate pages -->
         <div id="jobs-toolbar" class="btn-toolbar justify-content-between mb-2" role="toolbar">
             <div class="input-group">
@@ -47,38 +85,6 @@
                     {% endfor %}
                 </select>
                 <span class="input-group-text">jobs per page</span>
-            </div>
-            <div class="input-group">
-                <select class="form-select" onchange="updateJobStatusTableState(this.value);this.blur();">
-                    {% for s in [
-                        {"label": "all", "value": []},
-                        {"label": "running", "value": ['running']},
-                        {"label": "failed", "value": ['failed']},
-                        {"label": "success", "value": ['success']},
-                    ] %}
-                    {% if s.value==default_state %}<option value="{{ s.value }}" selected>{{ s.label }}</option>
-                    {% else %}<option value="{{ s.value }}">{{ s.label }}</option>
-                    {% endif %}
-                    {% endfor %}
-                </select>
-                <span class="input-group-text">status</span>
-            </div>
-            <div class="input-group">
-                <select class="form-select" onchange="updateJobStatusTableSubmitTimeWindow(this.value);this.blur();">
-                    {% for t in [
-                        {"label": "all", "value": "all"},
-                        {"label": "last 6 hours", "value": "6h"},
-                        {"label": "last 1 day", "value": "1d"},
-                        {"label": "last 3 days", "value": "3d"},
-                        {"label": "last 7 days", "value": "7d"},
-                        {"label": "last 14 days", "value": "14d" },
-                    ] %}
-                    {% if t.value=="all" %}<option value="{{ t.value }}" selected>{{ t.label }}</option>
-                    {% else %}<option value="{{ t.value }}">{{ t.label }}</option>
-                    {% endif %}
-                    {% endfor %}
-                </select>
-                <span class="input-group-text">submit time</span>
             </div>
             <div class="btn-group" role="group">
                 <!-- display current jobs range e.g, "1 to 10 of 100" -->
