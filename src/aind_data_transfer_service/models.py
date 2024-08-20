@@ -39,15 +39,16 @@ class AirflowDagRunsRequestParameters(BaseModel):
     limit: int = 25
     offset: int = 0
     state: Optional[list[str]] = []
-    order_by: str = "-execution_date"
     execution_date_gte: Optional[str] = None
+    execution_date_lte: Optional[str] = None 
+    order_by: str = "-execution_date"
 
     @classmethod
     def from_query_params(cls, query_params: dict):
         """Maps the query parameters to the model"""
         params = dict(query_params)
-        if 'state' in params:
-            params['state'] = ast.literal_eval(params['state'])
+        if "state" in params:
+            params["state"] = ast.literal_eval(params["state"])
         return cls(**params)
 
 
