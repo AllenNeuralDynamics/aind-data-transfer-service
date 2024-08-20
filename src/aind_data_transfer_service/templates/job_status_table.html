@@ -27,6 +27,7 @@
       <td class="{% if job_status.job_state == 'success' %}table-success
                 {% elif job_status.job_state == 'failed' %}table-danger
                 {% elif job_status.job_state == 'running' %}table-info
+                {% elif job_status.job_state == 'queued' %}table-secondary
                 {% endif %}">{{job_status.job_state}}</td>
       <td class="datetime_to_be_adjusted">{{job_status.submit_time}}</td>
       <td class="datetime_to_be_adjusted">{{job_status.start_time}}</td>
@@ -63,7 +64,7 @@
         limit = parseInt('{{limit}}');
         total_entries = parseInt('{{total_entries}}');
         parent.document.getElementById('jobs-iframe-total-entries').innerText = '{{total_entries}}';
-        parent.document.getElementById('jobs-iframe-showing').innerText = `${offset + 1} to ${Math.min(offset + limit, total_entries)} of ${total_entries}`;
+        parent.document.getElementById('jobs-iframe-showing').innerText = `${(total_entries > 0) ? (offset + 1) : offset} to ${Math.min(offset + limit, total_entries)} of ${total_entries}`;
         // also update the pagination buttons
         isFirst = (offset == 0);
         isLast = (offset + limit >= total_entries);
