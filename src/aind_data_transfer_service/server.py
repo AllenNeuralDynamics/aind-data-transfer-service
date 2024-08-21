@@ -391,12 +391,14 @@ async def get_job_status_list(request: Request):
     """Get status of jobs with default pagination of limit=25 and offset=0."""
     # TODO: Use httpx async client
     try:
+        url = os.getenv("AIND_AIRFLOW_SERVICE_JOBS_URL").strip("/")
         get_one_job = request.query_params.get("dag_run_id") is not None
         if get_one_job:
             dag_run_id = request.query_params["dag_run_id"]
-            params_dict = {"dag_run_id": dag_run_id} # only for returning to client
+            # params_dict is only for returning to client
+            params_dict = {"dag_run_id": dag_run_id}
             response_jobs = requests.get(
-                url=f'{os.getenv("AIND_AIRFLOW_SERVICE_JOBS_URL")}/{dag_run_id}',
+                url=f"{url}/{dag_run_id}",
                 auth=(
                     os.getenv("AIND_AIRFLOW_SERVICE_USER"),
                     os.getenv("AIND_AIRFLOW_SERVICE_PASSWORD"),
@@ -408,7 +410,7 @@ async def get_job_status_list(request: Request):
             )
             params_dict = json.loads(params.model_dump_json())
             response_jobs = requests.get(
-                url=os.getenv("AIND_AIRFLOW_SERVICE_JOBS_URL"),
+                url=url,
                 auth=(
                     os.getenv("AIND_AIRFLOW_SERVICE_USER"),
                     os.getenv("AIND_AIRFLOW_SERVICE_PASSWORD"),
