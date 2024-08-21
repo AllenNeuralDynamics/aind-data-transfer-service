@@ -49,7 +49,9 @@ class AirflowDagRunsRequestParameters(BaseModel):
     def validate_min_execution_date(cls, execution_date_gte: str):
         """Validate the earliest submit date filter is within 2 weeks"""
         min_execution_date = datetime.now(timezone.utc) - timedelta(weeks=2)
-        if datetime.fromisoformat(execution_date_gte) < min_execution_date:
+        # datetime.fromisoformat does not support Z in python < 3.11
+        date_to_check = execution_date_gte.replace("Z", "+00:00")
+        if datetime.fromisoformat(date_to_check) < min_execution_date:
             raise ValueError(
                 "execution_date_gte must be within the last 2 weeks"
             )
