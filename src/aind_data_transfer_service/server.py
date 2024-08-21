@@ -30,6 +30,7 @@ from aind_data_transfer_service.configs.job_upload_template import (
 from aind_data_transfer_service.hpc.client import HpcClient, HpcClientConfigs
 from aind_data_transfer_service.hpc.models import HpcJobSubmitSettings
 from aind_data_transfer_service.models import (
+    AirflowDagRun,
     AirflowDagRunsRequestParameters,
     AirflowDagRunsResponse,
     JobStatus,
@@ -390,23 +391,43 @@ async def get_job_status_list(request: Request):
     """Get status of jobs with default pagination of limit=25 and offset=0."""
     # TODO: Use httpx async client
     try:
-        params = AirflowDagRunsRequestParameters.from_query_params(
-            request.query_params
-        )
-        params_dict = json.loads(params.model_dump_json())
-        response_jobs = requests.get(
-            url=os.getenv("AIND_AIRFLOW_SERVICE_JOBS_URL"),
-            auth=(
-                os.getenv("AIND_AIRFLOW_SERVICE_USER"),
-                os.getenv("AIND_AIRFLOW_SERVICE_PASSWORD"),
-            ),
-            params=params_dict,
-        )
+        get_one_job = request.query_params.get("dag_run_id") is not None
+        if get_one_job:
+            dag_run_id = request.query_params["dag_run_id"]
+            params_dict = {"dag_run_id": dag_run_id} # only for returning to client
+            response_jobs = requests.get(
+                url=f'{os.getenv("AIND_AIRFLOW_SERVICE_JOBS_URL")}/{dag_run_id}',
+                auth=(
+                    os.getenv("AIND_AIRFLOW_SERVICE_USER"),
+                    os.getenv("AIND_AIRFLOW_SERVICE_PASSWORD"),
+                ),
+            )
+        else:
+            params = AirflowDagRunsRequestParameters.from_query_params(
+                request.query_params
+            )
+            params_dict = json.loads(params.model_dump_json())
+            response_jobs = requests.get(
+                url=os.getenv("AIND_AIRFLOW_SERVICE_JOBS_URL"),
+                auth=(
+                    os.getenv("AIND_AIRFLOW_SERVICE_USER"),
+                    os.getenv("AIND_AIRFLOW_SERVICE_PASSWORD"),
+                ),
+                params=params_dict,
+            )
         status_code = response_jobs.status_code
         if response_jobs.status_code == 200:
-            dag_runs = AirflowDagRunsResponse.model_validate_json(
-                json.dumps(response_jobs.json())
-            )
+            if get_one_job:
+                dag_run = AirflowDagRun.model_validate_json(
+                    json.dumps(response_jobs.json())
+                )
+                dag_runs = AirflowDagRunsResponse(
+                    dag_runs=[dag_run], total_entries=1
+                )
+            else:
+                dag_runs = AirflowDagRunsResponse.model_validate_json(
+                    json.dumps(response_jobs.json())
+                )
             job_status_list = [
                 JobStatus.from_airflow_dag_run(d) for d in dag_runs.dag_runs
             ]
