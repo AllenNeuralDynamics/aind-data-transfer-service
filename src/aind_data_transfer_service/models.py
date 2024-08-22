@@ -1,9 +1,10 @@
 """Module for data models used in application"""
 
-from datetime import datetime
+import ast
+from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 
-from pydantic import AwareDatetime, BaseModel, Field
+from pydantic import AwareDatetime, BaseModel, Field, field_validator
 
 
 class AirflowDagRun(BaseModel):
@@ -37,12 +38,32 @@ class AirflowDagRunsRequestParameters(BaseModel):
 
     limit: int = 25
     offset: int = 0
-    order_by: str = "-start_date"
+    state: Optional[list[str]] = []
+    execution_date_gte: Optional[str] = (
+        datetime.now(timezone.utc) - timedelta(weeks=2)
+    ).isoformat()
+    execution_date_lte: Optional[str] = None
+    order_by: str = "-execution_date"
+
+    @field_validator("execution_date_gte", mode="after")
+    def validate_min_execution_date(cls, execution_date_gte: str):
+        """Validate the earliest submit date filter is within 2 weeks"""
+        min_execution_date = datetime.now(timezone.utc) - timedelta(weeks=2)
+        # datetime.fromisoformat does not support Z in python < 3.11
+        date_to_check = execution_date_gte.replace("Z", "+00:00")
+        if datetime.fromisoformat(date_to_check) < min_execution_date:
+            raise ValueError(
+                "execution_date_gte must be within the last 2 weeks"
+            )
+        return execution_date_gte
 
     @classmethod
     def from_query_params(cls, query_params: dict):
         """Maps the query parameters to the model"""
-        return cls(**query_params)
+        params = dict(query_params)
+        if "state" in params:
+            params["state"] = ast.literal_eval(params["state"])
+        return cls(**params)
 
 
 class JobStatus(BaseModel):

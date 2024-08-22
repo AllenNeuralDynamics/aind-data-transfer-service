@@ -4,7 +4,7 @@ import json
 import os
 import unittest
 from copy import deepcopy
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from io import BytesIO
 from pathlib import Path, PurePosixPath
 from unittest.mock import MagicMock, patch
@@ -43,8 +43,11 @@ MOCK_DB_FILE = TEST_DIRECTORY / "test_server" / "db.json"
 NEW_SAMPLE_CSV = TEST_DIRECTORY / "resources" / "new_sample.csv"
 MALFORMED_SAMPLE2_CSV = TEST_DIRECTORY / "resources" / "sample_malformed_2.csv"
 
-DAG_RUN_RESPONSE = (
+LIST_DAG_RUNS_RESPONSE = (
     TEST_DIRECTORY / "resources" / "airflow_dag_runs_response.json"
+)
+GET_DAG_RUN_RESPONSE = (
+    TEST_DIRECTORY / "resources" / "airflow_dag_run_response.json"
 )
 
 
@@ -69,6 +72,7 @@ class TestServer(unittest.TestCase):
         "HPC_AWS_PARAM_STORE_NAME": "/some/param/store",
         "OPEN_DATA_AWS_SECRET_ACCESS_KEY": "open_data_aws_key",
         "OPEN_DATA_AWS_ACCESS_KEY_ID": "open_data_aws_key_id",
+        "AIND_AIRFLOW_SERVICE_JOBS_URL": "airflow_jobs_url",
     }
 
     with open(SAMPLE_CSV, "r") as file:
@@ -77,8 +81,11 @@ class TestServer(unittest.TestCase):
     with open(MOCK_DB_FILE) as f:
         json_contents = json.load(f)
 
-    with open(DAG_RUN_RESPONSE) as f:
-        dag_run_response = json.load(f)
+    with open(LIST_DAG_RUNS_RESPONSE) as f:
+        list_dag_runs_response = json.load(f)
+
+    with open(GET_DAG_RUN_RESPONSE) as f:
+        get_dag_run_response = json.load(f)
 
     expected_job_configs = deepcopy(TestJobConfigs.expected_job_configs)
     for config in expected_job_configs:
@@ -534,15 +541,17 @@ class TestServer(unittest.TestCase):
         mock_dag_runs_response = Response()
         mock_dag_runs_response.status_code = 200
         mock_dag_runs_response._content = json.dumps(
-            self.dag_run_response
+            self.list_dag_runs_response
         ).encode("utf-8")
         mock_get.return_value = mock_dag_runs_response
         expected_message = "Retrieved job status list from airflow"
         expected_default_params = {
             "limit": 25,
             "offset": 0,
-            "start_date_gte": "mock_start_date_gte",
-            "order_by": "-start_date",
+            "state": [],
+            "execution_date_gte": "mock_execution_date_gte",
+            "execution_date_lte": None,
+            "order_by": "-execution_date",
         }
         expected_job_status_list = [
             {
@@ -596,8 +605,8 @@ class TestServer(unittest.TestCase):
         response_content = response.json()
         # small hack to mock the date
         response_content["data"]["params"][
-            "start_date_gte"
-        ] = "mock_start_date_gte"
+            "execution_date_gte"
+        ] = "mock_execution_date_gte"
         self.assertEqual(response.status_code, 200)
         self.assertEqual(
             response_content,
@@ -605,7 +614,9 @@ class TestServer(unittest.TestCase):
                 "message": expected_message,
                 "data": {
                     "params": expected_default_params,
-                    "total_entries": self.dag_run_response["total_entries"],
+                    "total_entries": self.list_dag_runs_response[
+                        "total_entries"
+                    ],
                     "job_status_list": expected_job_status_list,
                 },
             },
@@ -622,13 +633,20 @@ class TestServer(unittest.TestCase):
         mock_dag_runs_response = Response()
         mock_dag_runs_response.status_code = 200
         mock_dag_runs_response._content = json.dumps(
-            self.dag_run_response
+            self.list_dag_runs_response
         ).encode("utf-8")
         mock_get.return_value = mock_dag_runs_response
         expected_message = "Retrieved job status list from airflow"
         with TestClient(app) as client:
             response = client.get(
-                "/api/v1/get_job_status_list?limit=10&offset=5"
+                "/api/v1/get_job_status_list",
+                params={
+                    "limit": 10,
+                    "offset": 5,
+                    "execution_date_gte": (
+                        datetime.now(timezone.utc) - timedelta(days=2)
+                    ).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                },
             )
         response_content = response.json()
         self.assertEqual(response.status_code, 200)
@@ -637,22 +655,86 @@ class TestServer(unittest.TestCase):
         self.assertEqual(response_content["data"]["params"]["offset"], 5)
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
+    @patch("requests.get")
     @patch("logging.error")
     def test_get_job_status_list_validation_error(
         self,
         mock_log_error: MagicMock,
+        mock_get,
     ):
         """Tests get_job_status_list when query_params are invalid."""
+        invalid_queries = [
+            {"limit": "invalid", "offset": 5},
+            {"limit": 5, "offset": "invalid"},
+            {
+                "execution_date_gte": (
+                    datetime.now(timezone.utc)
+                    - timedelta(weeks=2)
+                    - timedelta(minutes=1)
+                ).strftime("%Y-%m-%dT%H:%M:%SZ")
+            },
+        ]
+        for query in invalid_queries:
+            with TestClient(app) as client:
+                response = client.get(
+                    "/api/v1/get_job_status_list", params=query
+                )
+            response_content = response.json()
+            self.assertEqual(response.status_code, 406)
+            self.assertEqual(
+                response_content["message"],
+                "Error validating request parameters",
+            )
+        mock_log_error.assert_called()
+        mock_get.assert_not_called()
+
+    @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
+    @patch("requests.get")
+    def test_get_job_status_list_dag_run_id(
+        self,
+        mock_get,
+    ):
+        """Tests get_job_status_list gets 1 dagRun from airflow when dag_run_id
+        is provided."""
+        dag_run_id = "manual__2024-05-18T22:08:52.286765+00:00"
+        mock_dag_run_response = Response()
+        mock_dag_run_response.status_code = 200
+        mock_dag_run_response._content = json.dumps(
+            self.get_dag_run_response
+        ).encode("utf-8")
+        mock_get.return_value = mock_dag_run_response
+        expected_message = "Retrieved job status list from airflow"
+        expected_params = {
+            "dag_run_id": dag_run_id,
+        }
+        expected_job_status_list = [
+            {
+                "end_time": "2024-05-18T22:09:28.530534Z",
+                "job_id": "manual__2024-05-18T22:08:52.286765+00:00",
+                "job_state": "failed",
+                "name": "",
+                "comment": None,
+                "start_time": "2024-05-18T22:08:52.637098Z",
+                "submit_time": "2024-05-18T22:08:52.286765Z",
+            },
+        ]
         with TestClient(app) as client:
             response = client.get(
-                "/api/v1/get_job_status_list?limit=invalid&offset=5"
+                "/api/v1/get_job_status_list", params=expected_params
             )
         response_content = response.json()
-        self.assertEqual(response.status_code, 406)
+        self.assertEqual(response.status_code, 200)
         self.assertEqual(
-            response_content["message"], "Error validating request parameters"
+            response_content,
+            {
+                "message": expected_message,
+                "data": {
+                    "params": expected_params,
+                    "total_entries": 1,
+                    "job_status_list": expected_job_status_list,
+                },
+            },
         )
-        mock_log_error.assert_called_once()
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch("logging.error")
@@ -695,9 +777,9 @@ class TestServer(unittest.TestCase):
         """Tests that job status table renders as expected."""
         mock_response = Response()
         mock_response.status_code = 200
-        mock_response._content = json.dumps(self.dag_run_response).encode(
-            "utf-8"
-        )
+        mock_response._content = json.dumps(
+            self.list_dag_runs_response
+        ).encode("utf-8")
         mock_get.return_value = mock_response
         with TestClient(app) as client:
             response = client.get("/job_status_table")
