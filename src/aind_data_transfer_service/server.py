@@ -33,7 +33,10 @@ from aind_data_transfer_service.models import (
     AirflowDagRun,
     AirflowDagRunsRequestParameters,
     AirflowDagRunsResponse,
+    AirflowTaskInstancesRequestParameters,
+    AirflowTaskInstancesResponse,
     JobStatus,
+    JobTasks,
 )
 
 template_directory = os.path.abspath(
@@ -461,6 +464,64 @@ async def get_job_status_list(request: Request):
         },
     )
 
+async def get_tasks_list(request: Request):
+    """Get list of tasks instances given a job id."""
+    try:
+        url = os.getenv("AIND_AIRFLOW_SERVICE_JOBS_URL", "").strip("/")
+        params = AirflowTaskInstancesRequestParameters.from_query_params(
+                request.query_params
+        )
+        params_dict = json.loads(params.model_dump_json())
+        response_tasks = requests.get(
+            url=f"{url}/{params.dag_run_id}/taskInstances",
+            auth=(
+                os.getenv("AIND_AIRFLOW_SERVICE_USER"),
+                os.getenv("AIND_AIRFLOW_SERVICE_PASSWORD"),
+            ),
+        )
+        status_code = response_tasks.status_code
+        if response_tasks.status_code == 200:
+            task_instances = AirflowTaskInstancesResponse.model_validate_json(
+                json.dumps(response_tasks.json())
+            )
+            job_tasks_list = sorted(
+                [
+                    JobTasks.from_airflow_task_instance(d) for d in task_instances.task_instances
+                ],
+                key=lambda x: (-x.priority_weight, x.map_index),
+            )
+            message = "Retrieved job tasks list from airflow"
+            data = {
+                "params": params_dict,
+                "total_entries": task_instances.total_entries,
+                "job_tasks_list":  [
+                    json.loads(j.model_dump_json()) for j in job_tasks_list
+                ]
+            }
+        else:
+            message = "Error retrieving job tasks list from airflow"
+            data = {
+                "params": params_dict,
+                "errors": [response_tasks.json()]
+            }
+    except ValidationError as e:
+        logging.error(e)
+        status_code = 406
+        message = "Error validating request parameters"
+        data = {"errors": json.loads(e.json())}
+    except Exception as e:
+        logging.error(e)
+        status_code = 500
+        message = "Unable to retrieve job tasks list from airflow"
+        data = {"errors": [f"{e.__class__.__name__}{e.args}"]}
+    return JSONResponse(
+        status_code=status_code,
+        content={
+            "message": message,
+            "data": data,
+        },
+    )
+
 
 async def index(request: Request):
     """GET|POST /: form handler"""
@@ -569,6 +630,11 @@ routes = [
     Route(
         "/api/v1/get_job_status_list",
         endpoint=get_job_status_list,
+        methods=["GET"],
+    ),
+    Route(
+        "/api/v1/get_tasks_list",
+        endpoint=get_tasks_list,
         methods=["GET"],
     ),
     Route("/jobs", endpoint=jobs, methods=["GET"]),
