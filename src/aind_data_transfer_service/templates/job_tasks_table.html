@@ -9,16 +9,13 @@
 </head>
 
 <body>
-  <h2 class="mb-3">Task Instances</h2>
-  <h4>DAG Run ID: {{dag_run_id}}</h4>
   <!-- tasks table -->
-  <table class="table table-bordered table-striped table-hover table-sm mt-4">
+  <table class="table table-bordered table-striped table-hover table-sm">
     <tr>
       <th>Task ID</th>
       <th>Try Number</th>
-      <th>Priority Weight</th>
-      <th>Map Index</th>
-      <th>State</th>
+      <th>Status</th>
+      <th>Submit Time</th>
       <th>Start Time</th>
       <th>End Time</th>
       <th>Duration</th>
@@ -27,12 +24,12 @@
     <tr>
       <td>{{job_task.task_id}}</td>
       <td>{{job_task.try_number}}</td>
-      <td>{{job_task.priority_weight}}</td>
-      <td>{{job_task.map_index}}</td>
       <td class="{% if job_task.task_state == 'success' %}table-success
                 {% elif job_task.task_state == 'failed' %}table-danger
                 {% elif job_task.task_state == 'running' %}table-info
+                {% elif job_task.task_state == 'queued' %}table-secondary
                 {% endif %}">{{job_task.task_state}}</td>
+      <td class="datetime_to_be_adjusted">{{job_task.submit_time}}</td>
       <td class="datetime_to_be_adjusted">{{job_task.start_time}}</td>
       <td class="datetime_to_be_adjusted">{{job_task.end_time}}</td>
       <td>{{job_task.duration}}</td>
@@ -57,10 +54,6 @@
   {% endif %}
   <script>
     window.onload = function () {
-      status_code = parseInt('{{ status_code }}')
-      if (status_code !== 200) {
-        return;
-      }
       document.querySelectorAll(".datetime_to_be_adjusted").forEach(function (el) {
         if (el.innerHTML !== "") {
           var utcTime = moment.utc(el.innerText);  // This is the time in UTC

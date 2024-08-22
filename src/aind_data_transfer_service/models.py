@@ -152,9 +152,11 @@ class JobTasks(BaseModel):
     task_state: Optional[str] = Field(None)
     priority_weight: Optional[int] = Field(None)
     map_index: Optional[int] = Field(None)
+    submit_time: Optional[datetime] = Field(None)
     start_time: Optional[datetime] = Field(None)
     end_time: Optional[datetime] = Field(None)
     duration: Optional[Union[int, float]] = Field(None)
+    comment: Optional[str] = Field(None)
 
     @classmethod
     def from_airflow_task_instance(cls, airflow_task_instance: AirflowTaskInstance):
@@ -166,7 +168,9 @@ class JobTasks(BaseModel):
             task_state=airflow_task_instance.state,
             priority_weight=airflow_task_instance.priority_weight,
             map_index=airflow_task_instance.map_index,
+            submit_time=airflow_task_instance.execution_date,
             start_time=airflow_task_instance.start_date,
             end_time=airflow_task_instance.end_date,
             duration=airflow_task_instance.duration,
+            comment=airflow_task_instance.note,
         )
