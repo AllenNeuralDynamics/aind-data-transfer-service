@@ -19,6 +19,7 @@
       <th>Start Time</th>
       <th>End time</th>
       <th>Comment</th>
+      <th>Tasks</th>
     </tr>
     {% for job_status in job_status_list %}
     <tr>
@@ -33,6 +34,7 @@
       <td class="datetime_to_be_adjusted">{{job_status.start_time}}</td>
       <td class="datetime_to_be_adjusted">{{job_status.end_time}}</td>
       <td>{{job_status.comment}}</td>
+      <td><a href="{{ url_for('job_tasks_table').include_query_params(dag_run_id=job_status.job_id) }}" target="_blank">View tasks</a></td>
     </tr>
     {% endfor %}
   </table>

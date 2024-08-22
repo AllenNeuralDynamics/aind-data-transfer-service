@@ -560,6 +560,26 @@ async def job_status_table(request: Request):
         ),
     )
 
+async def job_tasks_table(request: Request):
+    """Get Job Tasks table given a job id"""
+    response_tasks = await get_tasks_list(request)
+    response_tasks_json = json.loads(response_tasks.body)
+    data = response_tasks_json.get("data")
+    params = data.get("params")
+    return templates.TemplateResponse(
+        name="job_tasks_table.html",
+        context=(
+            {
+                "request": request,
+                "status_code": response_tasks.status_code,
+                "message": response_tasks_json.get("message"),
+                "errors": data.get("errors", []),
+                "dag_run_id": params.get("dag_run_id") if params else None,
+                "total_entries": data.get("total_entries", 0),
+                "job_tasks_list": data.get("job_tasks_list", []),
+            }
+        ),
+    )
 
 async def jobs(request: Request):
     """Get Job Status page with pagination"""
@@ -639,6 +659,7 @@ routes = [
     ),
     Route("/jobs", endpoint=jobs, methods=["GET"]),
     Route("/job_status_table", endpoint=job_status_table, methods=["GET"]),
+    Route("/job_tasks_table", endpoint=job_tasks_table, methods=["GET"]),
     Route(
         "/api/job_upload_template",
         endpoint=download_job_template,
