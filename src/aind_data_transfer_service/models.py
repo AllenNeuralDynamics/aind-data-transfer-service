@@ -67,7 +67,8 @@ class AirflowDagRunsRequestParameters(BaseModel):
 
 
 class AirflowTaskInstancesRequestParameters(BaseModel):
-    """Model for parameters when requesting info from task_instances endpoint"""
+    """Model for parameters when requesting info from task_instances
+    endpoint"""
 
     dag_run_id: str = Field(..., min_length=1)
 
@@ -75,6 +76,7 @@ class AirflowTaskInstancesRequestParameters(BaseModel):
     def from_query_params(cls, query_params: dict):
         """Maps the query parameters to the model"""
         return cls(**query_params)
+
 
 class AirflowTaskInstance(BaseModel):
     """Data model for task_instance entry when requesting info from airflow"""
@@ -106,14 +108,18 @@ class AirflowTaskInstance(BaseModel):
     try_number: Optional[int]
     unixname: Optional[str]
 
+
 class AirflowTaskInstancesResponse(BaseModel):
-    """Data model for response when requesting info from task_instances endpoint"""
+    """Data model for response when requesting info from task_instances
+    endpoint"""
 
     task_instances: List[AirflowTaskInstance]
     total_entries: int
 
+
 class AirflowTaskInstanceLogsRequestParameters(BaseModel):
-    """Model for parameters when requesting info from task_instance_logs endpoint"""
+    """Model for parameters when requesting info from task_instance_logs
+    endpoint"""
 
     # excluded fields are used to build the url
     dag_run_id: str = Field(..., min_length=1, exclude=True)
@@ -125,7 +131,7 @@ class AirflowTaskInstanceLogsRequestParameters(BaseModel):
     def from_query_params(cls, query_params: dict):
         """Maps the query parameters to the model"""
         return cls(**query_params)
-    
+
 
 class JobStatus(BaseModel):
     """Model for what we want to render to the user."""
@@ -160,7 +166,7 @@ class JobStatus(BaseModel):
 
 class JobTasks(BaseModel):
     """Model for what is rendered to the user for each task."""
-    
+
     job_id: Optional[str] = Field(None)
     task_id: Optional[str] = Field(None)
     try_number: Optional[int] = Field(None)
@@ -174,7 +180,9 @@ class JobTasks(BaseModel):
     comment: Optional[str] = Field(None)
 
     @classmethod
-    def from_airflow_task_instance(cls, airflow_task_instance: AirflowTaskInstance):
+    def from_airflow_task_instance(
+        cls, airflow_task_instance: AirflowTaskInstance
+    ):
         """Maps the fields from the HpcJobStatusResponse to this model"""
         return cls(
             job_id=airflow_task_instance.dag_run_id,

@@ -465,12 +465,13 @@ async def get_job_status_list(request: Request):
         },
     )
 
+
 async def get_tasks_list(request: Request):
     """Get list of tasks instances given a job id."""
     try:
         url = os.getenv("AIND_AIRFLOW_SERVICE_JOBS_URL", "").strip("/")
         params = AirflowTaskInstancesRequestParameters.from_query_params(
-                request.query_params
+            request.query_params
         )
         params_dict = json.loads(params.model_dump_json())
         response_tasks = requests.get(
@@ -487,23 +488,24 @@ async def get_tasks_list(request: Request):
             )
             job_tasks_list = sorted(
                 [
-                    JobTasks.from_airflow_task_instance(d) for d in task_instances.task_instances
+                    JobTasks.from_airflow_task_instance(t)
+                    for t in task_instances.task_instances
                 ],
-                key=lambda x: (-x.priority_weight, x.map_index),
+                key=lambda t: (-t.priority_weight, t.map_index),
             )
             message = "Retrieved job tasks list from airflow"
             data = {
                 "params": params_dict,
                 "total_entries": task_instances.total_entries,
-                "job_tasks_list":  [
-                    json.loads(j.model_dump_json()) for j in job_tasks_list
-                ]
+                "job_tasks_list": [
+                    json.loads(t.model_dump_json()) for t in job_tasks_list
+                ],
             }
         else:
             message = "Error retrieving job tasks list from airflow"
             data = {
                 "params": params_dict,
-                "errors": [response_tasks.json()]
+                "errors": [response_tasks.json()],
             }
     except ValidationError as e:
         logging.error(e)
@@ -534,7 +536,10 @@ async def get_task_logs(request: Request):
         params_dict = json.loads(params.model_dump_json())
         params_full = dict(params)
         response_logs = requests.get(
-            url=f"{url}/{params.dag_run_id}/taskInstances/{params.task_id}/logs/{params.try_number}",
+            url=(
+                f"{url}/{params.dag_run_id}/taskInstances/{params.task_id}"
+                f"/logs/{params.try_number}"
+            ),
             auth=(
                 os.getenv("AIND_AIRFLOW_SERVICE_USER"),
                 os.getenv("AIND_AIRFLOW_SERVICE_PASSWORD"),
@@ -544,10 +549,7 @@ async def get_task_logs(request: Request):
         status_code = response_logs.status_code
         if response_logs.status_code == 200:
             message = "Retrieved task logs from airflow"
-            data = {
-                "params": params_full,
-                "logs": response_logs.text
-            }
+            data = {"params": params_full, "logs": response_logs.text}
         else:
             message = "Error retrieving task logs from airflow"
             data = {
@@ -571,6 +573,7 @@ async def get_task_logs(request: Request):
             "data": data,
         },
     )
+
 
 async def index(request: Request):
     """GET|POST /: form handler"""
@@ -609,12 +612,12 @@ async def job_status_table(request: Request):
         ),
     )
 
+
 async def job_tasks_table(request: Request):
     """Get Job Tasks table given a job id"""
     response_tasks = await get_tasks_list(request)
     response_tasks_json = json.loads(response_tasks.body)
     data = response_tasks_json.get("data")
-    params = data.get("params")
     return templates.TemplateResponse(
         name="job_tasks_table.html",
         context=(
@@ -623,12 +626,12 @@ async def job_tasks_table(request: Request):
                 "status_code": response_tasks.status_code,
                 "message": response_tasks_json.get("message"),
                 "errors": data.get("errors", []),
-                "dag_run_id": params.get("dag_run_id") if params else None,
                 "total_entries": data.get("total_entries", 0),
                 "job_tasks_list": data.get("job_tasks_list", []),
             }
         ),
     )
+
 
 async def task_logs(request: Request):
     """Get task logs given a job id, task id, and task try number."""
@@ -647,6 +650,7 @@ async def task_logs(request: Request):
             }
         ),
     )
+
 
 async def jobs(request: Request):
     """Get Job Status page with pagination"""
@@ -719,11 +723,7 @@ routes = [
         endpoint=get_job_status_list,
         methods=["GET"],
     ),
-    Route(
-        "/api/v1/get_tasks_list",
-        endpoint=get_tasks_list,
-        methods=["GET"],
-    ),
+    Route("/api/v1/get_tasks_list", endpoint=get_tasks_list, methods=["GET"]),
     Route("/api/v1/get_task_logs", endpoint=get_task_logs, methods=["GET"]),
     Route("/jobs", endpoint=jobs, methods=["GET"]),
     Route("/job_status_table", endpoint=job_status_table, methods=["GET"]),
