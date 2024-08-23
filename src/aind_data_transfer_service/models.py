@@ -5,6 +5,7 @@ from datetime import datetime, timedelta, timezone
 from typing import List, Optional, Union
 
 from pydantic import AwareDatetime, BaseModel, Field, field_validator
+from starlette.datastructures import QueryParams
 
 
 class AirflowDagRun(BaseModel):
@@ -58,12 +59,24 @@ class AirflowDagRunsRequestParameters(BaseModel):
         return execution_date_gte
 
     @classmethod
-    def from_query_params(cls, query_params: dict):
+    def from_query_params(cls, query_params: QueryParams):
         """Maps the query parameters to the model"""
         params = dict(query_params)
         if "state" in params:
             params["state"] = ast.literal_eval(params["state"])
-        return cls(**params)
+        return cls.model_validate(params)
+
+
+class AirflowDagRunRequestParameters(BaseModel):
+    """Model for parameters when requesting info from dag_run endpoint"""
+
+    dag_run_id: str = Field(..., min_length=1)
+
+    @classmethod
+    def from_query_params(cls, query_params: QueryParams):
+        """Maps the query parameters to the model"""
+        params = dict(query_params)
+        return cls.model_validate(params)
 
 
 class AirflowTaskInstancesRequestParameters(BaseModel):
@@ -73,9 +86,10 @@ class AirflowTaskInstancesRequestParameters(BaseModel):
     dag_run_id: str = Field(..., min_length=1)
 
     @classmethod
-    def from_query_params(cls, query_params: dict):
+    def from_query_params(cls, query_params: QueryParams):
         """Maps the query parameters to the model"""
-        return cls(**query_params)
+        params = dict(query_params)
+        return cls.model_validate(params)
 
 
 class AirflowTaskInstance(BaseModel):
@@ -128,9 +142,10 @@ class AirflowTaskInstanceLogsRequestParameters(BaseModel):
     full_content: bool = True
 
     @classmethod
-    def from_query_params(cls, query_params: dict):
+    def from_query_params(cls, query_params: QueryParams):
         """Maps the query parameters to the model"""
-        return cls(**query_params)
+        params = dict(query_params)
+        return cls.model_validate(params)
 
 
 class JobStatus(BaseModel):

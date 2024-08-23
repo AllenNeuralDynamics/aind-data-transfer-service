@@ -31,6 +31,7 @@ from aind_data_transfer_service.hpc.client import HpcClient, HpcClientConfigs
 from aind_data_transfer_service.hpc.models import HpcJobSubmitSettings
 from aind_data_transfer_service.models import (
     AirflowDagRun,
+    AirflowDagRunRequestParameters,
     AirflowDagRunsRequestParameters,
     AirflowDagRunsResponse,
     AirflowTaskInstanceLogsRequestParameters,
@@ -398,15 +399,18 @@ async def get_job_status_list(request: Request):
         url = os.getenv("AIND_AIRFLOW_SERVICE_JOBS_URL", "").strip("/")
         get_one_job = request.query_params.get("dag_run_id") is not None
         if get_one_job:
-            dag_run_id = request.query_params["dag_run_id"]
+            params = AirflowDagRunRequestParameters.from_query_params(
+                request.query_params
+            )
+            url = f"{url}/{params.dag_run_id}"
         else:
             params = AirflowDagRunsRequestParameters.from_query_params(
                 request.query_params
             )
-            params_dict = json.loads(params.model_dump_json())
+        params_dict = json.loads(params.model_dump_json())
         # Send request to Airflow to ListDagRuns or GetDagRun
         response_jobs = requests.get(
-            url=f"{url}/{dag_run_id}" if get_one_job else url,
+            url=url,
             auth=(
                 os.getenv("AIND_AIRFLOW_SERVICE_USER"),
                 os.getenv("AIND_AIRFLOW_SERVICE_PASSWORD"),
@@ -431,9 +435,7 @@ async def get_job_status_list(request: Request):
             ]
             message = "Retrieved job status list from airflow"
             data = {
-                "params": (
-                    {"dag_run_id": dag_run_id} if get_one_job else params_dict
-                ),
+                "params": params_dict,
                 "total_entries": dag_runs.total_entries,
                 "job_status_list": [
                     json.loads(j.model_dump_json()) for j in job_status_list
@@ -442,9 +444,7 @@ async def get_job_status_list(request: Request):
         else:
             message = "Error retrieving job status list from airflow"
             data = {
-                "params": (
-                    {"dag_run_id": dag_run_id} if get_one_job else params_dict
-                ),
+                "params": params_dict,
                 "errors": [response_jobs.json()],
             }
     except ValidationError as e:
