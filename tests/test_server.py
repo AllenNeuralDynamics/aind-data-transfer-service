@@ -49,6 +49,9 @@ LIST_DAG_RUNS_RESPONSE = (
 GET_DAG_RUN_RESPONSE = (
     TEST_DIRECTORY / "resources" / "airflow_dag_run_response.json"
 )
+LIST_TASK_INSTANCES_RESPONSE = (
+    TEST_DIRECTORY / "resources" / "airflow_task_instances_response.json"
+)
 
 
 class TestServer(unittest.TestCase):
@@ -86,6 +89,9 @@ class TestServer(unittest.TestCase):
 
     with open(GET_DAG_RUN_RESPONSE) as f:
         get_dag_run_response = json.load(f)
+
+    with open(LIST_TASK_INSTANCES_RESPONSE) as f:
+        list_task_instances_response = json.load(f)
 
     expected_job_configs = deepcopy(TestJobConfigs.expected_job_configs)
     for config in expected_job_configs:
@@ -757,6 +763,374 @@ class TestServer(unittest.TestCase):
         mock_log_error.assert_called_once()
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
+    @patch("requests.get")
+    def test_get_tasks_list_query_params(
+        self,
+        mock_get,
+    ):
+        """Tests get_tasks_list gets tasks from airflow using query_params."""
+        mock_task_instances_response = Response()
+        mock_task_instances_response.status_code = 200
+        mock_task_instances_response._content = json.dumps(
+            self.list_task_instances_response
+        ).encode("utf-8")
+        mock_get.return_value = mock_task_instances_response
+        expected_message = "Retrieved job tasks list from airflow"
+        expected_params = {
+            "dag_run_id": "mock_dag_run_id",
+        }
+        expected_task_list = [
+            {
+                "job_id": "manual__2024-08-21T16:16:54.302335+00:00",
+                "task_id": "send_job_start_email",
+                "try_number": 1,
+                "task_state": "success",
+                "priority_weight": 13,
+                "map_index": -1,
+                "submit_time": "2024-08-21T16:16:54.302335Z",
+                "start_time": "2024-08-21T16:17:10.821126Z",
+                "end_time": "2024-08-21T16:17:11.720301Z",
+                "duration": 0.899175,
+                "comment": None,
+            },
+            {
+                "job_id": "manual__2024-08-21T16:16:54.302335+00:00",
+                "task_id": "create_default_settings",
+                "try_number": 1,
+                "task_state": "success",
+                "priority_weight": 12,
+                "map_index": -1,
+                "submit_time": "2024-08-21T16:16:54.302335Z",
+                "start_time": "2024-08-21T16:17:26.235462Z",
+                "end_time": "2024-08-21T16:17:27.278459Z",
+                "duration": 1.042997,
+                "comment": None,
+            },
+            {
+                "job_id": "manual__2024-08-21T16:16:54.302335+00:00",
+                "task_id": "check_s3_folder_exist",
+                "try_number": 1,
+                "task_state": "success",
+                "priority_weight": 11,
+                "map_index": -1,
+                "submit_time": "2024-08-21T16:16:54.302335Z",
+                "start_time": "2024-08-21T16:17:43.401342Z",
+                "end_time": "2024-08-21T16:17:44.463969Z",
+                "duration": 1.062627,
+                "comment": None,
+            },
+            {
+                "job_id": "manual__2024-08-21T16:16:54.302335+00:00",
+                "task_id": "create_default_slurm_environment",
+                "try_number": 1,
+                "task_state": "success",
+                "priority_weight": 10,
+                "map_index": -1,
+                "submit_time": "2024-08-21T16:16:54.302335Z",
+                "start_time": "2024-08-21T16:17:59.685662Z",
+                "end_time": "2024-08-21T16:18:00.491290Z",
+                "duration": 0.805628,
+                "comment": None,
+            },
+            {
+                "job_id": "manual__2024-08-21T16:16:54.302335+00:00",
+                "task_id": "check_source_folders_exist",
+                "try_number": 1,
+                "task_state": "success",
+                "priority_weight": 9,
+                "map_index": -1,
+                "submit_time": "2024-08-21T16:16:54.302335Z",
+                "start_time": "2024-08-21T16:18:15.464289Z",
+                "end_time": "2024-08-21T16:18:47.027590Z",
+                "duration": 31.563301,
+                "comment": None,
+            },
+            {
+                "job_id": "manual__2024-08-21T16:16:54.302335+00:00",
+                "task_id": "create_folder",
+                "try_number": 1,
+                "task_state": "success",
+                "priority_weight": 8,
+                "map_index": -1,
+                "submit_time": "2024-08-21T16:16:54.302335Z",
+                "start_time": "2024-08-21T16:19:02.513498Z",
+                "end_time": "2024-08-21T16:20:04.200273Z",
+                "duration": 61.686775,
+                "comment": None,
+            },
+            {
+                "job_id": "manual__2024-08-21T16:16:54.302335+00:00",
+                "task_id": "make_modality_list",
+                "try_number": 1,
+                "task_state": "success",
+                "priority_weight": 7,
+                "map_index": -1,
+                "submit_time": "2024-08-21T16:16:54.302335Z",
+                "start_time": "2024-08-21T16:17:13.130978Z",
+                "end_time": "2024-08-21T16:17:13.886610Z",
+                "duration": 0.755632,
+                "comment": None,
+            },
+            {
+                "job_id": "manual__2024-08-21T16:16:54.302335+00:00",
+                "task_id": "gather_preliminary_metadata",
+                "try_number": 1,
+                "task_state": "success",
+                "priority_weight": 7,
+                "map_index": -1,
+                "submit_time": "2024-08-21T16:16:54.302335Z",
+                "start_time": "2024-08-21T16:20:19.088935Z",
+                "end_time": "2024-08-21T16:22:20.807546Z",
+                "duration": 121.718611,
+                "comment": None,
+            },
+            {
+                "job_id": "manual__2024-08-21T16:16:54.302335+00:00",
+                "task_id": "compress_data",
+                "try_number": 1,
+                "task_state": "success",
+                "priority_weight": 6,
+                "map_index": 0,
+                "submit_time": "2024-08-21T16:16:54.302335Z",
+                "start_time": "2024-08-21T16:22:36.503206Z",
+                "end_time": "2024-08-21T16:24:38.400648Z",
+                "duration": 121.897442,
+                "comment": None,
+            },
+            {
+                "job_id": "manual__2024-08-21T16:16:54.302335+00:00",
+                "task_id": "gather_final_metadata",
+                "try_number": 1,
+                "task_state": "success",
+                "priority_weight": 5,
+                "map_index": -1,
+                "submit_time": "2024-08-21T16:16:54.302335Z",
+                "start_time": "2024-08-21T16:24:52.639358Z",
+                "end_time": "2024-08-21T16:26:54.539535Z",
+                "duration": 121.900177,
+                "comment": None,
+            },
+            {
+                "job_id": "manual__2024-08-21T16:16:54.302335+00:00",
+                "task_id": "upload_data_to_s3",
+                "try_number": 1,
+                "task_state": "success",
+                "priority_weight": 4,
+                "map_index": -1,
+                "submit_time": "2024-08-21T16:16:54.302335Z",
+                "start_time": "2024-08-21T16:27:10.130605Z",
+                "end_time": "2024-08-21T16:29:11.984181Z",
+                "duration": 121.853576,
+                "comment": None,
+            },
+            {
+                "job_id": "manual__2024-08-21T16:16:54.302335+00:00",
+                "task_id": "send_codeocean_request",
+                "try_number": 1,
+                "task_state": "success",
+                "priority_weight": 2,
+                "map_index": -1,
+                "submit_time": "2024-08-21T16:16:54.302335Z",
+                "start_time": "2024-08-21T16:29:29.069360Z",
+                "end_time": "2024-08-21T16:29:39.612352Z",
+                "duration": 10.542992,
+                "comment": None,
+            },
+            {
+                "job_id": "manual__2024-08-21T16:16:54.302335+00:00",
+                "task_id": "remove_folder",
+                "try_number": 1,
+                "task_state": "success",
+                "priority_weight": 2,
+                "map_index": -1,
+                "submit_time": "2024-08-21T16:16:54.302335Z",
+                "start_time": "2024-08-21T16:29:27.847630Z",
+                "end_time": "2024-08-21T16:31:29.653235Z",
+                "duration": 121.805605,
+                "comment": None,
+            },
+            {
+                "job_id": "manual__2024-08-21T16:16:54.302335+00:00",
+                "task_id": "send_job_end_email",
+                "try_number": 1,
+                "task_state": "success",
+                "priority_weight": 1,
+                "map_index": -1,
+                "submit_time": "2024-08-21T16:16:54.302335Z",
+                "start_time": "2024-08-21T16:31:45.560918Z",
+                "end_time": "2024-08-21T16:31:46.502387Z",
+                "duration": 0.941469,
+                "comment": None,
+            },
+        ]
+        with TestClient(app) as client:
+            response = client.get(
+                "/api/v1/get_tasks_list",
+                params={
+                    "dag_run_id": "mock_dag_run_id",
+                },
+            )
+        response_content = response.json()
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response_content,
+            {
+                "message": expected_message,
+                "data": {
+                    "params": expected_params,
+                    "total_entries": self.list_task_instances_response[
+                        "total_entries"
+                    ],
+                    "job_tasks_list": expected_task_list,
+                },
+            },
+        )
+
+    @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
+    @patch("requests.get")
+    @patch("logging.error")
+    def test_get_tasks_list_validation_error(
+        self,
+        mock_log_error: MagicMock,
+        mock_get,
+    ):
+        """Tests get_tasks_list when query_params are invalid."""
+        invalid_params = {
+            "job_id": "mock_dag_run_id",
+        }
+        with TestClient(app) as client:
+            response = client.get(
+                "/api/v1/get_tasks_list", params=invalid_params
+            )
+        response_content = response.json()
+        self.assertEqual(response.status_code, 406)
+        self.assertEqual(
+            response_content["message"],
+            "Error validating request parameters",
+        )
+        mock_log_error.assert_called()
+        mock_get.assert_not_called()
+
+    @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
+    @patch("logging.error")
+    @patch("requests.get")
+    def test_get_tasks_list_error(
+        self,
+        mock_get: MagicMock,
+        mock_log_error: MagicMock,
+    ):
+        """Tests get_tasks_list when there is an error sending request."""
+        mock_get.side_effect = Exception("mock error")
+        with TestClient(app) as client:
+            response = client.get(
+                "/api/v1/get_tasks_list",
+                params={
+                    "dag_run_id": "mock_dag_run_id",
+                },
+            )
+        response_content = response.json()
+        self.assertEqual(response.status_code, 500)
+        self.assertEqual(
+            response_content["message"],
+            "Unable to retrieve job tasks list from airflow",
+        )
+        mock_log_error.assert_called_once()
+
+    @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
+    @patch("requests.get")
+    def test_get_task_logs_query_params(
+        self,
+        mock_get,
+    ):
+        """Tests get_task_logs gets logs from airflow using query_params."""
+        mock_logs_response = Response()
+        mock_logs_response.status_code = 200
+        mock_logs_response._content = b"mock logs"
+        mock_get.return_value = mock_logs_response
+        expected_message = "Retrieved task logs from airflow"
+        expected_default_params = {
+            "dag_run_id": "mock_dag_run_id",
+            "task_id": "mock_task_id",
+            "try_number": 1,
+            "full_content": True,
+        }
+        with TestClient(app) as client:
+            response = client.get(
+                "/api/v1/get_task_logs",
+                params={
+                    "dag_run_id": "mock_dag_run_id",
+                    "task_id": "mock_task_id",
+                    "try_number": 1,
+                },
+            )
+        response_content = response.json()
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response_content,
+            {
+                "message": expected_message,
+                "data": {
+                    "params": expected_default_params,
+                    "logs": "mock logs",
+                },
+            },
+        )
+
+    @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
+    @patch("requests.get")
+    @patch("logging.error")
+    def test_get_task_logs_validation_error(
+        self,
+        mock_log_error: MagicMock,
+        mock_get,
+    ):
+        """Tests get_task_logs when query_params are invalid."""
+        invalid_params = {
+            "dag_run_id": "mock_dag_run_id",
+            "task_id": "mock_task_id",
+            "try_number": "invalid",
+        }
+        with TestClient(app) as client:
+            response = client.get(
+                "/api/v1/get_task_logs", params=invalid_params
+            )
+        response_content = response.json()
+        self.assertEqual(response.status_code, 406)
+        self.assertEqual(
+            response_content["message"],
+            "Error validating request parameters",
+        )
+        mock_log_error.assert_called()
+        mock_get.assert_not_called()
+
+    @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
+    @patch("logging.error")
+    @patch("requests.get")
+    def test_get_task_logs_error(
+        self,
+        mock_get: MagicMock,
+        mock_log_error: MagicMock,
+    ):
+        """Tests get_task_logs when there is an error sending request."""
+        mock_get.side_effect = Exception("mock error")
+        with TestClient(app) as client:
+            response = client.get(
+                "/api/v1/get_task_logs",
+                params={
+                    "dag_run_id": "mock_dag_run_id",
+                    "task_id": "mock_task_id",
+                    "try_number": 1,
+                },
+            )
+        response_content = response.json()
+        self.assertEqual(response.status_code, 500)
+        self.assertEqual(
+            response_content["message"],
+            "Unable to retrieve task logs from airflow",
+        )
+        mock_log_error.assert_called_once()
+
+    @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     def test_index(self):
         """Tests that form renders at startup as expected."""
         with TestClient(app) as client:
@@ -803,6 +1177,87 @@ class TestServer(unittest.TestCase):
         self.assertIn(
             "Error retrieving job status list from airflow", response.text
         )
+        self.assertIn("test airflow error", response.text)
+
+    @patch("requests.get")
+    def test_tasks_table_success(self, mock_get: MagicMock):
+        """Tests that job tasks table renders as expected."""
+        mock_response = Response()
+        mock_response.status_code = 200
+        mock_response._content = json.dumps(
+            self.list_task_instances_response
+        ).encode("utf-8")
+        mock_get.return_value = mock_response
+        with TestClient(app) as client:
+            response = client.get(
+                "/job_tasks_table", params={"dag_run_id": "dag_run_id"}
+            )
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("Task ID", response.text)
+        self.assertIn("Try Number", response.text)
+
+    @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
+    @patch("requests.get")
+    def test_tasks_table_failure(self, mock_get: MagicMock):
+        """Tests that job status table renders error message from airflow."""
+        mock_response = Response()
+        mock_response.status_code = 500
+        mock_response._content = json.dumps(
+            {"message": "test airflow error"}
+        ).encode("utf-8")
+        mock_get.return_value = mock_response
+        with TestClient(app) as client:
+            response = client.get(
+                "/job_tasks_table", params={"dag_run_id": "dag_run_id"}
+            )
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("Task ID", response.text)
+        self.assertIn("Try Number", response.text)
+        self.assertIn(
+            "Error retrieving job tasks list from airflow", response.text
+        )
+        self.assertIn("test airflow error", response.text)
+
+    @patch("requests.get")
+    def test_logs_success(self, mock_get: MagicMock):
+        """Tests that task logs page renders as expected."""
+        mock_response = Response()
+        mock_response.status_code = 200
+        mock_response._content = b"mock log content"
+        mock_get.return_value = mock_response
+        with TestClient(app) as client:
+            response = client.get(
+                "/task_logs",
+                params={
+                    "dag_run_id": "dag_run_id",
+                    "task_id": "task_id",
+                    "try_number": 1,
+                },
+            )
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("mock log content", response.text)
+
+    @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
+    @patch("requests.get")
+    def test_logs_failure(self, mock_get: MagicMock):
+        """Tests that task logs page renders error message from airflow."""
+        mock_response = Response()
+        mock_response.status_code = 500
+        mock_response._content = json.dumps(
+            {"message": "test airflow error"}
+        ).encode("utf-8")
+        mock_get.return_value = mock_response
+        with TestClient(app) as client:
+            response = client.get(
+                "/task_logs",
+                params={
+                    "dag_run_id": "dag_run_id",
+                    "task_id": "task_id",
+                    "try_number": 1,
+                },
+            )
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("Error retrieving task logs from airflow", response.text)
         self.assertIn("test airflow error", response.text)
 
     def test_download_job_template(self):
