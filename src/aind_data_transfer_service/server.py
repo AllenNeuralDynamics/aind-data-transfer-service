@@ -33,6 +33,7 @@ from aind_data_transfer_service.models import (
     AirflowDagRun,
     AirflowDagRunsRequestParameters,
     AirflowDagRunsResponse,
+    AirflowTaskInstanceLogsRequestParameters,
     AirflowTaskInstancesRequestParameters,
     AirflowTaskInstancesResponse,
     JobStatus,
@@ -523,6 +524,54 @@ async def get_tasks_list(request: Request):
     )
 
 
+async def get_task_logs(request: Request):
+    """Get task logs given a job id, task id, and task try number."""
+    try:
+        url = os.getenv("AIND_AIRFLOW_SERVICE_JOBS_URL", "").strip("/")
+        params = AirflowTaskInstanceLogsRequestParameters.from_query_params(
+            request.query_params
+        )
+        params_dict = json.loads(params.model_dump_json())
+        params_full = dict(params)
+        response_logs = requests.get(
+            url=f"{url}/{params.dag_run_id}/taskInstances/{params.task_id}/logs/{params.try_number}",
+            auth=(
+                os.getenv("AIND_AIRFLOW_SERVICE_USER"),
+                os.getenv("AIND_AIRFLOW_SERVICE_PASSWORD"),
+            ),
+            params=params_dict,
+        )
+        status_code = response_logs.status_code
+        if response_logs.status_code == 200:
+            message = "Retrieved task logs from airflow"
+            data = {
+                "params": params_full,
+                "logs": response_logs.text
+            }
+        else:
+            message = "Error retrieving task logs from airflow"
+            data = {
+                "params": params_full,
+                "errors": [response_logs.json()],
+            }
+    except ValidationError as e:
+        logging.error(e)
+        status_code = 406
+        message = "Error validating request parameters"
+        data = {"errors": json.loads(e.json())}
+    except Exception as e:
+        logging.error(e)
+        status_code = 500
+        message = "Unable to retrieve task logs from airflow"
+        data = {"errors": [f"{e.__class__.__name__}{e.args}"]}
+    return JSONResponse(
+        status_code=status_code,
+        content={
+            "message": message,
+            "data": data,
+        },
+    )
+
 async def index(request: Request):
     """GET|POST /: form handler"""
     return templates.TemplateResponse(
@@ -657,6 +706,7 @@ routes = [
         endpoint=get_tasks_list,
         methods=["GET"],
     ),
+    Route("/api/v1/get_task_logs", endpoint=get_task_logs, methods=["GET"]),
     Route("/jobs", endpoint=jobs, methods=["GET"]),
     Route("/job_status_table", endpoint=job_status_table, methods=["GET"]),
     Route("/job_tasks_table", endpoint=job_tasks_table, methods=["GET"]),

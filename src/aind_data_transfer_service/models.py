@@ -112,6 +112,21 @@ class AirflowTaskInstancesResponse(BaseModel):
     task_instances: List[AirflowTaskInstance]
     total_entries: int
 
+class AirflowTaskInstanceLogsRequestParameters(BaseModel):
+    """Model for parameters when requesting info from task_instance_logs endpoint"""
+
+    # excluded fields are used to build the url
+    dag_run_id: str = Field(..., min_length=1, exclude=True)
+    task_id: str = Field(..., min_length=1, exclude=True)
+    try_number: int = Field(..., ge=0, exclude=True)
+    full_content: bool = True
+
+    @classmethod
+    def from_query_params(cls, query_params: dict):
+        """Maps the query parameters to the model"""
+        return cls(**query_params)
+    
+
 class JobStatus(BaseModel):
     """Model for what we want to render to the user."""
 
