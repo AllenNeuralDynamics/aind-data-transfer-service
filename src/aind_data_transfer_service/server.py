@@ -630,6 +630,24 @@ async def job_tasks_table(request: Request):
         ),
     )
 
+async def task_logs(request: Request):
+    """Get task logs given a job id, task id, and task try number."""
+    response_tasks = await get_task_logs(request)
+    response_tasks_json = json.loads(response_tasks.body)
+    data = response_tasks_json.get("data")
+    return templates.TemplateResponse(
+        name="task_logs.html",
+        context=(
+            {
+                "request": request,
+                "status_code": response_tasks.status_code,
+                "message": response_tasks_json.get("message"),
+                "errors": data.get("errors", []),
+                "logs": data.get("logs"),
+            }
+        ),
+    )
+
 async def jobs(request: Request):
     """Get Job Status page with pagination"""
     default_limit = AirflowDagRunsRequestParameters.model_fields[
@@ -710,6 +728,7 @@ routes = [
     Route("/jobs", endpoint=jobs, methods=["GET"]),
     Route("/job_status_table", endpoint=job_status_table, methods=["GET"]),
     Route("/job_tasks_table", endpoint=job_tasks_table, methods=["GET"]),
+    Route("/task_logs", endpoint=task_logs, methods=["GET"]),
     Route(
         "/api/job_upload_template",
         endpoint=download_job_template,
