@@ -11,7 +11,7 @@
 
 <body>
   <!-- tasks table -->
-  <table class="table table-bordered table-striped table-hover table-sm">
+  <table class="table table-bordered table-striped table-hover table-sm" style="font-size: small">
     <tr>
       <th>Task ID</th>
       <th>Try Number</th>
@@ -37,7 +37,7 @@
       <td>{{job_task.duration}}</td>
       <td>
         {% if job_task.try_number > 0 %}
-          <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#logs-modal"
+        <button type="button" class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#logs-modal"
             data-job-id="{{ job_task.job_id }}"
             data-task-id="{{ job_task.task_id }}"
             data-task-state="{{ job_task.task_state }}"
@@ -53,17 +53,14 @@
   <div class="modal fade" id="logs-modal" tabindex="-1" aria-labelledby="logs-modal-label" aria-hidden="true">
     <div class="modal-dialog modal-fullscreen">
       <div class="modal-content">
-        <div class="modal-header">
-          <div class="modal-title fs-5 fw-bold" id="logs-modal-label">
+        <div class="modal-header p-2">
+          <div class="modal-title fw-bold" id="logs-modal-label" style="font-size: small">
             <span id="modal-title-task" class="me-2"></span><span id="modal-title-task-state" class="badge"></span>
           </div>
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
-        <div class="modal-body">
+        <div class="modal-body p-2">
             <iframe id="logs-iframe" class="w-100 h-100" src=""></iframe>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-outline-primary" data-bs-dismiss="modal">Close logs</button>
         </div>
       </div>
     </div>
