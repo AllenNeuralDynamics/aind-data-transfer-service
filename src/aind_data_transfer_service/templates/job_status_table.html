@@ -9,14 +9,14 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.3/moment.min.js"></script>
   <style>
     .modal-body {
-      height: calc(100vh - 250px);
+      height: calc(100vh - 100px);
     }
 </style>
 </head>
 
 <body>
   <!-- job status table -->
-  <table class="table table-bordered table-striped table-hover table-sm">
+  <table class="table table-bordered table-striped table-hover table-sm" style="font-size: small">
     <tr>
       <th>Asset Name</th>
       <th>Job ID</th>
@@ -41,7 +41,7 @@
       <td class="datetime_to_be_adjusted">{{job_status.end_time}}</td>
       <td>{{job_status.comment}}</td>
       <td>
-        <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#tasks-modal" data-job-id="{{ job_status.job_id }}" data-job-name="{{ job_status.name}}" data-job-state="{{ job_status.job_state }}">
+        <button type="button" class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#tasks-modal" data-job-id="{{ job_status.job_id }}" data-job-name="{{ job_status.name}}" data-job-state="{{ job_status.job_state }}">
           <i class="bi bi-box-arrow-up-right" title="View tasks and logs"></i>
         </button>
       </td>
@@ -52,24 +52,16 @@
   <div class="modal fade" id="tasks-modal" tabindex="-1" aria-labelledby="tasks-modal-label" aria-hidden="true">
     <div class="modal-dialog modal-xl">
       <div class="modal-content">
-        <div class="modal-header">
-          <div class="modal-title container fs-5" id="tasks-modal-label">
-            <div class="row">
-              <div class="col-2">Asset Name:</div>
-              <div id="modal-title-job-name" class="col-md-auto fw-bold"></div>
-            </div>
-            <div class="row">
-              <div class="col-2">Job ID:</div>
-              <div class="col-md-auto fw-bold"><span id="modal-title-job-id" class="me-2"></span><span id="modal-title-job-state" class="badge"></span></div>
-            </div>
+        <div class="modal-header p-2">
+          <div class="modal-title fw-bold" id="tasks-modal-label" style="font-size: small">
+            <span id="modal-title-job-name" class="me-2"></span>
+            <span id="modal-title-job-id" class="me-2"></span>
+            <span id="modal-title-job-state" class="badge"></span>
           </div>
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
-        <div class="modal-body">
+        <div class="modal-body p-2">
             <iframe id="tasks-iframe" class="w-100 h-100" src=""></iframe>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-outline-primary" data-bs-dismiss="modal">Close</button>
         </div>
       </div>
     </div>
@@ -131,7 +123,7 @@
     }
     function updateJobTasksModal(jobId, jobName, jobState) {
       // Update the modal header with the job id and name
-      document.getElementById('modal-title-job-id').textContent = jobId;
+      document.getElementById('modal-title-job-id').textContent = `(${jobId})`;
       document.getElementById('modal-title-job-name').textContent = jobName;
       var modalTitleJobState = document.getElementById('modal-title-job-state');
       modalTitleJobState.textContent = jobState;

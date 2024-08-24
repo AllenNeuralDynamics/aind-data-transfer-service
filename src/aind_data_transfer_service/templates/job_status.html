@@ -20,7 +20,7 @@
         }
         .content {
             width: 100%;
-            height: calc(100vh - 250px);
+            height: calc(100vh - 200px);
             iframe {
                 border: none;
                 width: 100%;
@@ -39,9 +39,9 @@
     </nav>
     <div class="content">
         <!-- display total entries from child iframe -->
-        <h2 class="mb-2">Jobs Submitted: <span id="jobs-iframe-total-entries"></h2>
+        <h4 class="mb-2">Jobs Submitted: <span id="jobs-iframe-total-entries"></h4>
         <!-- filters for job status results-->
-        <div class="card mb-4" style="width:400px">
+        <div class="card mb-4 small" style="width:400px">
             <div class="card-header py-1" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-filters" aria-expanded="false" aria-controls="collapse-filters">
                 <i class="bi bi-filter"></i><span class="ms-2">Filter by</span>
                 <i class="bi bi-chevron-expand float-end"></i>
@@ -91,7 +91,7 @@
         </div>
         <!-- toolbar to change jobs per page and navigate pages -->
         <div id="jobs-toolbar" class="btn-toolbar justify-content-between mb-2" role="toolbar">
-            <div class="input-group">
+            <div class="input-group input-group-sm">
                 <select class="form-select" onchange="updateJobStatusTableLimit(this.value);this.blur();">
                     {% for l in [10, 25, 50, 100] %}
                     {% if l==default_limit %}<option value="{{ l }}" selected>{{ l }}</option>
@@ -101,11 +101,11 @@
                 </select>
                 <span class="input-group-text">jobs per page</span>
             </div>
-            <div class="btn-group" role="group">
+            <div class="btn-group btn-group-sm" role="group">
                 <!-- display current jobs range e.g, "1 to 10 of 100" -->
                 <span id="jobs-iframe-showing" class="btn" style="cursor:default;"></span>
             </div>
-            <div class="btn-group pagination" role="group">
+            <div class="btn-group pagination pagination-sm" role="group">
                 <button id="jobs-page-btn-first" type="button" class="btn page-link"
                     onclick="updateJobStatusTablePage(PaginateTo.FIRST);this.blur();">&laquo; First</button>
                 <button id="jobs-page-btn-prev" type="button" class="btn page-link"
