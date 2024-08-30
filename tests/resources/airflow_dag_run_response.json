@@ -1,0 +1,51 @@
+{
+  "conf": {
+     "acq_datetime": "2000-01-01T01:40:03",
+     "force_cloud_sync": false,
+     "metadata_dir": null,
+     "metadata_dir_force": false,
+     "modalities": [
+        {
+           "compress_raw_data": true,
+           "extra_configs": null,
+           "modality": {
+              "abbreviation": "ecephys",
+              "name": "Extracellular electrophysiology"
+           },
+           "slurm_settings": null,
+           "source": "/a_source/ecephys"
+        },
+        {
+           "compress_raw_data": false,
+           "extra_configs": null,
+           "modality": {
+              "abbreviation": "behavior-videos",
+              "name": "Behavior videos"
+           },
+           "slurm_settings": null,
+           "source": "/b_source/ecephys"
+        }
+     ],
+     "platform": {
+        "abbreviation": "ecephys",
+        "name": "Electrophysiology platform"
+     },
+     "process_capsule_id": null,
+     "project_name": "Ephys Platform",
+     "s3_bucket": "private",
+     "subject_id": "655019"
+  },
+  "dag_id": "transform_and_upload",
+  "dag_run_id": "manual__2024-05-18T22:08:52.286765+00:00",
+  "data_interval_end": "2024-05-18T22:08:52.286765+00:00",
+  "data_interval_start": "2024-05-18T22:08:52.286765+00:00",
+  "end_date": "2024-05-18T22:09:28.530534+00:00",
+  "execution_date": "2024-05-18T22:08:52.286765+00:00",
+  "external_trigger": true,
+  "last_scheduling_decision": "2024-05-18T22:09:28.527134+00:00",
+  "logical_date": "2024-05-18T22:08:52.286765+00:00",
+  "note": null,
+  "run_type": "manual",
+  "start_date": "2024-05-18T22:08:52.637098+00:00",
+  "state": "failed"
+}

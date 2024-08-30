@@ -30,9 +30,15 @@ from aind_data_transfer_service.configs.job_upload_template import (
 from aind_data_transfer_service.hpc.client import HpcClient, HpcClientConfigs
 from aind_data_transfer_service.hpc.models import HpcJobSubmitSettings
 from aind_data_transfer_service.models import (
+    AirflowDagRun,
+    AirflowDagRunRequestParameters,
     AirflowDagRunsRequestParameters,
     AirflowDagRunsResponse,
+    AirflowTaskInstanceLogsRequestParameters,
+    AirflowTaskInstancesRequestParameters,
+    AirflowTaskInstancesResponse,
     JobStatus,
+    JobTasks,
 )
 
 template_directory = os.path.abspath(
@@ -390,23 +396,40 @@ async def get_job_status_list(request: Request):
     """Get status of jobs with default pagination of limit=25 and offset=0."""
     # TODO: Use httpx async client
     try:
-        params = AirflowDagRunsRequestParameters.from_query_params(
-            request.query_params
-        )
+        url = os.getenv("AIND_AIRFLOW_SERVICE_JOBS_URL", "").strip("/")
+        get_one_job = request.query_params.get("dag_run_id") is not None
+        if get_one_job:
+            params = AirflowDagRunRequestParameters.from_query_params(
+                request.query_params
+            )
+            url = f"{url}/{params.dag_run_id}"
+        else:
+            params = AirflowDagRunsRequestParameters.from_query_params(
+                request.query_params
+            )
         params_dict = json.loads(params.model_dump_json())
+        # Send request to Airflow to ListDagRuns or GetDagRun
         response_jobs = requests.get(
-            url=os.getenv("AIND_AIRFLOW_SERVICE_JOBS_URL"),
+            url=url,
             auth=(
                 os.getenv("AIND_AIRFLOW_SERVICE_USER"),
                 os.getenv("AIND_AIRFLOW_SERVICE_PASSWORD"),
             ),
-            params=params_dict,
+            params=None if get_one_job else params_dict,
         )
         status_code = response_jobs.status_code
         if response_jobs.status_code == 200:
-            dag_runs = AirflowDagRunsResponse.model_validate_json(
-                json.dumps(response_jobs.json())
-            )
+            if get_one_job:
+                dag_run = AirflowDagRun.model_validate_json(
+                    json.dumps(response_jobs.json())
+                )
+                dag_runs = AirflowDagRunsResponse(
+                    dag_runs=[dag_run], total_entries=1
+                )
+            else:
+                dag_runs = AirflowDagRunsResponse.model_validate_json(
+                    json.dumps(response_jobs.json())
+                )
             job_status_list = [
                 JobStatus.from_airflow_dag_run(d) for d in dag_runs.dag_runs
             ]
@@ -420,7 +443,10 @@ async def get_job_status_list(request: Request):
             }
         else:
             message = "Error retrieving job status list from airflow"
-            data = {"params": params_dict, "errors": [response_jobs.json()]}
+            data = {
+                "params": params_dict,
+                "errors": [response_jobs.json()],
+            }
     except ValidationError as e:
         logging.error(e)
         status_code = 406
@@ -430,6 +456,115 @@ async def get_job_status_list(request: Request):
         logging.error(e)
         status_code = 500
         message = "Unable to retrieve job status list from airflow"
+        data = {"errors": [f"{e.__class__.__name__}{e.args}"]}
+    return JSONResponse(
+        status_code=status_code,
+        content={
+            "message": message,
+            "data": data,
+        },
+    )
+
+
+async def get_tasks_list(request: Request):
+    """Get list of tasks instances given a job id."""
+    try:
+        url = os.getenv("AIND_AIRFLOW_SERVICE_JOBS_URL", "").strip("/")
+        params = AirflowTaskInstancesRequestParameters.from_query_params(
+            request.query_params
+        )
+        params_dict = json.loads(params.model_dump_json())
+        response_tasks = requests.get(
+            url=f"{url}/{params.dag_run_id}/taskInstances",
+            auth=(
+                os.getenv("AIND_AIRFLOW_SERVICE_USER"),
+                os.getenv("AIND_AIRFLOW_SERVICE_PASSWORD"),
+            ),
+        )
+        status_code = response_tasks.status_code
+        if response_tasks.status_code == 200:
+            task_instances = AirflowTaskInstancesResponse.model_validate_json(
+                json.dumps(response_tasks.json())
+            )
+            job_tasks_list = sorted(
+                [
+                    JobTasks.from_airflow_task_instance(t)
+                    for t in task_instances.task_instances
+                ],
+                key=lambda t: (-t.priority_weight, t.map_index),
+            )
+            message = "Retrieved job tasks list from airflow"
+            data = {
+                "params": params_dict,
+                "total_entries": task_instances.total_entries,
+                "job_tasks_list": [
+                    json.loads(t.model_dump_json()) for t in job_tasks_list
+                ],
+            }
+        else:
+            message = "Error retrieving job tasks list from airflow"
+            data = {
+                "params": params_dict,
+                "errors": [response_tasks.json()],
+            }
+    except ValidationError as e:
+        logging.error(e)
+        status_code = 406
+        message = "Error validating request parameters"
+        data = {"errors": json.loads(e.json())}
+    except Exception as e:
+        logging.error(e)
+        status_code = 500
+        message = "Unable to retrieve job tasks list from airflow"
+        data = {"errors": [f"{e.__class__.__name__}{e.args}"]}
+    return JSONResponse(
+        status_code=status_code,
+        content={
+            "message": message,
+            "data": data,
+        },
+    )
+
+
+async def get_task_logs(request: Request):
+    """Get task logs given a job id, task id, and task try number."""
+    try:
+        url = os.getenv("AIND_AIRFLOW_SERVICE_JOBS_URL", "").strip("/")
+        params = AirflowTaskInstanceLogsRequestParameters.from_query_params(
+            request.query_params
+        )
+        params_dict = json.loads(params.model_dump_json())
+        params_full = dict(params)
+        response_logs = requests.get(
+            url=(
+                f"{url}/{params.dag_run_id}/taskInstances/{params.task_id}"
+                f"/logs/{params.try_number}"
+            ),
+            auth=(
+                os.getenv("AIND_AIRFLOW_SERVICE_USER"),
+                os.getenv("AIND_AIRFLOW_SERVICE_PASSWORD"),
+            ),
+            params=params_dict,
+        )
+        status_code = response_logs.status_code
+        if response_logs.status_code == 200:
+            message = "Retrieved task logs from airflow"
+            data = {"params": params_full, "logs": response_logs.text}
+        else:
+            message = "Error retrieving task logs from airflow"
+            data = {
+                "params": params_full,
+                "errors": [response_logs.json()],
+            }
+    except ValidationError as e:
+        logging.error(e)
+        status_code = 406
+        message = "Error validating request parameters"
+        data = {"errors": json.loads(e.json())}
+    except Exception as e:
+        logging.error(e)
+        status_code = 500
+        message = "Unable to retrieve task logs from airflow"
         data = {"errors": [f"{e.__class__.__name__}{e.args}"]}
     return JSONResponse(
         status_code=status_code,
@@ -478,6 +613,45 @@ async def job_status_table(request: Request):
     )
 
 
+async def job_tasks_table(request: Request):
+    """Get Job Tasks table given a job id"""
+    response_tasks = await get_tasks_list(request)
+    response_tasks_json = json.loads(response_tasks.body)
+    data = response_tasks_json.get("data")
+    return templates.TemplateResponse(
+        name="job_tasks_table.html",
+        context=(
+            {
+                "request": request,
+                "status_code": response_tasks.status_code,
+                "message": response_tasks_json.get("message"),
+                "errors": data.get("errors", []),
+                "total_entries": data.get("total_entries", 0),
+                "job_tasks_list": data.get("job_tasks_list", []),
+            }
+        ),
+    )
+
+
+async def task_logs(request: Request):
+    """Get task logs given a job id, task id, and task try number."""
+    response_tasks = await get_task_logs(request)
+    response_tasks_json = json.loads(response_tasks.body)
+    data = response_tasks_json.get("data")
+    return templates.TemplateResponse(
+        name="task_logs.html",
+        context=(
+            {
+                "request": request,
+                "status_code": response_tasks.status_code,
+                "message": response_tasks_json.get("message"),
+                "errors": data.get("errors", []),
+                "logs": data.get("logs"),
+            }
+        ),
+    )
+
+
 async def jobs(request: Request):
     """Get Job Status page with pagination"""
     default_limit = AirflowDagRunsRequestParameters.model_fields[
@@ -486,6 +660,9 @@ async def jobs(request: Request):
     default_offset = AirflowDagRunsRequestParameters.model_fields[
         "offset"
     ].default
+    default_state = AirflowDagRunsRequestParameters.model_fields[
+        "state"
+    ].default
     return templates.TemplateResponse(
         name="job_status.html",
         context=(
@@ -493,6 +670,7 @@ async def jobs(request: Request):
                 "request": request,
                 "default_limit": default_limit,
                 "default_offset": default_offset,
+                "default_state": default_state,
                 "project_names_url": os.getenv(
                     "AIND_METADATA_SERVICE_PROJECT_NAMES_URL"
                 ),
@@ -545,8 +723,12 @@ routes = [
         endpoint=get_job_status_list,
         methods=["GET"],
     ),
+    Route("/api/v1/get_tasks_list", endpoint=get_tasks_list, methods=["GET"]),
+    Route("/api/v1/get_task_logs", endpoint=get_task_logs, methods=["GET"]),
     Route("/jobs", endpoint=jobs, methods=["GET"]),
     Route("/job_status_table", endpoint=job_status_table, methods=["GET"]),
+    Route("/job_tasks_table", endpoint=job_tasks_table, methods=["GET"]),
+    Route("/task_logs", endpoint=task_logs, methods=["GET"]),
     Route(
         "/api/job_upload_template",
         endpoint=download_job_template,

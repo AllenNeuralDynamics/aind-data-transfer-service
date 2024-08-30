@@ -4,21 +4,28 @@
 <head>
   <meta charset="UTF-8">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.8.1/font/bootstrap-icons.min.css" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.3/moment.min.js"></script>
+  <style>
+    .modal-body {
+      height: calc(100vh - 100px);
+    }
+</style>
 </head>
 
 <body>
   <!-- job status table -->
-  <table class="table table-bordered table-striped table-hover table-sm">
+  <table class="table table-bordered table-striped table-hover table-sm" style="font-size: small">
     <tr>
       <th>Asset Name</th>
       <th>Job ID</th>
       <th>Status</th>
       <th>Submit Time</th>
       <th>Start Time</th>
-      <th>End time</th>
+      <th>End Time</th>
       <th>Comment</th>
+      <th>Tasks</th>
     </tr>
     {% for job_status in job_status_list %}
     <tr>
@@ -27,14 +34,38 @@
       <td class="{% if job_status.job_state == 'success' %}table-success
                 {% elif job_status.job_state == 'failed' %}table-danger
                 {% elif job_status.job_state == 'running' %}table-info
+                {% elif job_status.job_state == 'queued' %}table-secondary
                 {% endif %}">{{job_status.job_state}}</td>
       <td class="datetime_to_be_adjusted">{{job_status.submit_time}}</td>
       <td class="datetime_to_be_adjusted">{{job_status.start_time}}</td>
       <td class="datetime_to_be_adjusted">{{job_status.end_time}}</td>
       <td>{{job_status.comment}}</td>
+      <td>
+        <button type="button" class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#tasks-modal" data-job-id="{{ job_status.job_id }}" data-job-name="{{ job_status.name}}" data-job-state="{{ job_status.job_state }}">
+          <i class="bi bi-box-arrow-up-right" title="View tasks and logs"></i>
+        </button>
+      </td>
     </tr>
     {% endfor %}
   </table>
+  <!-- modal for displaying tasks per job -->
+  <div class="modal fade" id="tasks-modal" tabindex="-1" aria-labelledby="tasks-modal-label" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+      <div class="modal-content">
+        <div class="modal-header p-2">
+          <div class="modal-title fw-bold" id="tasks-modal-label" style="font-size: small">
+            <span id="modal-title-job-name" class="me-2"></span>
+            <span id="modal-title-job-id" class="me-2"></span>
+            <span id="modal-title-job-state" class="badge"></span>
+          </div>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body p-2">
+            <iframe id="tasks-iframe" class="w-100 h-100" src=""></iframe>
+        </div>
+      </div>
+    </div>
+  </div>
   <!-- display errors to user -->
   {% if status_code != 200 %}
   <div class="alert alert-danger" role="alert">
@@ -63,10 +94,12 @@
         limit = parseInt('{{limit}}');
         total_entries = parseInt('{{total_entries}}');
         parent.document.getElementById('jobs-iframe-total-entries').innerText = '{{total_entries}}';
-        parent.document.getElementById('jobs-iframe-showing').innerText = `${offset + 1} to ${Math.min(offset + limit, total_entries)} of ${total_entries}`;
+        parent.document.getElementById('jobs-iframe-showing').innerText = (total_entries > 1)
+          ? `${offset + 1} to ${Math.min(offset + limit, total_entries)} of ${total_entries}`
+          : `${total_entries} to ${total_entries} of ${total_entries}`;
         // also update the pagination buttons
-        isFirst = (offset == 0);
-        isLast = (offset + limit >= total_entries);
+        isFirst = (total_entries > 1) ? (offset == 0) : true;
+        isLast = (total_entries > 1) ? (offset + limit >= total_entries) : true;
         parent.document.getElementById('jobs-page-btn-first').disabled = isFirst;
         parent.document.getElementById('jobs-page-btn-prev').disabled = isFirst;
         parent.document.getElementById('jobs-page-btn-next').disabled = isLast;
@@ -79,6 +112,40 @@
           el.innerText = utcTime.format('YYYY-MM-DD h:mm:ss a');  // Write the local time back to the element
         };
       });
+      var tasksModal = document.getElementById('tasks-modal');
+      tasksModal.addEventListener('show.bs.modal', function (event) {
+        var sourceData = event.relatedTarget?.dataset;
+        updateJobTasksModal(sourceData?.jobId, sourceData?.jobName, sourceData?.jobState);
+      })
+      tasksModal.addEventListener('hidden.bs.modal', function (event) {
+        updateJobTasksModal(null, null, null);
+      })
+    }
+    function updateJobTasksModal(jobId, jobName, jobState) {
+      // Update the modal header with the job id and name
+      document.getElementById('modal-title-job-id').textContent = `(${jobId})`;
+      document.getElementById('modal-title-job-name').textContent = jobName;
+      var modalTitleJobState = document.getElementById('modal-title-job-state');
+      modalTitleJobState.textContent = jobState;
+      if (jobState) {
+        modalTitleJobState.classList.add(
+          jobState === 'success' ? 'bg-success'
+          : jobState === 'failed' ? 'bg-danger'
+          : jobState === 'running' ? 'bg-info'
+          : 'bg-secondary'
+        );
+      } else {
+        modalTitleJobState.classList.value = 'badge';
+      }
+      // Update the iframe src with the job id
+      var tasksIframe = document.getElementById('tasks-iframe');
+      if (jobId) {
+        var url = new URL("{{ url_for('job_tasks_table') }}");
+        url.searchParams.append('dag_run_id', jobId);
+        tasksIframe.src = url;
+      } else {
+        tasksIframe.src = "";
+      }
     }
   </script>
 </body>
