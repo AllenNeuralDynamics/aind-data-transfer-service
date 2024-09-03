@@ -97,7 +97,13 @@ async def validate_csv(request: Request):
                     job = map_csv_row_to_job(row=row)
                     # Construct hpc job setting most of the vars from the env
                     basic_jobs.append(
-                        json.loads(job.model_dump_json(round_trip=True))
+                        json.loads(
+                            job.model_dump_json(
+                                round_trip=True,
+                                exclude_none=True,
+                                warnings=False,
+                            )
+                        )
                     )
                 except ValidationError as e:
                     errors.append(e.json())
@@ -166,7 +172,7 @@ async def submit_jobs(request: Request):
     content = await request.json()
     try:
         model = SubmitJobRequest.model_validate_json(json.dumps(content))
-        full_content = json.loads(model.model_dump_json())
+        full_content = json.loads(model.model_dump_json(warnings=False))
         # TODO: Replace with httpx async client
         response = requests.post(
             url=os.getenv("AIND_AIRFLOW_SERVICE_URL"),

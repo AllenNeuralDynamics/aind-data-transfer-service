@@ -3,6 +3,7 @@
 import json
 import os
 import unittest
+import warnings
 from copy import deepcopy
 from datetime import datetime, timedelta, timezone
 from io import BytesIO
@@ -71,7 +72,7 @@ class TestServer(unittest.TestCase):
         "HPC_AWS_DEFAULT_REGION": "aws_region",
         "APP_CSRF_SECRET_KEY": "test_csrf_key",
         "APP_SECRET_KEY": "test_app_key",
-        "HPC_STAGING_DIRECTORY": "/stage/dir",
+        "HPC_STAGING_DIRECTORY": "stage/dir",
         "HPC_AWS_PARAM_STORE_NAME": "/some/param/store",
         "OPEN_DATA_AWS_SECRET_ACCESS_KEY": "open_data_aws_key",
         "OPEN_DATA_AWS_ACCESS_KEY_ID": "open_data_aws_key_id",
@@ -1496,7 +1497,7 @@ class TestServer(unittest.TestCase):
             "utf-8"
         )
         mock_post.return_value = mock_response
-        ephys_source_dir = PurePosixPath("/shared_drive/ephys_data/690165")
+        ephys_source_dir = PurePosixPath("shared_drive/ephys_data/690165")
 
         s3_bucket = "private"
         subject_id = "690165"
@@ -1537,6 +1538,71 @@ class TestServer(unittest.TestCase):
                 url="/api/v1/submit_jobs", json=post_request_content
             )
         self.assertEqual(200, submit_job_response.status_code)
+
+    @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
+    @patch("requests.post")
+    def test_submit_v1_jobs_200_session_settings_config_file(
+        self,
+        mock_post: MagicMock,
+    ):
+        """Tests submit jobs success when user adds aind-metadata-mapper
+        settings pointing to a config file."""
+
+        session_settings = {
+            "session_settings": {
+                "job_settings": {
+                    "user_settings_config_file": "test_bergamo_settings.json",
+                    "job_settings_name": "Bergamo",
+                }
+            }
+        }
+
+        mock_response = Response()
+        mock_response.status_code = 200
+        mock_response._content = json.dumps({"message": "sent"}).encode(
+            "utf-8"
+        )
+        mock_post.return_value = mock_response
+        ephys_source_dir = PurePosixPath("shared_drive/ephys_data/690165")
+
+        s3_bucket = "private"
+        subject_id = "690165"
+        acq_datetime = datetime(2024, 2, 19, 11, 25, 17)
+        platform = Platform.ECEPHYS
+
+        ephys_config = ModalityConfigs(
+            modality=Modality.ECEPHYS,
+            source=ephys_source_dir,
+        )
+        project_name = "Ephys Platform"
+
+        upload_job_configs = BasicUploadJobConfigs(
+            project_name=project_name,
+            s3_bucket=s3_bucket,
+            platform=platform,
+            subject_id=subject_id,
+            acq_datetime=acq_datetime,
+            modalities=[ephys_config],
+            metadata_configs=session_settings,
+        )
+
+        upload_jobs = [upload_job_configs]
+        # Suppress serializer warning when using a dict instead of an object
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", UserWarning)
+            submit_request = SubmitJobRequest(upload_jobs=upload_jobs)
+
+            post_request_content = json.loads(
+                submit_request.model_dump_json(
+                    round_trip=True, warnings=False, exclude_none=True
+                )
+            )
+
+            with TestClient(app) as client:
+                submit_job_response = client.post(
+                    url="/api/v1/submit_jobs", json=post_request_content
+                )
+            self.assertEqual(200, submit_job_response.status_code)
 
 
 if __name__ == "__main__":

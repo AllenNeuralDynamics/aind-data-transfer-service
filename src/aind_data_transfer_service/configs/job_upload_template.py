@@ -3,8 +3,8 @@ import datetime
 from io import BytesIO
 from typing import Any, Dict, List
 
-from aind_data_schema.models.modalities import Modality
-from aind_data_schema.models.platforms import Platform
+from aind_data_schema_models.modalities import Modality
+from aind_data_schema_models.platforms import Platform
 from openpyxl import Workbook
 from openpyxl.styles import Font
 from openpyxl.utils import get_column_letter
