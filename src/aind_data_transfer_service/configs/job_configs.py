@@ -6,9 +6,9 @@ from pathlib import PurePosixPath
 from typing import Any, ClassVar, Dict, List, Optional, Union
 
 from aind_data_schema.core.data_description import build_data_name
-from aind_data_schema.core.processing import ProcessName
-from aind_data_schema.models.modalities import Modality
-from aind_data_schema.models.platforms import Platform
+from aind_data_schema_models.modalities import Modality
+from aind_data_schema_models.platforms import Platform
+from aind_data_schema_models.process_names import ProcessName
 from pydantic import (
     ConfigDict,
     Field,

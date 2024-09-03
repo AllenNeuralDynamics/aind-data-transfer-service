@@ -6,9 +6,9 @@ import unittest
 from datetime import datetime
 from pathlib import Path, PurePosixPath
 
-from aind_data_schema.core.processing import ProcessName
-from aind_data_schema.models.modalities import Modality
-from aind_data_schema.models.platforms import Platform
+from aind_data_schema_models.modalities import Modality
+from aind_data_schema_models.platforms import Platform
+from aind_data_schema_models.process_names import ProcessName
 
 from aind_data_transfer_service.configs.job_configs import (
     BasicUploadJobConfigs,
