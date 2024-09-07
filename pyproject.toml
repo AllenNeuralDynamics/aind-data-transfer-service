@@ -20,7 +20,7 @@ dependencies = [
     'boto3',
     'pydantic>=2.0,<2.9',
     'pydantic-settings>=2.0',
-    'aind-data-transfer-models==0.7.0'
+    'aind-data-transfer-models==0.8.0'
 ]
 
 [project.optional-dependencies]
