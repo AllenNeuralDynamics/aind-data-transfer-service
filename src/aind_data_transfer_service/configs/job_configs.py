@@ -33,7 +33,7 @@ class ModalityConfigs(BaseSettings):
     # added to the Modality class
     _MODALITY_MAP: ClassVar = {
         m().abbreviation.upper().replace("-", "_"): m().abbreviation
-        for m in Modality._ALL
+        for m in Modality.ALL
     }
 
     # Optional number id to assign to modality config
@@ -116,10 +116,9 @@ class BasicUploadJobConfigs(BaseSettings):
         extra="allow",
     )
 
-    # Need some way to extract abbreviations. Maybe a public method can be
-    # added to the Platform class
+    # Legacy way required users to input platform in screaming snake case
     _PLATFORM_MAP: ClassVar = {
-        p().abbreviation.upper(): p().abbreviation for p in Platform._ALL
+        a.upper().replace("-", "_"): a for a in Platform.abbreviation_map.keys()
     }
     _MODALITY_ENTRY_PATTERN: ClassVar = re.compile(r"^modality(\d*)$")
     _DATETIME_PATTERN1: ClassVar = re.compile(
