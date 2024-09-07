@@ -118,7 +118,8 @@ class BasicUploadJobConfigs(BaseSettings):
 
     # Legacy way required users to input platform in screaming snake case
     _PLATFORM_MAP: ClassVar = {
-        a.upper().replace("-", "_"): a for a in Platform.abbreviation_map.keys()
+        a.upper().replace("-", "_"): a
+        for a in Platform.abbreviation_map.keys()
     }
     _MODALITY_ENTRY_PATTERN: ClassVar = re.compile(r"^modality(\d*)$")
     _DATETIME_PATTERN1: ClassVar = re.compile(
