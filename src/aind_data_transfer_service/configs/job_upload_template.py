@@ -84,13 +84,13 @@ class JobUploadTemplate:
             {
                 "name": "platform",
                 "type": "list",
-                "options": [p().abbreviation for p in Platform._ALL],
+                "options": list(Platform.abbreviation_map.keys()),
                 "column_indexes": [self.HEADERS.index("platform")],
             },
             {
                 "name": "modality",
                 "type": "list",
-                "options": [m().abbreviation for m in Modality._ALL],
+                "options": list(Modality.abbreviation_map.keys()),
                 "column_indexes": [
                     self.HEADERS.index("modality0"),
                     self.HEADERS.index("modality1"),
