@@ -8,7 +8,7 @@ from our shared network drives (e.g., VAST) to the cloud.
 Prerequisites
 -------------
 
--  It’s assumed that raw data is already stored and organized on a
+-  It's assumed that raw data is already stored and organized on a
    shared network drive such as VAST.
 -  The raw data should be organized by modality.
 
@@ -180,6 +180,147 @@ errors.
 
 Please reach out to Scientific Computing if you think you may need to
 customize the Slurm settings.
+
+Session settings for aind-metadata-mapper
+-----------------------------------------
+
+There are two methods for adding settings to process session.json files automatically during upload.
+
+1) Creating JobSettings directly and attaching them to the BasicUploadJobConfigs
+
+.. code-block:: python
+  
+  import json
+  import requests
+  
+  from aind_data_transfer_models.core import (
+      ModalityConfigs,
+      BasicUploadJobConfigs,
+      SubmitJobRequest,
+  )
+  from aind_metadata_mapper.models import SessionSettings, JobSettings as GatherMetadataJobSettings
+  from aind_metadata_mapper.bergamo.models import JobSettings as BergamoSessionSettings
+  from aind_data_schema_models.modalities import Modality
+  from aind_data_schema_models.platforms import Platform
+  from datetime import datetime
+  
+  acq_datetime = datetime.fromisoformat("2000-01-01T01:11:41")
+  
+  bergamo_session_settings = BergamoSessionSettings(
+      input_source="/allen/aind/scratch/svc_aind_upload/test_data_sets/bci/061022",
+      experimenter_full_name=["John Apple"],
+      subject_id="655019",
+      imaging_laser_wavelength=920,
+      fov_imaging_depth=200,
+      fov_targeted_structure="Primary Motor Cortex",
+      notes="test upload",
+  )
+  
+  session_settings = SessionSettings(job_settings=bergamo_session_settings)
+  
+  # directory_to_write_to is required, but will be set later by service.
+  # We can set it to "stage" for now.
+  metadata_job_settings = GatherMetadataJobSettings(directory_to_write_to="stage", session_settings=session_settings)
+  
+  ephys_config = ModalityConfigs(
+      modality=Modality.ECEPHYS,
+      source=(
+          "/allen/aind/scratch/svc_aind_upload/test_data_sets/ecephys/655019_2023-04-03_18-17-07"
+      ),
+  )
+  project_name = "Ephys Platform"
+  subject_id = "655019"
+  platform = Platform.ECEPHYS
+  s3_bucket = "private"
+
+  upload_job_configs = BasicUploadJobConfigs(
+      project_name=project_name,
+      s3_bucket=s3_bucket,
+      platform=platform,
+      subject_id=subject_id,
+      acq_datetime=acq_datetime,
+      modalities=[ephys_config],
+      metadata_configs=metadata_job_settings,
+  )
+  upload_jobs = [upload_job_configs]
+  submit_request = SubmitJobRequest(
+      upload_jobs=upload_jobs
+  )
+  post_request_content = json.loads(submit_request.model_dump_json(round_trip=True, exclude_none=True))
+  # Uncomment the following to submit the request
+  # submit_job_response = requests.post(url="http://aind-data-transfer-service/api/v1/submit_jobs", json=post_request_content)
+  # print(submit_job_response.status_code)
+  # print(submit_job_response.json())
+
+2) Using a pre-built settings.json file. You can compile the JobSettings class, save it to a json file, and point to that file.
+
+.. code-block:: python
+  
+  import json
+  import requests
+  
+  from aind_data_transfer_models.core import (
+      ModalityConfigs,
+      BasicUploadJobConfigs,
+      SubmitJobRequest,
+  )
+  from aind_metadata_mapper.models import SessionSettings, JobSettings as GatherMetadataJobSettings
+  from aind_metadata_mapper.bergamo.models import JobSettings as BergamoSessionSettings
+  from aind_data_schema_models.modalities import Modality
+  from aind_data_schema_models.platforms import Platform
+  from datetime import datetime
+  
+  acq_datetime = datetime.fromisoformat("2000-01-01T01:11:41")
+  
+  metadata_configs_from_file = {
+      "session_settings": {
+          "job_settings": {
+              "user_settings_config_file":"/allen/aind/scratch/svc_aind_upload/test_data_sets/bci/test_bergamo_settings.json",
+              "job_settings_name": "Bergamo"
+          }
+      }
+  }
+  
+  ephys_config = ModalityConfigs(
+      modality=Modality.ECEPHYS,
+      source=(
+          "/allen/aind/scratch/svc_aind_upload/test_data_sets/ecephys/655019_2023-04-03_18-17-07"
+      ),
+  )
+  project_name = "Ephys Platform"
+  subject_id = "655019"
+  platform = Platform.ECEPHYS
+  s3_bucket = "private"
+
+  upload_job_configs = BasicUploadJobConfigs(
+      project_name=project_name,
+      s3_bucket=s3_bucket,
+      platform=platform,
+      subject_id=subject_id,
+      acq_datetime=acq_datetime,
+      modalities=[ephys_config],
+      metadata_configs=metadata_configs_from_file,
+  )
+  upload_jobs = [upload_job_configs]
+  # Because we use a dict, this may raise a pydantic serializer warning.
+  # The warning can be suppressed, but it isn't necessary
+  with warnings.catch_warnings():
+    warnings.simplefilter("ignore", UserWarning)
+    submit_request = SubmitJobRequest(
+        upload_jobs=upload_jobs
+    ) 
+  post_request_content = json.loads(submit_request.model_dump_json(round_trip=True, exclude_none=True, warnings=False))
+  # Uncomment the following to submit the request
+  # submit_job_response = requests.post(url="http://aind-data-transfer-service/api/v1/submit_jobs", json=post_request_content)
+  # print(submit_job_response.status_code)
+  # print(submit_job_response.json())
+
+
+Submitting SmartSPIM jobs
+-------------------------
+
+SmartSPIM jobs are unique in that the compression step will be performed as a job array.
+
 
 Viewing the status of submitted jobs
 ------------------------------------
