@@ -319,7 +319,91 @@ There are two methods for adding settings to process session.json files automati
 Submitting SmartSPIM jobs
 -------------------------
 
-SmartSPIM jobs are unique in that the compression step will be performed as a job array.
+SmartSPIM jobs are unique in that the compression step will be performed as a job array. If the directory structure looks like:
+```
+SmartSPIM/
+  - Ex_488_Em_525/
+    - 471320/
+      - 471320_701490
+      ...
+      - 471320_831090
+    ...
+    - 568520/
+      ...
+  ...
+  - Ex_639_Em_680/
+   ...
+```
+Then each "stack" (e.g., 471320_701490) will be processed individually.
+If there are 60 stacks, then a good number_of_partitions will be 20.
+In this case, the total time for the job will be around 3 times it takes to process one stack.
+As a default, the SmartSPIM job will use a number_of_partitions of 10 and distribute the stacks evenly across 10 slurm jobs.
+It's possible to customize the number_of_partitions as in the following example:
+
+.. code-block:: python
+
+  import json
+  import requests
+
+  from aind_data_transfer_models.core import (
+      ModalityConfigs,
+      BasicUploadJobConfigs,
+      SubmitJobRequest,
+  )
+  from aind_data_schema_models.modalities import Modality
+  from aind_data_schema_models.platforms import Platform
+  from aind_slurm_rest.models import V0036JobProperties
+  from datetime import datetime
+
+  # Optional settings. Default partition size will be set to 10, but can also be
+  # provided as such. If partition_size is larger than the number of stacks, this
+  # may lead to inefficiencies and errors.
+  partition_size: int = 20
+  job_props = V0036JobProperties(
+      environment=dict(),
+      array=f"0-{partition_size-1}"
+  )
+  acq_datetime = datetime.fromisoformat("2023-10-18T20:30:30")
+  spim_config = ModalityConfigs(
+      modality=Modality.SPIM,
+      slurm_settings=job_props,
+      compress_raw_data=True,
+      source=(
+          "/allen/aind/scratch/svc_aind_upload/test_data_sets/smartspim/"
+          "SmartSPIM_695464_2023-10-18_20-30-30"
+      ),
+  )
+
+  project_name = "MSMA Platform"
+  subject_id = "695464"
+  platform = Platform.SMARTSPIM
+  # can also be set to "open" if writing to the open bucket.
+  s3_bucket = "private"
+
+  upload_job_configs = BasicUploadJobConfigs(
+      project_name=project_name,
+      s3_bucket=s3_bucket,
+      platform=platform,
+      subject_id=subject_id,
+      acq_datetime=acq_datetime,
+      modalities=[spim_config],
+  )
+
+  # Add more to the list if needed
+  upload_jobs = [upload_job_configs]
+
+  # Optional email address and notification types if desired
+  submit_request = SubmitJobRequest(
+      upload_jobs=upload_jobs,
+  )
+
+  post_request_content = json.loads(
+      submit_request.model_dump_json(round_trip=True, exclude_none=True)
+  )
+  # Uncomment the following to submit the request
+  # submit_job_response = requests.post(url="http://aind-data-transfer-service/api/v1/submit_jobs", json=post_request_content)
+  # print(submit_job_response.status_code)
+  # print(submit_job_response.json())
 
 
 Viewing the status of submitted jobs
