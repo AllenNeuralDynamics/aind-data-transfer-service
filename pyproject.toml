@@ -21,7 +21,7 @@ dependencies = [
     'pydantic>=2.7,<2.9',
     'pydantic-settings>=2.0',
     'aind-data-schema>=1.0.0',
-    'aind_data_transfer_models@git+https://github.com/AllenNeuralDynamics/aind-data-transfer-models.git@feat-42-scratch-uploads'
+    'aind_data_transfer_models==0.9.0'
 ]
 
 [project.optional-dependencies]
