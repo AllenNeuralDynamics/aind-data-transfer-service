@@ -1,7 +1,7 @@
 """Init package"""
 import os
 
-__version__ = "1.5.1"
+__version__ = "1.6.0"
 
 # Global constants
 OPEN_DATA_BUCKET_NAME = os.getenv("OPEN_DATA_BUCKET_NAME", "open")
