@@ -8,10 +8,6 @@ from aind_data_transfer_models.core import (
     ModalityConfigs,
 )
 
-DEFAULT_CODEOCEAN_CONFIGS = json.loads(
-    CodeOceanPipelineMonitorConfigs().model_dump_json()
-)
-
 
 def map_csv_row_to_job(row: dict) -> BasicUploadJobConfigs:
     """
