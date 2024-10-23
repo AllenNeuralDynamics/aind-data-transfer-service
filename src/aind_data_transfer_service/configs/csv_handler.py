@@ -1,8 +1,15 @@
 """Module to handle processing legacy csv files"""
 
+import json
+
 from aind_data_transfer_models.core import (
     BasicUploadJobConfigs,
+    CodeOceanPipelineMonitorConfigs,
     ModalityConfigs,
+)
+
+DEFAULT_CODEOCEAN_CONFIGS = json.loads(
+    CodeOceanPipelineMonitorConfigs().model_dump_json()
 )
 
 
@@ -41,6 +48,13 @@ def map_csv_row_to_job(row: dict) -> BasicUploadJobConfigs:
                 modality_configs[modality_key] = {sub_key: clean_val}
             elif clean_val is not None:
                 modality_configs[modality_key].update({sub_key: clean_val})
+        elif clean_key == "job_type":
+            if clean_val is not None:
+                codeocean_configs = json.loads(
+                    CodeOceanPipelineMonitorConfigs().model_dump_json()
+                )
+                codeocean_configs["job_type"] = clean_val
+                basic_job_configs["codeocean_configs"] = codeocean_configs
         else:
             basic_job_configs[clean_key] = clean_val
     modalities = []

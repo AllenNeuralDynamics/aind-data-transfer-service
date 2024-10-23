@@ -9,6 +9,7 @@ from aind_data_schema_models.modalities import Modality
 from aind_data_schema_models.platforms import Platform
 from aind_data_transfer_models.core import (
     BasicUploadJobConfigs,
+    CodeOceanPipelineMonitorConfigs,
     ModalityConfigs,
 )
 
@@ -77,6 +78,9 @@ class TestCsvHandler(unittest.TestCase):
                 metadata_dir=None,
                 metadata_dir_force=False,
                 force_cloud_sync=False,
+                codeocean_configs=CodeOceanPipelineMonitorConfigs(
+                    job_type="custom"
+                ),
             ),
             BasicUploadJobConfigs(
                 project_name="Behavior Platform",
@@ -99,7 +103,6 @@ class TestCsvHandler(unittest.TestCase):
                 force_cloud_sync=False,
             ),
         ]
-
         self.assertEqual(expected_jobs, jobs)
 
 
