@@ -172,7 +172,9 @@ async def submit_jobs(request: Request):
     content = await request.json()
     try:
         model = SubmitJobRequest.model_validate_json(json.dumps(content))
-        full_content = json.loads(model.model_dump_json(warnings=False))
+        full_content = json.loads(
+            model.model_dump_json(warnings=False, exclude_none=True)
+        )
         # TODO: Replace with httpx async client
         response = requests.post(
             url=os.getenv("AIND_AIRFLOW_SERVICE_URL"),
