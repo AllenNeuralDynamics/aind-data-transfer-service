@@ -81,7 +81,7 @@ portal can accessed at
    -  input_data_mount: If you wish to trigger a custom Code Ocean
       Pipeline that has been configured with a specific data mount, you
       can add that here
-   -  s3_bucket: As default, data will be uploaded to a private bucket
+   -  s3_bucket: As default, data will be uploaded to a default bucket
       in S3 managed by AIND. Please reach out to the Scientific
       Computing department if you wish to upload to a different bucket.
    -  metadata_dir_force: We will automatically pull subject and
@@ -92,11 +92,16 @@ portal can accessed at
       already a data asset with this name saved in our S3 bucket. If
       this field is set to ``True``, we will sync the data to the
       bucket/folder even if it already exists
+   -  job_type: We store pre-compiled default Code Ocean pipeline
+      configurations in AWS Parameter Store. If you set this field, then we
+      will use this preset when running a Code Ocean pipeline.
 
 Using the REST API
 ------------------
 
-Jobs can also be submitted via a REST API at the endpoint
+For more granular configuration, jobs can be submitted via a REST API at the
+endpoint:
+
 ``http://aind-data-transfer-service/api/v1/submit_jobs``
 
 .. code-block:: python
@@ -145,7 +150,7 @@ Jobs can also be submitted via a REST API at the endpoint
     email_notification_types=email_notification_types,
   )
 
-  post_request_content = json.loads(submit_request.model_dump_json(round_trip=True, exclude_none=True))
+  post_request_content = json.loads(submit_request.model_dump_json(exclude_none=True))
   # Uncomment the following to submit the request
   # submit_job_response = requests.post(url="http://aind-data-transfer-service/api/v1/submit_jobs", json=post_request_content)
   # print(submit_job_response.status_code)
@@ -246,7 +251,7 @@ There are two methods for adding settings to process session.json files automati
   submit_request = SubmitJobRequest(
       upload_jobs=upload_jobs
   )
-  post_request_content = json.loads(submit_request.model_dump_json(round_trip=True, exclude_none=True))
+  post_request_content = json.loads(submit_request.model_dump_json(exclude_none=True))
   # Uncomment the following to submit the request
   # submit_job_response = requests.post(url="http://aind-data-transfer-service/api/v1/submit_jobs", json=post_request_content)
   # print(submit_job_response.status_code)
@@ -309,12 +314,109 @@ There are two methods for adding settings to process session.json files automati
     submit_request = SubmitJobRequest(
         upload_jobs=upload_jobs
     ) 
-  post_request_content = json.loads(submit_request.model_dump_json(round_trip=True, exclude_none=True, warnings=False))
+  post_request_content = json.loads(submit_request.model_dump_json(exclude_none=True, warnings=False))
   # Uncomment the following to submit the request
   # submit_job_response = requests.post(url="http://aind-data-transfer-service/api/v1/submit_jobs", json=post_request_content)
   # print(submit_job_response.status_code)
   # print(submit_job_response.json())
 
+Code Ocean pipeline settings
+----------------------------
+
+More granular control of the Code Ocean pipeline can be used. Up to 5 pipelines can be requested to be run after a data asset is registered to Code Ocean.
+
+Please consult Code Ocean's official Python SDK for more information. [https://github.com/codeocean/codeocean-sdk-python]
+`https://github.com/codeocean/codeocean-sdk-python <https://github.com/codeocean/codeocean-sdk-python>`__
+
+Here is an example of attaching custom Code Ocean configurations:
+
+.. code-block:: python
+
+  import json
+  import requests
+  from aind_codeocean_pipeline_monitor.models import (
+      PipelineMonitorSettings,
+      CaptureSettings,
+  )
+  from aind_data_schema_models.data_name_patterns import DataLevel
+
+  from aind_data_transfer_models.core import (
+      ModalityConfigs,
+      BasicUploadJobConfigs,
+      SubmitJobRequest,
+      CodeOceanPipelineMonitorConfigs,
+  )
+  from aind_data_schema_models.modalities import Modality
+  from aind_data_schema_models.platforms import Platform
+  from datetime import datetime
+
+  from codeocean.computation import RunParams, DataAssetsRunParam
+  from codeocean.data_asset import DataAssetParams
+
+  acq_datetime = datetime.fromisoformat("2024-10-23T15:30:39")
+  project_name = "Brain Computer Interface"
+  subject_id = "731015"
+  platform = Platform.SINGLE_PLANE_OPHYS
+  s3_bucket = "private"
+
+  pophys_config = ModalityConfigs(
+      modality=Modality.POPHYS,
+      source=("/allen/aind/scratch/BCI/2p-raw/BCI88/102324/pophys"),
+  )
+  behavior_video_config = ModalityConfigs(
+      modality=Modality.BEHAVIOR_VIDEOS,
+      compress_raw_data=False,
+      source=("/allen/aind/scratch/BCI/2p-raw/BCI88/102324/behavior_video"),
+  )
+  behavior_config = ModalityConfigs(
+      modality=Modality.BEHAVIOR,
+      source=("/allen/aind/scratch/BCI/2p-raw/BCI88/102324/behavior"),
+  )
+
+  # Up to 5 PipelineMonitorSettings can be configured
+  # Please be careful with the custom_metadata as it is a controlled vocabulary.
+  codeocean_configs = CodeOceanPipelineMonitorConfigs(
+      register_data_settings=DataAssetParams(
+          name="",
+          mount="",
+          tags=[DataLevel.RAW.value, "test"],
+          custom_metadata={"data level": DataLevel.RAW.value},
+      ),
+      pipeline_monitor_capsule_settings=[
+          PipelineMonitorSettings(
+              run_params=RunParams(
+                  pipeline_id="87cbe6ce-9b38-4266-8d4a-62f0e23ba2d6",
+                  data_assets=[DataAssetsRunParam(id="", mount="test_mount")],
+                  parameters=["test"],
+              ),
+              capture_settings=CaptureSettings(
+                  process_name_suffix="test-capture",
+                  tags=[DataLevel.DERIVED.value, "test-cap", "tag2"],
+              ),
+          )
+      ],
+  )
+
+  upload_job_configs = BasicUploadJobConfigs(
+      project_name=project_name,
+      s3_bucket=s3_bucket,
+      platform=platform,
+      subject_id=subject_id,
+      acq_datetime=acq_datetime,
+      modalities=[pophys_config, behavior_config, behavior_video_config],
+      codeocean_configs=codeocean_configs,
+  )
+  upload_jobs = [upload_job_configs]
+  submit_request = SubmitJobRequest(upload_jobs=upload_jobs)
+  post_request_content = json.loads(submit_request.model_dump_json(exclude_none=True))
+  # Uncomment the following to submit the request
+  # submit_job_response = requests.post(url="http://aind-data-transfer-service/api/v1/submit_jobs", json=post_request_content)
+  # print(submit_job_response.status_code)
+  # print(submit_job_response.json())
+
+The results from the pipelines will be captured to a default bucket. To override this behavior, set capture_results_to_default_bucket field to False.
+
+To not capture the results, the capture_settings can be set to None.
 
 Submitting SmartSPIM jobs
 -------------------------
@@ -398,7 +500,7 @@ It's possible to customize the number_of_partitions as in the following example:
   )
 
   post_request_content = json.loads(
-      submit_request.model_dump_json(round_trip=True, exclude_none=True)
+      submit_request.model_dump_json(exclude_none=True)
   )
   # Uncomment the following to submit the request
   # submit_job_response = requests.post(url="http://aind-data-transfer-service/api/v1/submit_jobs", json=post_request_content)
