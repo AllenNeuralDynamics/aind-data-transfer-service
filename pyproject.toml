@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "aind-data-transfer-service"
-description = "Generated from aind-library-template"
+description = "Service that handles requests to upload data to the cloud"
 license = {text = "MIT"}
 requires-python = ">=3.9"
 authors = [
@@ -20,8 +20,8 @@ dependencies = [
     'boto3',
     'pydantic>=2.7,<2.9',
     'pydantic-settings>=2.0',
-    'aind-data-schema>=1.0.0',
-    'aind-data-transfer-models==0.13.1'
+    'aind-data-schema>=1.0.0,<2.0',
+    'aind-data-transfer-models==0.14.1'
 ]
 
 [project.optional-dependencies]
