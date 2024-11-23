@@ -9,7 +9,7 @@ from asyncio import sleep
 from pathlib import PurePosixPath
 
 import requests
-from aind_data_transfer_models.core import SubmitJobRequest
+from aind_data_transfer_models.core import SubmitJobRequest, BasicUploadJobConfigs
 from fastapi import Request
 from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
@@ -166,6 +166,29 @@ async def validate_csv_legacy(request: Request):
             status_code=status_code,
         )
 
+
+async def get_json_schema_for_model(request: Request):
+    """Get the JSON schema for models from aind-data-transfer-models."""
+    # GET /api/v1/models/{model_name}/schema
+    model_name = request.path_params.get("model_name")
+    match model_name:
+        case "BasicUploadJobConfigs":
+            model = BasicUploadJobConfigs
+        case "SubmitJobRequest":
+            model = SubmitJobRequest
+        case _:
+            return JSONResponse(
+                status_code=404,
+                content={
+                    "message": f"Schema not found for {model_name}",
+                },
+            )
+    json_schema = model.model_json_schema()
+    return JSONResponse(
+        status_code=200,
+        content=json_schema,
+    )
+    
 
 async def submit_jobs(request: Request):
     """Post BasicJobConfigs raw json to hpc server to process."""
@@ -724,6 +747,7 @@ routes = [
         "/api/submit_basic_jobs", endpoint=submit_basic_jobs, methods=["POST"]
     ),
     Route("/api/submit_hpc_jobs", endpoint=submit_hpc_jobs, methods=["POST"]),
+    Route("/api/v1/models/{model_name:str}/schema", endpoint=get_json_schema_for_model, methods=["GET"]),
     Route("/api/v1/validate_csv", endpoint=validate_csv, methods=["POST"]),
     Route("/api/v1/submit_jobs", endpoint=submit_jobs, methods=["POST"]),
     Route(
