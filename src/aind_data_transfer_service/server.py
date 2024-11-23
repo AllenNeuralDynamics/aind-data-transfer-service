@@ -190,6 +190,63 @@ async def get_json_schema_for_model(request: Request):
     )
     
 
+
+async def validate_json_for_model(request: Request):
+    """Validate a SubmitJobRequest raw json. Returns validated job request,
+    or errors if request is invalid."""
+    # POST /api/v1/models/{model_name}/validate
+    model_name = request.path_params.get("model_name")
+    content = await request.json()
+    match model_name:
+        case "BasicUploadJobConfigs":
+            model = BasicUploadJobConfigs
+        case "SubmitJobRequest":
+            model = SubmitJobRequest
+        case _:
+            return JSONResponse(
+                status_code=404,
+                content={
+                    "message": f"Model not found for {model_name}",
+                },
+            )
+    try:
+        validated_model = model.model_validate_json(json.dumps(content))
+        validated_content = json.loads(
+            validated_model.model_dump_json(warnings=False, exclude_none=True)
+        )
+        return JSONResponse(
+            status_code=200,
+            content={
+                "message": "Valid job request",
+                "data": {
+                    "job_request": content,
+                    "validated_job_request": validated_content,
+                },
+            },
+        )
+    except ValidationError as e:
+        return JSONResponse(
+            status_code=406,
+            content={
+                "message": "There were validation errors",
+                "data": {
+                    "job_request": content,
+                    "errors": e.json(),
+                },
+            },
+        )
+    except Exception as e:
+        return JSONResponse(
+            status_code=500,
+            content={
+                "message": "There was an internal server error",
+                "data": {
+                    "job_request": content,
+                    "errors": str(e.args),
+                },
+            },
+        )
+
 async def submit_jobs(request: Request):
     """Post BasicJobConfigs raw json to hpc server to process."""
     content = await request.json()
@@ -748,6 +805,7 @@ routes = [
     ),
     Route("/api/submit_hpc_jobs", endpoint=submit_hpc_jobs, methods=["POST"]),
     Route("/api/v1/models/{model_name:str}/schema", endpoint=get_json_schema_for_model, methods=["GET"]),
+    Route("/api/v1/models/{model_name:str}/validate", endpoint=validate_json_for_model, methods=["POST"]),
     Route("/api/v1/validate_csv", endpoint=validate_csv, methods=["POST"]),
     Route("/api/v1/submit_jobs", endpoint=submit_jobs, methods=["POST"]),
     Route(
