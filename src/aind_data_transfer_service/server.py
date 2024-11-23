@@ -42,6 +42,7 @@ from aind_data_transfer_service.models import (
 )
 from starlette.middleware.cors import CORSMiddleware
 from starlette.middleware import Middleware
+from aind_data_transfer_service.models import SubmitJobRequestForm, BasicUploadJobConfigsForm
 
 template_directory = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "templates")
@@ -179,9 +180,9 @@ async def get_json_schema_for_model(request: Request):
     model_name = request.path_params.get("model_name")
     match model_name:
         case "BasicUploadJobConfigs":
-            model = BasicUploadJobConfigs
+            model = BasicUploadJobConfigsForm
         case "SubmitJobRequest":
-            model = SubmitJobRequest
+            model = SubmitJobRequestForm
         case _:
             return JSONResponse(
                 status_code=404,

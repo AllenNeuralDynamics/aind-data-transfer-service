@@ -7,6 +7,9 @@ from typing import List, Optional, Union
 from pydantic import AwareDatetime, BaseModel, Field, field_validator
 from starlette.datastructures import QueryParams
 
+from aind_data_transfer_models.core import BasicUploadJobConfigs, ModalityConfigs, SubmitJobRequest
+from pydantic.json_schema import SkipJsonSchema
+
 
 class AirflowDagRun(BaseModel):
     """Data model for dag_run entry when requesting info from airflow"""
@@ -212,3 +215,47 @@ class JobTasks(BaseModel):
             duration=airflow_task_instance.duration,
             comment=airflow_task_instance.note,
         )
+
+
+class ModalityConfigsForm(ModalityConfigs):
+    """Remove deprecated and optional fields from ModalityConfigs."""
+    # NOTE: hide slurm settings for now
+    slurm_settings: SkipJsonSchema[None] = None
+    # NOTE: job_settings needs to be converted to a string
+    job_settings: Optional[str] = Field(
+        default=None,
+        description=(
+            "Configs to pass into modality compression job. Must be serialized as "
+            "json string."
+        ),
+        title="Job Settings",
+    )
+
+class BasicUploadJobConfigsForm(BasicUploadJobConfigs):
+    """Remove deprecated and optional fields from BasicUploadJobConfigs."""
+    # NOTE: hide because contained in parent class
+    user_email: SkipJsonSchema[None] = None
+    email_notification_types: SkipJsonSchema[None] = None
+    # NOTE: hide because deprecated
+    input_data_mount: SkipJsonSchema[None] = None
+    process_capsule_id: SkipJsonSchema[None] = None
+    trigger_capsule_configs: SkipJsonSchema[None] = None
+    # NOTE: attach form version of ModalityConfigs
+    modalities: List[ModalityConfigsForm] = Field(
+        ...,
+        description="Data collection modalities and their directory location",
+        title="Modalities",
+        min_items=1,
+    )
+
+class SubmitJobRequestForm(SubmitJobRequest):
+    """Remove deprecated and optional fields from SubmitJobRequest."""
+    # NOTE: hide to disable changes
+    job_type: SkipJsonSchema[None] = None
+    # NOTE: attach form version of BasicUploadJobConfigs
+    upload_jobs: List[BasicUploadJobConfigsForm] = Field(
+        ...,
+        description="List of upload jobs to process. Max of 1000 at a time.",
+        min_items=1,
+        max_items=1000,
+    )
