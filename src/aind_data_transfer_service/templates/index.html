@@ -25,7 +25,7 @@
         background-color: #E8EAF6;
         color: #3F51B5;
     }
-    #submit { 
+    #submit, #validate { 
         border: none;
         border-radius: 6px;
         color: #ffffff;
@@ -78,18 +78,24 @@
         </div><br><br>
     <form id="file_form" method="post" enctype="multipart/form-data">
         <label for="file">Please select a .csv or .xlsx file:</label>
-        <input type="file" id="file" name="file" accept=".csv,.xlsx" onchange="validateJobs(this)" onclick="this.value=null"><br><br>
+        <input type="file" id="file" name="file" accept=".csv,.xlsx" onchange="validateJobsFromFile(this)" onclick="this.value=null"><br><br>
     </form>
     <button id="submit" type="button" onclick="submitJobs()">Submit</button>
+    <button id="validate" type="button" onclick="validateJobsFromJson()">Validate</button>
+    <button type="button" onclick="getJsonSchema('SubmitJobRequest')">Schema SubmitJobRequest</button>
+    <button type="button" onclick="getJsonSchema('BasicUploadJobConfigs')">Schema BasicUploadJobConfigs</button>
     <div id="message"></div><br>
     <div id="response"></div>
     <script>
         var jobs = []
         var parsing_errors = []
+        var schema={}
         const msgTypes = {
             "validatePending": "Sending...",
-            "validateSuccess": "Successfully validated jobs from file.",
-            "validateError": "Error validating jobs from file.",
+            "validateSuccessJson": "Successfully validated jobs from json.",
+            "validateSuccessFile": "Successfully validated jobs from file.",
+            "validateErrorJson": "Error validating jobs from json.",
+            "validateErrorFile": "Error validating jobs from file.",
             "submitPending": "Submitting jobs. Please do not refresh or re-submit...",
             "submitSuccess": "Successfully submitted jobs.",
             "submitError": "Error submitting jobs."
@@ -98,9 +104,13 @@
             $("#message").removeClass("success");
             $("#message").removeClass("error");
             $("#message").html(msgType);
-            if (msgType == msgTypes.validateSuccess || msgType == msgTypes.submitSuccess) {
+            if (msgType == msgTypes.validateSuccessFile ||
+                msgType == msgTypes.validateSuccessJson ||
+                msgType == msgTypes.submitSuccess) {
                 $("#message").addClass("success");
-            } else if (msgType == msgTypes.validateError || msgType == msgTypes.submitError) {
+            } else if (msgType == msgTypes.validateErrorFile ||
+                msgType == msgTypes.validateErrorJson ||
+                msgType == msgTypes.submitError) {
                 $("#message").addClass("error");
             }
         };
@@ -116,7 +126,101 @@
             }
             table.appendChild(tr);
         };
-        validateJobs = function(fileElement) {
+        getJsonSchema = function(modelName) {
+            $.ajax({
+                url: `/api/v1/models/${modelName}/schema`,
+                type: "GET",
+                contentType: 'application/json; charset=utf-8',
+                success: function(data) {
+                    console.log(data)
+                    setMessage(data.message);
+                    const responseJSON = JSON.stringify(data, null, 2);
+                    const element = document.createElement('pre');
+                    element.innerHTML = responseJSON;
+                    $("#response").html(element);
+                    schema = data;
+                },
+                error: function(data) {
+                    console.log(data)
+                    setMessage(data.responseJSON.message);
+                    $("#response").html(JSON.stringify(data.responseJSON, null, 2));
+                }
+            });
+        };
+        validateJobsFromJson = function () {
+            if (jobs.length > 0 && parsing_errors.length == 0) {
+                let job_settings = {};
+                let mail_user = $("#email").val();
+                if (mail_user !== "" && mail_user !== undefined) {
+                    job_settings["user_email"] = mail_user;
+                };
+                let mail_type = [];
+                if ($("#all").is(":checked")) {
+                    mail_type = ["all"];
+                };
+                if ($("#begin").is(":checked")) {
+                    mail_type.push("begin");
+                };
+                if ($("#end").is(":checked")) {
+                    mail_type.push("end");
+                };
+                if ($("#fail").is(":checked")) {
+                    mail_type.push("fail");
+                };
+                if ($("#retry").is(":checked")) {
+                    mail_type.push("retry");
+                };
+                job_settings["email_notification_types"] = mail_type
+                job_settings["upload_jobs"] = jobs
+                $.ajax({
+                    // NOTE: only checking against SubmitJobRequest
+                    url: "/api/v1/models/SubmitJobRequest/validate",
+                    type: "POST",
+                    data: JSON.stringify(job_settings),
+                    contentType: 'application/json; charset=utf-8',
+                    beforeSend: function() {
+                        setMessage(msgTypes.validatePending);
+                        $("#response").html("");
+                    },
+                    success: function (data) {
+                        console.log(data)
+                        jobs = []
+                        parsing_errors = []
+                        setMessage(msgTypes.validateSuccess);
+                        console.log(data.data)
+                        const responseJSON = JSON.stringify(data, null, 2);
+                        // create 3 elements, for each of message, job_request, and validated_job_request
+                        const message = document.createElement('pre');
+                        message.innerHTML = data["message"];
+                        const job_request = document.createElement('pre');
+                        job_request.innerHTML = JSON.stringify(data["data"]["job_request"], null, 2);
+                        const validated_job_request = document.createElement('pre');
+                        validated_job_request.innerHTML = JSON.stringify(data["data"]["validated_job_request"], null, 2);
+                        // create wrapper
+                        const element = document.createElement('div');
+                        element.appendChild(message);
+                        element.appendChild(job_request);
+                        element.appendChild(validated_job_request);
+                        // add to response
+                        $("#response").html(element);
+                        console.log(responseJSON)
+                    },
+                    error: function (data) {
+                        console.log(data)
+                        jobs = []
+                        setMessage(msgTypes.validateError);
+                        parsing_errors = data.responseJSON["data"]["errors"]
+                        $("#response").html(parsing_errors.map((errStr) => {
+                            return `<li>${errStr}</li>`
+                        }));
+                    }
+                });
+            } else if (jobs.length == 0) {
+                alert("No valid jobs to validate. Please attach a .csv or .xlsx file with valid jobs.");
+                return;
+            }
+        };
+        validateJobsFromFile = function(fileElement) {
             if (fileElement.files.length != 1) {
                 // File attach was cancelled by user
                 return;
@@ -139,7 +243,7 @@
                     $("#response").html("");
                 },
                 success: function(data) {
-                    setMessage(msgTypes.validateSuccess);
+                    setMessage(msgTypes.validateSuccessFile);
                     jobs = data["data"]["jobs"];
                     parsing_errors = []
                     let jobsLength = jobs.length;
@@ -178,7 +282,7 @@
                 error: function(data) {
                     jobs = []
                     parsing_errors = data.responseJSON["data"]["errors"]
-                    setMessage(msgTypes.validateError);
+                    setMessage(msgTypes.validateErrorFile);
                     $("#response").html(parsing_errors.map((err) => {
                         return `<li>${err}</li>`
                     }));
