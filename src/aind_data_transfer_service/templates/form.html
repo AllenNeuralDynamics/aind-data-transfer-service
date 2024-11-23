@@ -1,0 +1,139 @@
+<html>
+
+<head>
+  <link type="text/css" rel="stylesheet" href="//maxcdn.bootstrapcdn.com/bootstrap/3.3.2/css/bootstrap.min.css" />
+  <link type="text/css" href="//cdn.jsdelivr.net/npm/alpaca@1.5.27/dist/alpaca/bootstrap/alpaca.min.css"
+    rel="stylesheet" />
+  <script type="text/javascript" src="//code.jquery.com/jquery-1.11.1.min.js"></script>
+  <script type="text/javascript" src="//maxcdn.bootstrapcdn.com/bootstrap/3.3.2/js/bootstrap.min.js"></script>
+  <script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/handlebars.js/4.0.5/handlebars.js"></script>
+  <script type="text/javascript"
+    src="//cdn.jsdelivr.net/npm/alpaca@1.5.27/dist/alpaca/bootstrap/alpaca.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@json-editor/json-editor@latest/dist/jsoneditor.min.js"></script>
+  <link rel="stylesheet" id="theme-link" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css">
+  <link rel="stylesheet" id="iconlib-link" href="https://use.fontawesome.com/releases/v5.6.1/css/all.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+</head>
+
+<body>
+  <h1>Form: {{model_name}}</h1>
+  <!-- json-editor -->
+  <div id="json-editor" hidden>
+    <div class="container">
+      <div class='json-editor-container'></div>
+      <button id='submit'>Submit</button>
+    </div>
+    <div class="container">
+      <label class="sr-only" for="value">Value</label>
+      <textarea class="form-control" id="value" rows="12" style="font-size: 12px; font-family: monospace;"></textarea>
+    </div>
+  </div>
+  <!-- validation result-->
+  <div id="response"></div>
+  <script type="text/javascript">
+    const display_required_only = false;
+    getJsonSchema = function () {
+      $.ajax({
+        url: '/api/v1/models/{{model_name}}/schema',
+        type: "GET",
+        contentType: 'application/json; charset=utf-8',
+        success: function (data) {
+          console.log(data)
+          loadJsonEditor(data)
+        },
+        error: function (data) {
+          console.log(data.responseJSON)
+          $('#response').html(data.responseJSON.message)
+        }
+      });
+    };
+
+    validateToServer = function (data) {
+      $.ajax({
+        url: `/api/v1/models/{{ model_name }}/validate`,
+        type: "POST",
+        contentType: 'application/json; charset=utf-8',
+        data: JSON.stringify(data),
+        success: function (data) {
+          console.log(data)
+          const element = `<pre>${JSON.stringify(data, null, 2)}</pre>`
+          $('#response').html(element)
+        },
+        error: function (data) {
+          console.log(data.responseJSON)
+          const element = `<pre>${JSON.stringify(data.responseJSON, null, 2)}</pre>`
+          $('#response').html(element)
+        }
+      });
+    }
+    preprocessSchema = function (schema) {
+      // if format is "date-time", set as 'datetime-local'
+      if (schema.hasOwnProperty('format')) {
+        if (schema['format'] === 'date-time') {
+          schema['format'] = 'datetime-local';
+        }
+      }
+      // recurse over all properties
+      for (const key in schema) {
+        if (schema[key] !== null && typeof schema[key] === 'object') {
+          preprocessSchema(schema[key]);
+        }
+      }
+    }
+
+    preprocessWrapper = function (schema) {
+      const schemaCopy = JSON.parse(JSON.stringify(schema));
+      preprocessSchema(schemaCopy);
+      return schemaCopy;
+    }
+
+    loadJsonEditor = function (schema) {
+      // preprocess schema
+      const newSchema = preprocessWrapper(schema);
+      // json-editor
+      const editor = new JSONEditor(jsonEditorContainer, {
+        schema: newSchema,
+        theme: 'bootstrap3',
+        show_errors: 'always',
+        iconlib: 'fontawesome5',
+        keep_oneof_values: false,
+        // remove the following to allow users to edit json/properties directly
+        disable_properties: true,
+        disable_edit_json: true,
+        // other custom options
+        disable_array_reorder: true,
+        array_controls_top: true,
+        form_name_root: 'test',
+        // no_additional_properties: true,
+        display_required_only: display_required_only, // NOTE: this works! cleans up the form a LOT
+        show_opt_in: true, // also works, not sure if this helps or not
+        compact: true,
+      })
+      editor.on('change', () => {
+        value.value = JSON.stringify(editor.getValue(), null, 2)
+      })
+
+      // Hook up the submit button to log to the console
+      document.getElementById('submit').addEventListener('click', function () {
+        editor.showValidationErrors();
+        // Get the value from the editor
+        const submitValue = editor.getValue();
+        console.log(submitValue);
+        validateToServer(submitValue);
+      });
+      // unhide
+      document.getElementById('json-editor').hidden = false;
+    }
+
+    const jsonEditorContainer = document.querySelector('.json-editor-container')
+    const value = document.querySelector('#value')
+
+    $(document).ready(function () {
+      getJsonSchema();
+    });
+
+  </script>
+</body>
+
+</html>

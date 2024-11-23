@@ -677,6 +677,19 @@ async def index(request: Request):
         ),
     )
 
+async def form(request: Request):
+    """GET /form/{model_name}: form render"""
+    model_name = request.path_params.get("model_name")
+    return templates.TemplateResponse(
+        name="form.html",
+        context=(
+            {
+                "request": request,
+                "model_name": model_name,
+            }
+        ),
+    )
+
 
 async def job_status_table(request: Request):
     """Get Job Status table with pagination"""
@@ -815,6 +828,7 @@ routes = [
     ),
     Route("/api/v1/get_tasks_list", endpoint=get_tasks_list, methods=["GET"]),
     Route("/api/v1/get_task_logs", endpoint=get_task_logs, methods=["GET"]),
+    Route("/form/{model_name:str}", endpoint=form, methods=["GET"]),
     Route("/jobs", endpoint=jobs, methods=["GET"]),
     Route("/job_status_table", endpoint=job_status_table, methods=["GET"]),
     Route("/job_tasks_table", endpoint=job_tasks_table, methods=["GET"]),
