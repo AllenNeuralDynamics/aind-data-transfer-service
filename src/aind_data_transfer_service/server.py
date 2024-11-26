@@ -72,7 +72,6 @@ templates = Jinja2Templates(directory=template_directory)
 # AIND_AIRFLOW_SERVICE_PASSWORD
 # AIND_AIRFLOW_SERVICE_USER
 
-# NOTE: add cors to test metadata-entry-app
 middleware = [
     Middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"])
 ]
