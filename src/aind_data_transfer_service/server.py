@@ -40,6 +40,8 @@ from aind_data_transfer_service.models import (
     JobStatus,
     JobTasks,
 )
+from starlette.middleware.cors import CORSMiddleware
+from starlette.middleware import Middleware
 
 template_directory = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "templates")
@@ -65,6 +67,10 @@ templates = Jinja2Templates(directory=template_directory)
 # AIND_AIRFLOW_SERVICE_PASSWORD
 # AIND_AIRFLOW_SERVICE_USER
 
+# NOTE: add cors to test metadata-entry-app
+middleware = [
+    Middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"])
+]
 
 async def validate_csv(request: Request):
     """Validate a csv or xlsx file. Return parsed contents as json."""
@@ -826,4 +832,4 @@ routes = [
     ),
 ]
 
-app = Starlette(routes=routes)
+app = Starlette(routes=routes, middleware=middleware)
