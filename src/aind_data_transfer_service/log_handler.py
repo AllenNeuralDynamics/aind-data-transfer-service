@@ -33,6 +33,15 @@ class LoggingConfigs(BaseSettings):
         )
         return app_name
 
+    @property
+    def loki_path(self):
+        """Full path to log loki messages to"""
+        return (
+            None
+            if self.loki_uri is None
+            else f"{self.loki_uri}/loki/api/v1/push"
+        )
+
 
 def get_logger(log_configs: LoggingConfigs) -> logging.Logger:
     """Return a logger that can be used to log messages."""
@@ -41,7 +50,7 @@ def get_logger(log_configs: LoggingConfigs) -> logging.Logger:
     logger.setLevel(level)
     if log_configs.loki_uri is not None:
         handler = LokiHandler(
-            url=log_configs.loki_uri,
+            url=log_configs.loki_path,
             version="1",
             tags={"application": log_configs.app_name},
         )

@@ -15,6 +15,12 @@ class TestLoggingConfigs(unittest.TestCase):
         configs = LoggingConfigs(env_name="test", loki_uri=None)
         self.assertEqual("aind-data-transfer-service-test", configs.app_name)
 
+    def test_loki_path(self):
+        """Tests app_name property"""
+
+        configs = LoggingConfigs(env_name="test", loki_uri="example.com")
+        self.assertEqual("example.com/loki/api/v1/push", configs.loki_path)
+
     @patch("logging.getLogger")
     @patch("aind_data_transfer_service.log_handler.LokiHandler")
     def test_get_logger(
@@ -28,7 +34,7 @@ class TestLoggingConfigs(unittest.TestCase):
         )
         _ = get_logger(log_configs=configs)
         mock_loki_handler.assert_called_once_with(
-            url="example.com",
+            url="example.com/loki/api/v1/push",
             version="1",
             tags={"application": "aind-data-transfer-service-test"},
         )
