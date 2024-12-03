@@ -198,7 +198,7 @@ class TestServer(unittest.TestCase):
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch("aind_data_transfer_service.server.sleep", return_value=None)
     @patch("aind_data_transfer_service.hpc.client.HpcClient.submit_job")
-    @patch("logging.error")
+    @patch("logging.Logger.error")
     def test_submit_jobs_server_error(
         self,
         mock_log_error: MagicMock,
@@ -238,7 +238,7 @@ class TestServer(unittest.TestCase):
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch("aind_data_transfer_service.server.sleep", return_value=None)
     @patch("aind_data_transfer_service.hpc.client.HpcClient.submit_job")
-    @patch("logging.error")
+    @patch("logging.Logger.error")
     def test_submit_jobs_malformed_json(
         self,
         mock_log_error: MagicMock,
@@ -450,7 +450,7 @@ class TestServer(unittest.TestCase):
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch("aind_data_transfer_service.server.sleep", return_value=None)
     @patch("aind_data_transfer_service.hpc.client.HpcClient.submit_hpc_job")
-    @patch("logging.error")
+    @patch("logging.Logger.error")
     def test_submit_hpc_jobs_error(
         self,
         mock_log_error: MagicMock,
@@ -497,7 +497,7 @@ class TestServer(unittest.TestCase):
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch("aind_data_transfer_service.server.sleep", return_value=None)
     @patch("aind_data_transfer_service.hpc.client.HpcClient.submit_hpc_job")
-    @patch("logging.error")
+    @patch("logging.Logger.error")
     def test_submit_hpc_jobs_server_error(
         self,
         mock_log_error: MagicMock,
@@ -664,10 +664,10 @@ class TestServer(unittest.TestCase):
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch("requests.get")
-    @patch("logging.error")
+    @patch("logging.Logger.warning")
     def test_get_job_status_list_validation_error(
         self,
-        mock_log_error: MagicMock,
+        mock_log_warning: MagicMock,
         mock_get,
     ):
         """Tests get_job_status_list when query_params are invalid."""
@@ -693,7 +693,7 @@ class TestServer(unittest.TestCase):
                 response_content["message"],
                 "Error validating request parameters",
             )
-        mock_log_error.assert_called()
+        mock_log_warning.assert_called()
         mock_get.assert_not_called()
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
@@ -745,7 +745,7 @@ class TestServer(unittest.TestCase):
         )
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
-    @patch("logging.error")
+    @patch("logging.Logger.exception")
     @patch("requests.get")
     def test_get_job_status_list_error(
         self,
@@ -990,7 +990,7 @@ class TestServer(unittest.TestCase):
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch("requests.get")
-    @patch("logging.error")
+    @patch("logging.Logger.warning")
     def test_get_tasks_list_validation_error(
         self,
         mock_log_error: MagicMock,
@@ -1014,7 +1014,7 @@ class TestServer(unittest.TestCase):
         mock_get.assert_not_called()
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
-    @patch("logging.error")
+    @patch("logging.Logger.exception")
     @patch("requests.get")
     def test_get_tasks_list_error(
         self,
@@ -1080,7 +1080,7 @@ class TestServer(unittest.TestCase):
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch("requests.get")
-    @patch("logging.error")
+    @patch("logging.Logger.warning")
     def test_get_task_logs_validation_error(
         self,
         mock_log_error: MagicMock,
@@ -1106,7 +1106,7 @@ class TestServer(unittest.TestCase):
         mock_get.assert_not_called()
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
-    @patch("logging.error")
+    @patch("logging.Logger.exception")
     @patch("requests.get")
     def test_get_task_logs_error(
         self,
@@ -1291,7 +1291,7 @@ class TestServer(unittest.TestCase):
         self.assertEqual(200, response.status_code)
 
     @patch("aind_data_transfer_service.server.JobUploadTemplate")
-    @patch("logging.error")
+    @patch("logging.Logger.exception")
     def test_download_invalid_job_template(
         self, mock_log_error: MagicMock, mock_job_template: MagicMock
     ):
@@ -1441,8 +1441,10 @@ class TestServer(unittest.TestCase):
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch("requests.post")
+    @patch("logging.Logger.exception")
     def test_submit_v1_jobs_500(
         self,
+        mock_log_exception: MagicMock,
         mock_post: MagicMock,
     ):
         """Tests submit jobs 500 response."""
@@ -1484,6 +1486,7 @@ class TestServer(unittest.TestCase):
                 url="/api/v1/submit_jobs", json=request_json
             )
         self.assertEqual(500, submit_job_response.status_code)
+        mock_log_exception.assert_called()
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch("requests.post")

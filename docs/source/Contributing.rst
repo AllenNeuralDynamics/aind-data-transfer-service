@@ -67,6 +67,7 @@ To run uvicorn locally:
    export AIND_AIRFLOW_SERVICE_JOBS_URL='http://localhost:8080/transform_and_upload'
    export AIND_AIRFLOW_SERVICE_PASSWORD='*****'
    export AIND_AIRFLOW_SERVICE_USER='user'
+   export ENV_NAME='local'
    uvicorn aind_data_transfer_service.server:app --host 0.0.0.0 --port 5000 --reload
 
 You can now access aind-data-transfer-service at

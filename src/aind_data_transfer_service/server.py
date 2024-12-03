@@ -3,7 +3,6 @@
 import csv
 import io
 import json
-import logging
 import os
 from asyncio import sleep
 from pathlib import PurePosixPath
@@ -29,6 +28,7 @@ from aind_data_transfer_service.configs.job_upload_template import (
 )
 from aind_data_transfer_service.hpc.client import HpcClient, HpcClientConfigs
 from aind_data_transfer_service.hpc.models import HpcJobSubmitSettings
+from aind_data_transfer_service.log_handler import LoggingConfigs, get_logger
 from aind_data_transfer_service.models import (
     AirflowDagRun,
     AirflowDagRunRequestParameters,
@@ -64,10 +64,16 @@ templates = Jinja2Templates(directory=template_directory)
 # AIND_AIRFLOW_SERVICE_JOBS_URL
 # AIND_AIRFLOW_SERVICE_PASSWORD
 # AIND_AIRFLOW_SERVICE_USER
+# LOKI_URI
+# ENV_NAME
+# LOG_LEVEL
+
+logger = get_logger(log_configs=LoggingConfigs())
 
 
 async def validate_csv(request: Request):
     """Validate a csv or xlsx file. Return parsed contents as json."""
+    logger.info("Received request to validate csv")
     async with request.form() as form:
         basic_jobs = []
         errors = []
@@ -169,6 +175,7 @@ async def validate_csv_legacy(request: Request):
 
 async def submit_jobs(request: Request):
     """Post BasicJobConfigs raw json to hpc server to process."""
+    logger.info("Received request to submit jobs")
     content = await request.json()
     try:
         model = SubmitJobRequest.model_validate_json(json.dumps(content))
@@ -176,6 +183,17 @@ async def submit_jobs(request: Request):
             model.model_dump_json(warnings=False, exclude_none=True)
         )
         # TODO: Replace with httpx async client
+        logger.info(
+            f"Valid request detected. Sending list of jobs. "
+            f"Job Type: {model.job_type}"
+        )
+        total_jobs = len(model.upload_jobs)
+        for job_index, job in enumerate(model.upload_jobs, 1):
+            logger.info(
+                f"{job.s3_prefix} sending to airflow. "
+                f"{job_index} of {total_jobs}."
+            )
+
         response = requests.post(
             url=os.getenv("AIND_AIRFLOW_SERVICE_URL"),
             auth=(
@@ -193,6 +211,7 @@ async def submit_jobs(request: Request):
         )
 
     except ValidationError as e:
+        logger.warning(f"There were validation errors processing {content}")
         return JSONResponse(
             status_code=406,
             content={
@@ -201,6 +220,7 @@ async def submit_jobs(request: Request):
             },
         )
     except Exception as e:
+        logger.exception("Internal Server Error.")
         return JSONResponse(
             status_code=500,
             content={
@@ -256,7 +276,7 @@ async def submit_basic_jobs(request: Request):
                 # Add pause to stagger job requests to the hpc
                 await sleep(0.2)
             except Exception as e:
-                logging.error(f"{e.__class__.__name__}{e.args}")
+                logger.error(f"{e.__class__.__name__}{e.args}")
                 hpc_errors.append(
                     f"Error processing "
                     f"{hpc_job.basic_upload_job_configs.s3_prefix}"
@@ -382,7 +402,7 @@ async def submit_hpc_jobs(request: Request):  # noqa: C901
                 # Add pause to stagger job requests to the hpc
                 await sleep(0.2)
             except Exception as e:
-                logging.error(repr(e))
+                logger.error(repr(e))
                 hpc_errors.append(f"Error processing " f"{hpc_job_def.name}")
         message = (
             "There were errors submitting jobs to the hpc."
@@ -456,12 +476,14 @@ async def get_job_status_list(request: Request):
                 "errors": [response_jobs.json()],
             }
     except ValidationError as e:
-        logging.error(e)
+        logger.warning(
+            f"There was a validation error process job_status list: {e}"
+        )
         status_code = 406
         message = "Error validating request parameters"
         data = {"errors": json.loads(e.json())}
     except Exception as e:
-        logging.error(e)
+        logger.exception("Unable to retrieve job status list from airflow")
         status_code = 500
         message = "Unable to retrieve job status list from airflow"
         data = {"errors": [f"{e.__class__.__name__}{e.args}"]}
@@ -516,12 +538,12 @@ async def get_tasks_list(request: Request):
                 "errors": [response_tasks.json()],
             }
     except ValidationError as e:
-        logging.error(e)
+        logger.warning(f"There was a validation error process task_list: {e}")
         status_code = 406
         message = "Error validating request parameters"
         data = {"errors": json.loads(e.json())}
     except Exception as e:
-        logging.error(e)
+        logger.exception("Unable to retrieve job tasks list from airflow")
         status_code = 500
         message = "Unable to retrieve job tasks list from airflow"
         data = {"errors": [f"{e.__class__.__name__}{e.args}"]}
@@ -565,12 +587,12 @@ async def get_task_logs(request: Request):
                 "errors": [response_logs.json()],
             }
     except ValidationError as e:
-        logging.error(e)
+        logger.warning(f"Error validating request parameters: {e}")
         status_code = 406
         message = "Error validating request parameters"
         data = {"errors": json.loads(e.json())}
     except Exception as e:
-        logging.error(e)
+        logger.exception("Unable to retrieve job task_list from airflow")
         status_code = 500
         message = "Unable to retrieve task logs from airflow"
         data = {"errors": [f"{e.__class__.__name__}{e.args}"]}
@@ -707,7 +729,7 @@ async def download_job_template(_: Request):
             status_code=200,
         )
     except Exception as e:
-        logging.error(e)
+        logger.exception("Error creating job template")
         return JSONResponse(
             content={
                 "message": "Error creating job template",
