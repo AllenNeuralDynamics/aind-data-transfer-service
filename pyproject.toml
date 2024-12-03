@@ -48,7 +48,8 @@ server = [
     'uvicorn[standard]',
     'wtforms',
     'requests==2.25.0',
-    'openpyxl'
+    'openpyxl',
+    'python-logging-loki'
 ]
 
 [tool.setuptools.packages.find]
