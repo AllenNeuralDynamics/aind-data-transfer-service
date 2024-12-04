@@ -4,7 +4,19 @@ import ast
 from datetime import datetime, timedelta, timezone
 from typing import List, Optional, Union
 
-from pydantic import AwareDatetime, BaseModel, Field, field_validator
+from aind_data_transfer_models.core import (
+    BasicUploadJobConfigs,
+    ModalityConfigs,
+    SubmitJobRequest,
+)
+from pydantic import (
+    AwareDatetime,
+    BaseModel,
+    ConfigDict,
+    Field,
+    field_validator,
+)
+from pydantic.json_schema import SkipJsonSchema
 from starlette.datastructures import QueryParams
 
 
@@ -212,3 +224,40 @@ class JobTasks(BaseModel):
             duration=airflow_task_instance.duration,
             comment=airflow_task_instance.note,
         )
+
+
+class ModalityConfigsForm(ModalityConfigs):
+    """Configurations for a modality type"""
+
+    model_config = ConfigDict(extra="forbid")
+    job_settings: Optional[str] = Field(
+        default=None,
+        description=(
+            "Configs to pass into modality compression job. "
+            "Must be serialized as json string."
+        ),
+    )
+    # remove from json schema:
+    slurm_settings: SkipJsonSchema[None] = None
+
+
+class BasicUploadJobConfigsForm(BasicUploadJobConfigs):
+    """Configuration for a basic upload job"""
+
+    model_config = ConfigDict(extra="forbid")
+    modalities: List[ModalityConfigsForm]
+    # remove from json schema:
+    user_email: SkipJsonSchema[None] = None
+    email_notification_types: SkipJsonSchema[None] = None
+    input_data_mount: SkipJsonSchema[None] = None
+    process_capsule_id: SkipJsonSchema[None] = None
+    trigger_capsule_configs: SkipJsonSchema[None] = None
+
+
+class SubmitJobRequestForm(SubmitJobRequest):
+    """Form to submit a list of jobs to aind-data-transfer-service"""
+
+    model_config = ConfigDict(extra="forbid")
+    upload_jobs: List[BasicUploadJobConfigsForm]
+    # remove from json schema:
+    job_type: SkipJsonSchema[None] = None
