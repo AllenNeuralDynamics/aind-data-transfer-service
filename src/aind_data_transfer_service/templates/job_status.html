@@ -71,24 +71,15 @@
                     <span class="input-group-text" style="width:35%">Submit Time</span>
                     <input id="submit-date-range" class="form-select" type="text" />
                 </div>
-                <!-- search by job id (exact match only) -->
-                <div class="d-flex align-items-center">
-                    <hr class="flex-grow-1 border-secondary">
-                    <span class="mx-2"><small class="d-block">or</small></span>
-                    <hr class="flex-grow-1 border-secondary">
+                <!-- advanced search (uses full jobs table)-->
+                <hr class="flex-grow-1 border-secondary">
+                <div class="input-group input-group-sm mb-1">
+                    <span class="input-group-text" style="width:35%">Search</span>
+                    <input id="advanced-search-input" type="text" class="form-control" placeholder="asset name or job id" oninput="searchFullJobsTable(event)"/>
+                    <button id="advanced-search-clear" class="btn btn-outline-secondary" type="button" title="Clear" onclick="clearAdvancedSearch(event)">
+                        <i class="bi bi-x-lg"></i>
+                    </button>
                 </div>
-                <form onsubmit="searchByJobId(event)">
-                    <div class="input-group input-group-sm">
-                        <span class="input-group-text" style="width:35%">Job ID</span>
-                        <input id="job-id-input" type="text" class="form-control" placeholder="exact match only">
-                        <button class="btn btn-outline-secondary" type="submit" title="Search">
-                            <i class="bi bi-search"></i>
-                        </button>
-                        <button class="btn btn-outline-secondary" type="button" onclick="clearJobIdResult(event)" title="Clear">
-                            <i class="bi bi-x-lg"></i>
-                        </button>
-                    </div>
-                </form>
             </div>
         </div>
         <!-- job status tables -->
@@ -205,7 +196,7 @@
             });
         }
         // EVENT HANDLERS ------------------------------------------------
-        function updateJobStatusTable(newParams, isSearchJobId=false) {
+        function updateJobStatusTable(newParams) {
             Object.entries(newParams).forEach(([key, value]) => {
                 tableUrls.default.searchParams.set(key, value);
                 // Ignore paginate changes for full jobs table
@@ -213,11 +204,6 @@
                     tableUrls.full.searchParams.set(key, value);
                 }
             });
-            // reset job_id filter
-            if (!isSearchJobId) {
-                document.getElementById('job-id-input').value = '';
-                tableUrls.default.searchParams.delete('dag_run_id');
-            }
             // Update job tables
             var iframe = document.getElementById('jobs-iframe');
             iframe.src = tableUrls.default.toString();
@@ -242,17 +228,16 @@
                 offset: 0 // reset to first page
             });
         }
-        function searchByJobId(event) {
+        // Advanced search (full table)
+        function searchFullJobsTable(event) {
             event.preventDefault();
-            // search by job id and reset to first page
-            const jobId = document.getElementById('job-id-input').value;
-            console.log('Searching for job ID:', jobId);
-            updateJobStatusTable({ dag_run_id: jobId, offset: 0}, true);
+            let searchValue = event.target.value;
+            $('#searchJobsTable').DataTable().search(searchValue).draw();
         }
-        function clearJobIdResult(event) {
+        function clearAdvancedSearch(event) {
             event.preventDefault();
-            // clear job id filter and reset to first page
-            updateJobStatusTable({ offset: 0 }, false);
+            $('#advanced-search-input').val('');
+            $('#searchJobsTable').DataTable().search('').draw();
         }
         // Pagination (default table)
         function updateJobStatusTableLimit(newLimit) {
