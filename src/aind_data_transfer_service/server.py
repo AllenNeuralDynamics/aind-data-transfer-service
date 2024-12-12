@@ -32,8 +32,6 @@ from aind_data_transfer_service.hpc.client import HpcClient, HpcClientConfigs
 from aind_data_transfer_service.hpc.models import HpcJobSubmitSettings
 from aind_data_transfer_service.log_handler import LoggingConfigs, get_logger
 from aind_data_transfer_service.models import (
-    AirflowDagRun,
-    AirflowDagRunRequestParameters,
     AirflowDagRunsRequestParameters,
     AirflowDagRunsResponse,
     AirflowTaskInstanceLogsRequestParameters,
@@ -424,27 +422,23 @@ async def submit_hpc_jobs(request: Request):  # noqa: C901
 
 async def get_job_status_list(request: Request):
     """Get status of jobs with default pagination of limit=25 and offset=0."""
-    async def fetch_jobs(client: AsyncClient, url: str, params: Optional[dict]):
+
+    async def fetch_jobs(
+        client: AsyncClient, url: str, params: Optional[dict]
+    ):
         """Helper method to fetch jobs using httpx async client"""
         response = await client.get(url, params=params)
         response.raise_for_status()
         return response.json()
-    
+
     try:
         url = os.getenv("AIND_AIRFLOW_SERVICE_JOBS_URL", "").strip("/")
-        get_one_job = request.query_params.get("dag_run_id") is not None
         get_all_jobs = request.query_params.get("get_all_jobs") is not None
-        if get_one_job:
-            params = AirflowDagRunRequestParameters.from_query_params(
-                request.query_params
-            )
-            url = f"{url}/{params.dag_run_id}"
-        else:
-            params = AirflowDagRunsRequestParameters.from_query_params(
-                request.query_params
-            )
+        params = AirflowDagRunsRequestParameters.from_query_params(
+            request.query_params
+        )
         params_dict = json.loads(params.model_dump_json(exclude_none=True))
-        # Send request to Airflow to ListDagRuns or GetDagRun
+        # Send request to Airflow to ListDagRuns
         async with AsyncClient(
             auth=(
                 os.getenv("AIND_AIRFLOW_SERVICE_USER"),
@@ -455,19 +449,11 @@ async def get_job_status_list(request: Request):
             response_jobs = await fetch_jobs(
                 client=client,
                 url=url,
-                params=None if get_one_job else params_dict,
+                params=params_dict,
             )
-            if get_one_job:
-                dag_run = AirflowDagRun.model_validate_json(
-                    json.dumps(response_jobs)
-                )
-                dag_runs = AirflowDagRunsResponse(
-                    dag_runs=[dag_run], total_entries=1
-                )
-            else:
-                dag_runs = AirflowDagRunsResponse.model_validate_json(
-                    json.dumps(response_jobs)
-                )
+            dag_runs = AirflowDagRunsResponse.model_validate_json(
+                json.dumps(response_jobs)
+            )
             job_status_list = [
                 JobStatus.from_airflow_dag_run(d) for d in dag_runs.dag_runs
             ]
@@ -477,16 +463,9 @@ async def get_job_status_list(request: Request):
                 tasks = []
                 offset = params_dict["offset"] + params_dict["limit"]
                 while offset < total_entries:
+                    params = {**params_dict, "limit": 100, "offset": offset}
                     tasks.append(
-                        fetch_jobs(
-                            client=client,
-                            url=url,
-                            params={
-                                **params_dict,
-                                "limit": 100,  # max limit in airflow
-                                "offset": offset,
-                            },
-                        )
+                        fetch_jobs(client=client, url=url, params=params)
                     )
                     offset += 100
                 batches = await gather(*tasks)

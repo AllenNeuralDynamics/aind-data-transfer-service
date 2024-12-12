@@ -67,18 +67,6 @@ class AirflowDagRunsRequestParameters(BaseModel):
         return cls.model_validate(params)
 
 
-class AirflowDagRunRequestParameters(BaseModel):
-    """Model for parameters when requesting info from dag_run endpoint"""
-
-    dag_run_id: str = Field(..., min_length=1)
-
-    @classmethod
-    def from_query_params(cls, query_params: QueryParams):
-        """Maps the query parameters to the model"""
-        params = dict(query_params)
-        return cls.model_validate(params)
-
-
 class AirflowTaskInstancesRequestParameters(BaseModel):
     """Model for parameters when requesting info from task_instances
     endpoint"""
