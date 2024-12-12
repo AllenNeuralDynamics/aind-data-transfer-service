@@ -706,6 +706,7 @@ class TestServer(unittest.TestCase):
         """Tests get_job_status_list when get_all_jobs is True."""
 
         def mock_airflow_dags(url, params):
+            """Mocks the response from airflow."""
             limit = int(params.get("limit"))
             mock_dag_runs_response = Response()
             mock_dag_runs_response.status_code = 200
