@@ -180,6 +180,29 @@
             updateJobStatusTable(initialParams);
         });
         // FULL JOBS TABLE -----------------------------------------------
+        // Helper functions for custom column rendering
+        function renderJobStatus(cell, cellData, rowData, rowIndex, colIndex) {
+            let customClass = cellData === 'success' ? 'table-success'
+                : cellData === 'failed' ? 'table-danger'
+                : cellData === 'running' ? 'table-info'
+                : cellData === 'queued' ? 'table-secondary'
+                : null;
+            if (customClass) {
+                cell.classList.add(customClass);
+            }
+        }
+        function renderDatetime(data, type, row) {
+            return (type === 'display') ? moment.utc(data).local().format('YYYY-MM-DD h:mm:ss a') : data;
+        }
+        function renderTasksButton(data, type, row) {
+            if (type == 'display') {
+                return (`<button type="button" class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#tasks-modal" data-job-id="${data}" data-job-name="${row.name}" data-job-state="${row.job_state}">
+                    <i class="bi bi-box-arrow-up-right" title="View tasks and logs"></i>
+                    </button>`);
+            }
+            return data;
+        }
+        // Create DataTable for full jobs table
         function createFullJobsTable() {
             $('#searchJobsTable').DataTable({
                 ajax: {
@@ -190,13 +213,38 @@
                 columns: [
                     { data: 'name', searchable: true },
                     { data: 'job_id', searchable: true },
-                    { data: 'job_state', searchable: false },
-                    { data: 'submit_time', searchable: false },
-                    { data: 'start_time', searchable: false },
-                    { data: 'end_time', searchable: false },
-                    { data: 'comment', searchable: false },
-                    { data: 'job_id', searchable: false },
+                    { data: 'job_state', searchable: false, createdCell: renderJobStatus },
+                    { data: 'submit_time', searchable: false, render: renderDatetime },
+                    { data: 'start_time', searchable: false, render: renderDatetime },
+                    { data: 'end_time', searchable: false, render: renderDatetime },
+                    { data: 'comment', searchable: false, defaultContent: 'None' },
+                    { data: 'job_id', searchable: false, render: renderTasksButton },
                 ],
+                // options to match default jobs table
+                pageLength: 25,
+                order: [3, 'desc'],
+                layout: {
+                    topStart: null,
+                    topEnd: null,
+                    bottomStart: null,
+                    bottomEnd: null,
+                    top: [
+                        'pageLength',
+                        'info',
+                        { paging: { numbers: false } }
+                    ],
+                },
+                language: {
+                    info: "_START_ to _END_ of _TOTAL_",
+                    infoEmpty: "0 to 0 of 0",
+                    entries: { _: "jobs", 1: "job" },
+                    paginate: {
+                        first: '&laquo; First',
+                        previous: '&lsaquo; Prev',
+                        next: 'Next &rsaquo;',
+                        last: 'Last &raquo;'
+                    },
+                },
             });
         }
         // EVENT HANDLERS ------------------------------------------------
