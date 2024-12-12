@@ -73,10 +73,14 @@
                 </div>
                 <!-- advanced search (uses full jobs table)-->
                 <hr class="flex-grow-1 border-secondary">
+                <div class="form-check form-switch mb-1">
+                    <input id="advanced-search-toggle"class="form-check-input" type="checkbox" role="switch" onchange="toggleAdvancedSearch(event)">
+                    <label class="form-check-label" for="advanced-search-toggle">Enable advanced search</label>
+                </div>
                 <div class="input-group input-group-sm mb-1">
                     <span class="input-group-text" style="width:35%">Search</span>
-                    <input id="advanced-search-input" type="text" class="form-control" placeholder="asset name or job id" oninput="searchFullJobsTable(event)"/>
-                    <button id="advanced-search-clear" class="btn btn-outline-secondary" type="button" title="Clear" onclick="clearAdvancedSearch(event)">
+                    <input id="advanced-search-input" type="text" class="form-control" placeholder="asset name or job id" oninput="searchFullJobsTable(event)" disabled/>
+                    <button id="advanced-search-clear" class="btn btn-outline-secondary" type="button" title="Clear" onclick="clearAdvancedSearch(event)" disabled>
                         <i class="bi bi-x-lg"></i>
                     </button>
                 </div>
@@ -115,7 +119,7 @@
             <!-- iframe to display paginated job status table -->
             <iframe id="jobs-iframe" src=""></iframe>
         </div>
-        <div id="full-jobs-table">
+        <div id="full-jobs-table" hidden>
             <table id="searchJobsTable" class="display compact table table-bordered table-sm" style="font-size: small">
                 <thead>
                     <tr>
@@ -204,10 +208,12 @@
                     tableUrls.full.searchParams.set(key, value);
                 }
             });
-            // Update job tables
-            var iframe = document.getElementById('jobs-iframe');
-            iframe.src = tableUrls.default.toString();
-            if (DataTable.isDataTable('#searchJobsTable')) {
+            // Update only the currently enabled table
+            let isDefault = !document.getElementById('advanced-search-toggle').checked;
+            if (isDefault) {
+                var iframe = document.getElementById('jobs-iframe');
+                iframe.src = tableUrls.default.toString();
+            } else if (DataTable.isDataTable('#searchJobsTable')) {
                 $('#searchJobsTable').DataTable().ajax.url(tableUrls.full.toString()).load();
             } else {
                 createFullJobsTable();
@@ -229,6 +235,17 @@
             });
         }
         // Advanced search (full table)
+        function toggleAdvancedSearch(event) {
+            let isDefault = !event.target.checked;
+            // enable/disable advanced-search-input
+            $('#advanced-search-input').prop('disabled', isDefault);
+            $('#advanced-search-clear').prop('disabled', isDefault);
+            // update appropriate table
+            $('#default-jobs-table').prop('hidden', !isDefault);
+            $('#full-jobs-table').prop('hidden', isDefault);
+            updateJobStatusTable({});
+            event.target.blur();
+        };
         function searchFullJobsTable(event) {
             event.preventDefault();
             let searchValue = event.target.value;
