@@ -78,6 +78,8 @@ class TestServer(unittest.TestCase):
         "OPEN_DATA_AWS_SECRET_ACCESS_KEY": "open_data_aws_key",
         "OPEN_DATA_AWS_ACCESS_KEY_ID": "open_data_aws_key_id",
         "AIND_AIRFLOW_SERVICE_JOBS_URL": "airflow_jobs_url",
+        "AIND_AIRFLOW_SERVICE_USER": "airflow_user",
+        "AIND_AIRFLOW_SERVICE_PASSWORD": "airflow_password",
     }
 
     with open(SAMPLE_CSV, "r") as file:
@@ -539,7 +541,7 @@ class TestServer(unittest.TestCase):
         self.assertEqual(2, mock_log_error.call_count)
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
-    @patch("requests.get")
+    @patch("httpx.AsyncClient.get")
     def test_get_job_status_list_default(
         self,
         mock_get,
@@ -558,7 +560,6 @@ class TestServer(unittest.TestCase):
             "offset": 0,
             "state": [],
             "execution_date_gte": "mock_execution_date_gte",
-            "execution_date_lte": None,
             "order_by": "-execution_date",
         }
         expected_job_status_list = [
@@ -631,7 +632,7 @@ class TestServer(unittest.TestCase):
         )
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
-    @patch("requests.get")
+    @patch("httpx.AsyncClient.get")
     def test_get_job_status_list_query_params(
         self,
         mock_get,
@@ -663,7 +664,7 @@ class TestServer(unittest.TestCase):
         self.assertEqual(response_content["data"]["params"]["offset"], 5)
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
-    @patch("requests.get")
+    @patch("httpx.AsyncClient.get")
     @patch("logging.Logger.warning")
     def test_get_job_status_list_validation_error(
         self,
@@ -697,52 +698,38 @@ class TestServer(unittest.TestCase):
         mock_get.assert_not_called()
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
-    @patch("requests.get")
-    def test_get_job_status_list_dag_run_id(
+    @patch("httpx.AsyncClient.get")
+    def test_get_job_status_list_get_all_jobs(
         self,
         mock_get,
     ):
-        """Tests get_job_status_list gets 1 dagRun from airflow when dag_run_id
-        is provided."""
-        dag_run_id = "manual__2024-05-18T22:08:52.286765+00:00"
-        mock_dag_run_response = Response()
-        mock_dag_run_response.status_code = 200
-        mock_dag_run_response._content = json.dumps(
-            self.get_dag_run_response
-        ).encode("utf-8")
-        mock_get.return_value = mock_dag_run_response
+        """Tests get_job_status_list when get_all_jobs is True."""
+
+        def mock_airflow_dags(url, params):
+            limit = int(params.get("limit"))
+            mock_dag_runs_response = Response()
+            mock_dag_runs_response.status_code = 200
+            mock_dag_runs_response._content = json.dumps(
+                {
+                    "total_entries": 325,
+                    "dag_runs": [
+                        self.get_dag_run_response for _ in range(limit)
+                    ],
+                }
+            ).encode("utf-8")
+            return mock_dag_runs_response
+
+        mock_get.side_effect = mock_airflow_dags
         expected_message = "Retrieved job status list from airflow"
-        expected_params = {
-            "dag_run_id": dag_run_id,
-        }
-        expected_job_status_list = [
-            {
-                "end_time": "2024-05-18T22:09:28.530534Z",
-                "job_id": "manual__2024-05-18T22:08:52.286765+00:00",
-                "job_state": "failed",
-                "name": "",
-                "comment": None,
-                "start_time": "2024-05-18T22:08:52.637098Z",
-                "submit_time": "2024-05-18T22:08:52.286765Z",
-            },
-        ]
         with TestClient(app) as client:
             response = client.get(
-                "/api/v1/get_job_status_list", params=expected_params
+                "/api/v1/get_job_status_list", params={"get_all_jobs": True}
             )
         response_content = response.json()
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(
-            response_content,
-            {
-                "message": expected_message,
-                "data": {
-                    "params": expected_params,
-                    "total_entries": 1,
-                    "job_status_list": expected_job_status_list,
-                },
-            },
-        )
+        self.assertEqual(response_content["message"], expected_message)
+        self.assertEqual(response_content["data"]["total_entries"], 325)
+        self.assertEqual(len(response_content["data"]["job_status_list"]), 325)
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch("logging.Logger.exception")
@@ -1148,7 +1135,7 @@ class TestServer(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn("Jobs Submitted:", response.text)
 
-    @patch("requests.get")
+    @patch("httpx.AsyncClient.get")
     def test_jobs_table_success(self, mock_get: MagicMock):
         """Tests that job status table renders as expected."""
         mock_response = Response()
@@ -1163,23 +1150,24 @@ class TestServer(unittest.TestCase):
         self.assertIn("Asset Name", response.text)
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
-    @patch("requests.get")
-    def test_jobs_table_failure(self, mock_get: MagicMock):
+    @patch("logging.Logger.error")
+    @patch("httpx.AsyncClient.get")
+    def test_jobs_table_failure(
+        self, mock_get: MagicMock, mock_log_error: MagicMock
+    ):
         """Tests that job status table renders error message from airflow."""
         mock_response = Response()
         mock_response.status_code = 500
-        mock_response._content = json.dumps(
-            {"message": "test airflow error"}
-        ).encode("utf-8")
         mock_get.return_value = mock_response
         with TestClient(app) as client:
             response = client.get("/job_status_table")
         self.assertEqual(response.status_code, 200)
         self.assertIn("Asset Name", response.text)
         self.assertIn(
-            "Error retrieving job status list from airflow", response.text
+            "Unable to retrieve job status list from airflow", response.text
         )
-        self.assertIn("test airflow error", response.text)
+        self.assertIn("500 Server Error", response.text)
+        mock_log_error.assert_called_once()
 
     @patch("requests.get")
     def test_tasks_table_success(self, mock_get: MagicMock):
