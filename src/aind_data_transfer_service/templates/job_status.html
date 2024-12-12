@@ -4,10 +4,12 @@
     <meta charset="UTF-8">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.8.1/font/bootstrap-icons.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.datatables.net/2.1.8/css/dataTables.dataTables.css" />
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.3/moment.min.js"></script>
     <script type="text/javascript" src="https://cdn.jsdelivr.net/jquery/latest/jquery.min.js"></script>
     <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.min.js"></script>
+    <script src="https://cdn.datatables.net/2.1.8/js/dataTables.js"></script>
     <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.css" />
     <title>{% block title %} {% endblock %} AIND Data Transfer Service Jobs</title>
     <style>
@@ -18,7 +20,7 @@
         nav {
             height: 40px;
         }
-        .content {
+        #default-jobs-table {
             width: 100%;
             height: calc(100vh - 200px);
             iframe {
@@ -89,38 +91,64 @@
                 </form>
             </div>
         </div>
-        <!-- toolbar to change jobs per page and navigate pages -->
-        <div id="jobs-toolbar" class="btn-toolbar justify-content-between mb-2" role="toolbar">
-            <div class="input-group input-group-sm">
-                <select class="form-select" onchange="updateJobStatusTableLimit(this.value);this.blur();">
-                    {% for l in [10, 25, 50, 100] %}
-                    {% if l==default_limit %}<option value="{{ l }}" selected>{{ l }}</option>
-                    {% else %}<option value="{{ l }}">{{ l }}</option>
-                    {% endif %}
-                    {% endfor %}
-                </select>
-                <span class="input-group-text">jobs per page</span>
+        <!-- job status tables -->
+        <div id="default-jobs-table">
+            <!-- toolbar to change jobs per page and navigate pages -->
+            <div id="jobs-toolbar" class="btn-toolbar justify-content-between mb-2" role="toolbar">
+                <div class="input-group input-group-sm">
+                    <select class="form-select" onchange="updateJobStatusTableLimit(this.value);this.blur();">
+                        {% for l in [10, 25, 50, 100] %}
+                        {% if l==default_limit %}<option value="{{ l }}" selected>{{ l }}</option>
+                        {% else %}<option value="{{ l }}">{{ l }}</option>
+                        {% endif %}
+                        {% endfor %}
+                    </select>
+                    <span class="input-group-text">jobs per page</span>
+                </div>
+                <div class="btn-group btn-group-sm" role="group">
+                    <!-- display current jobs range e.g, "1 to 10 of 100" -->
+                    <span id="jobs-iframe-showing" class="btn" style="cursor:default;"></span>
+                </div>
+                <div class="btn-group pagination pagination-sm" role="group">
+                    <button id="jobs-page-btn-first" type="button" class="btn page-link"
+                        onclick="updateJobStatusTablePage(PaginateTo.FIRST);this.blur();">&laquo; First</button>
+                    <button id="jobs-page-btn-prev" type="button" class="btn page-link"
+                        onclick="updateJobStatusTablePage(PaginateTo.PREV);this.blur();"
+                        >&lsaquo; Prev</button>
+                    <button id="jobs-page-btn-next" type="button" class="btn page-link"
+                        onclick="updateJobStatusTablePage(PaginateTo.NEXT);this.blur();">Next &rsaquo;</button>
+                    <button id="jobs-page-btn-last" type="button" class="btn page-link"
+                        onclick="updateJobStatusTablePage(PaginateTo.LAST);this.blur();">Last &raquo;</button>
+                </div>
             </div>
-            <div class="btn-group btn-group-sm" role="group">
-                <!-- display current jobs range e.g, "1 to 10 of 100" -->
-                <span id="jobs-iframe-showing" class="btn" style="cursor:default;"></span>
-            </div>
-            <div class="btn-group pagination pagination-sm" role="group">
-                <button id="jobs-page-btn-first" type="button" class="btn page-link"
-                    onclick="updateJobStatusTablePage(PaginateTo.FIRST);this.blur();">&laquo; First</button>
-                <button id="jobs-page-btn-prev" type="button" class="btn page-link"
-                    onclick="updateJobStatusTablePage(PaginateTo.PREV);this.blur();"
-                    >&lsaquo; Prev</button>
-                <button id="jobs-page-btn-next" type="button" class="btn page-link"
-                    onclick="updateJobStatusTablePage(PaginateTo.NEXT);this.blur();">Next &rsaquo;</button>
-                <button id="jobs-page-btn-last" type="button" class="btn page-link"
-                    onclick="updateJobStatusTablePage(PaginateTo.LAST);this.blur();">Last &raquo;</button>
-            </div>
+            <!-- iframe to display paginated job status table -->
+            <iframe id="jobs-iframe" src=""></iframe>
         </div>
-        <!-- iframe to display paginated job status table -->
-        <iframe id="jobs-iframe" src=""></iframe>
+        <div id="full-jobs-table">
+            <table id="searchJobsTable" class="display compact table table-bordered table-sm" style="font-size: small">
+                <thead>
+                    <tr>
+                        <th>Asset Name</th>
+                        <th>Job ID</th>
+                        <th>Status</th>
+                        <th>Submit Time</th>
+                        <th>Start Time</th>
+                        <th>End Time</th>
+                        <th>Comment</th>
+                        <th>Tasks</th>
+                    </tr>
+                </thead>
+            </table>
+        </div>
     </div>
     <script>
+        // User can filter for jobs by status and submit time, and view results in 2 ways:
+        // 1. Default table: Loads 1 page of jobs at a time using Jinja template.
+        // 2. Full Jobs Table: Loads all jobs using DataTables library. Enables searching across all jobs.
+        let tableUrls = {
+            default: new URL("{{ url_for('job_status_table') }}"),
+            full: new URL("{{ url_for('get_job_status_list') }}" + "?get_all_jobs=true"),
+        };  
         const PaginateTo = {
             NEXT: 'next',
             PREV: 'prev',
@@ -154,21 +182,50 @@
                 execution_date_gte: twoWeeksAgo.startOf('day').toISOString(),
                 execution_date_lte: today.endOf('day').toISOString(),
             };
-            updateJobStatusTable(initialParams, false, true);
+            updateJobStatusTable(initialParams);
         });
+        // FULL JOBS TABLE -----------------------------------------------
+        function createFullJobsTable() {
+            $('#searchJobsTable').DataTable({
+                ajax: {
+                    url: tableUrls.full,
+                    dataSrc: 'data.job_status_list'
+                },
+                processing: true,
+                columns: [
+                    { data: 'name', searchable: true },
+                    { data: 'job_id', searchable: true },
+                    { data: 'job_state', searchable: false },
+                    { data: 'submit_time', searchable: false },
+                    { data: 'start_time', searchable: false },
+                    { data: 'end_time', searchable: false },
+                    { data: 'comment', searchable: false },
+                    { data: 'job_id', searchable: false },
+                ],
+            });
+        }
         // EVENT HANDLERS ------------------------------------------------
-        function updateJobStatusTable(newParams, isSearchJobId=false, isInitial=false) {
-            var iframe = document.getElementById('jobs-iframe');
-            var currentUrl = isInitial ?  new URL("{{ url_for('job_status_table') }}") : new URL(iframe.src);
+        function updateJobStatusTable(newParams, isSearchJobId=false) {
             Object.entries(newParams).forEach(([key, value]) => {
-                currentUrl.searchParams.set(key, value);
+                tableUrls.default.searchParams.set(key, value);
+                // Ignore paginate changes for full jobs table
+                if (key !== 'limit' && key !== 'offset') {
+                    tableUrls.full.searchParams.set(key, value);
+                }
             });
             // reset job_id filter
             if (!isSearchJobId) {
                 document.getElementById('job-id-input').value = '';
-                currentUrl.searchParams.delete('dag_run_id');
+                tableUrls.default.searchParams.delete('dag_run_id');
             }
-            iframe.src = currentUrl.toString();
+            // Update job tables
+            var iframe = document.getElementById('jobs-iframe');
+            iframe.src = tableUrls.default.toString();
+            if (DataTable.isDataTable('#searchJobsTable')) {
+                $('#searchJobsTable').DataTable().ajax.url(tableUrls.full.toString()).load();
+            } else {
+                createFullJobsTable();
+            }
         }
         // Filters
         function filterJobsByStatus(newStatus) {
@@ -197,15 +254,14 @@
             // clear job id filter and reset to first page
             updateJobStatusTable({ offset: 0 }, false);
         }
-        // Pagination
+        // Pagination (default table)
         function updateJobStatusTableLimit(newLimit) {
             updateJobStatusTable({limit: newLimit});
         }
         function updateJobStatusTablePage(paginateTo) {
             var iframe = document.getElementById('jobs-iframe');
-            var currentUrl = new URL(iframe.src);
-            var offset = parseInt(currentUrl.searchParams.get('offset'));
-            var limit = parseInt(currentUrl.searchParams.get('limit'));
+            var offset = parseInt(tableUrls.default.searchParams.get('offset'));
+            var limit = parseInt(tableUrls.default.searchParams.get('limit'));
             switch (paginateTo) {
                 case PaginateTo.NEXT:
                     offset += limit;
