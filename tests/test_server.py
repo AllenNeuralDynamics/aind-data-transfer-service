@@ -1135,6 +1135,7 @@ class TestServer(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn("Jobs Submitted:", response.text)
 
+    @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch("httpx.AsyncClient.get")
     def test_jobs_table_success(self, mock_get: MagicMock):
         """Tests that job status table renders as expected."""
