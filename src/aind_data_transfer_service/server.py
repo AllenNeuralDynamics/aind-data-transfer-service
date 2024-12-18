@@ -182,6 +182,7 @@ async def validate_json_for_model(request: Request):
     json or errors if request is invalid."""
     # POST /api/v1/models/{model_name}/validate
     model_name = request.path_params.get("model_name")
+    logger.info(f"Received request to validate json for {model_name}")
     content = await request.json()
     if model_name == "BasicUploadJobConfigs":
         model = BasicUploadJobConfigs
@@ -190,6 +191,7 @@ async def validate_json_for_model(request: Request):
     elif model_name == "SubmitJobRequest":
         model = SubmitJobRequest
     else:
+        logger.warning(f"Model not found for {model_name}")
         return JSONResponse(
             status_code=404,
             content={
@@ -201,6 +203,7 @@ async def validate_json_for_model(request: Request):
         validated_content = json.loads(
             validated_model.model_dump_json(warnings=False, exclude_none=True)
         )
+        logger.info(f"Valid model detected for {model_name}")
         return JSONResponse(
             status_code=200,
             content={
@@ -212,6 +215,7 @@ async def validate_json_for_model(request: Request):
             },
         )
     except ValidationError as e:
+        logger.warning(f"There were validation errors processing {content}")
         return JSONResponse(
             status_code=406,
             content={
@@ -223,6 +227,7 @@ async def validate_json_for_model(request: Request):
             },
         )
     except Exception as e:
+        logger.exception("Internal Server Error.")
         return JSONResponse(
             status_code=500,
             content={

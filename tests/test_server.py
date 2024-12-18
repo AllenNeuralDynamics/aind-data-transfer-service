@@ -1365,10 +1365,12 @@ class TestServer(unittest.TestCase):
         self.assertEqual(response.status_code, 406)
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
+    @patch("logging.Logger.warning")
     @patch("requests.post")
     def test_submit_v1_jobs_406(
         self,
         mock_post: MagicMock,
+        mock_log_warning: MagicMock,
     ):
         """Tests submit jobs 406 response."""
         with TestClient(app) as client:
@@ -1377,6 +1379,9 @@ class TestServer(unittest.TestCase):
             )
         self.assertEqual(406, submit_job_response.status_code)
         mock_post.assert_not_called()
+        mock_log_warning.assert_called_once_with(
+            "There were validation errors processing {}"
+        )
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch("requests.post")
@@ -1742,7 +1747,10 @@ class TestServer(unittest.TestCase):
                 post_request_content, response_json["data"]["model_json"]
             )
 
-    def test_validate_json_for_model_not_found(self):
+    @patch("logging.Logger.warning")
+    def test_validate_json_for_model_not_found(
+        self, mock_log_warning: MagicMock
+    ):
         """Tests validate_json_for_model when model is not found."""
         model = "Test"
         with TestClient(app) as client:
@@ -1754,24 +1762,37 @@ class TestServer(unittest.TestCase):
         self.assertEqual(
             {"message": f"Model not found for {model}"}, response_json
         )
+        mock_log_warning.assert_called_once_with(
+            f"Model not found for {model}"
+        )
 
-    def test_validate_json_for_model_invalid(self):
+    @patch("logging.Logger.warning")
+    def test_validate_json_for_model_invalid(
+        self, mock_log_warning: MagicMock
+    ):
         """Tests validate_json_for_model when json is invalid."""
+        content = {"foo": "bar"}
         with TestClient(app) as client:
             response = client.post(
                 "/api/v1/models/SubmitJobRequest/validate",
-                json={"foo": "bar"},
+                json=content,
             )
         response_json = response.json()
         self.assertEqual(406, response.status_code)
         self.assertEqual(
             "There were validation errors", response_json["message"]
         )
-        self.assertEqual({"foo": "bar"}, response_json["data"]["model_json"])
+        self.assertEqual(content, response_json["data"]["model_json"])
+        mock_log_warning.assert_called_once_with(
+            f"There were validation errors processing {content}"
+        )
 
+    @patch("logging.Logger.exception")
     @patch("pydantic.BaseModel.model_validate_json")
     def test_validate_json_for_model_error(
-        self, mock_model_validate_json: MagicMock
+        self,
+        mock_model_validate_json: MagicMock,
+        mock_log_error: MagicMock,
     ):
         """Tests validate_json_for_model when there is an unknown error."""
         mock_model_validate_json.side_effect = Exception("Unknown error")
@@ -1788,6 +1809,7 @@ class TestServer(unittest.TestCase):
         self.assertEqual({"foo": "bar"}, response_json["data"]["model_json"])
         self.assertEqual("('Unknown error',)", response_json["data"]["errors"])
         mock_model_validate_json.assert_called_once()
+        mock_log_error.assert_called_once_with("Internal Server Error.")
 
 
 if __name__ == "__main__":
