@@ -152,7 +152,7 @@ endpoint:
 
   post_request_content = json.loads(submit_request.model_dump_json(exclude_none=True))
   # Optionally validate the submit_request before submitting
-  validate_job_response = requests.post(url="http://aind-data-transfer-service/api/v1/models/SubmitJobRequest/validate", json=post_request_content)
+  validate_job_response = requests.post(url="http://aind-data-transfer-service/api/v1/validate_json", json=post_request_content)
   print(validate_job_response.status_code)
   print(validate_job_response.json())
   # Uncomment the following to submit the request

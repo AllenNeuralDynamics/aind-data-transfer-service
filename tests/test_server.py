@@ -12,6 +12,9 @@ from unittest.mock import MagicMock, patch
 
 from aind_data_schema_models.modalities import Modality
 from aind_data_schema_models.platforms import Platform
+from aind_data_transfer_models import (
+    __version__ as aind_data_transfer_models_version,
+)
 from aind_data_transfer_models.core import (
     BasicUploadJobConfigs,
     ModalityConfigs,
@@ -1703,8 +1706,8 @@ class TestServer(unittest.TestCase):
             )
         self.assertEqual(200, submit_job_response.status_code)
 
-    def test_validate_json_for_model(self):
-        """Tests validate_json_for_model when json is valid."""
+    def test_validate_json(self):
+        """Tests validate_json when json is valid."""
         ephys_source_dir = PurePosixPath("shared_drive/ephys_data/690165")
 
         s3_bucket = "private"
@@ -1727,54 +1730,29 @@ class TestServer(unittest.TestCase):
             modalities=[ephys_config],
         )
         submit_job_request = SubmitJobRequest(upload_jobs=[upload_job_configs])
-        models_to_validate = {
-            "BasicUploadJobConfigs": upload_job_configs.model_dump_json(),
-            "ModalityConfigs": ephys_config.model_dump_json(),
-            "SubmitJobRequest": submit_job_request.model_dump_json(),
-        }
-
-        for model_name, model_json in models_to_validate.items():
-            post_request_content = json.loads(model_json)
-            with TestClient(app) as client:
-                response = client.post(
-                    f"/api/v1/models/{model_name}/validate",
-                    json=post_request_content,
-                )
-            response_json = response.json()
-            self.assertEqual(200, response.status_code)
-            self.assertEqual("Valid model", response_json["message"])
-            self.assertEqual(
-                post_request_content, response_json["data"]["model_json"]
-            )
-
-    @patch("logging.Logger.warning")
-    def test_validate_json_for_model_not_found(
-        self, mock_log_warning: MagicMock
-    ):
-        """Tests validate_json_for_model when model is not found."""
-        model = "Test"
+        post_request_content = json.loads(submit_job_request.model_dump_json())
         with TestClient(app) as client:
             response = client.post(
-                f"/api/v1/models/{model}/validate", json={"foo": "bar"}
+                "/api/v1/validate_json",
+                json=post_request_content,
             )
-        response_json = response.json()
-        self.assertEqual(404, response.status_code)
+            response_json = response.json()
+        self.assertEqual(200, response.status_code)
+        self.assertEqual("Valid model", response_json["message"])
         self.assertEqual(
-            {"message": f"Model not found for {model}"}, response_json
+            post_request_content, response_json["data"]["model_json"]
         )
-        mock_log_warning.assert_called_once_with(
-            f"Model not found for {model}"
+        self.assertEqual(
+            aind_data_transfer_models_version, response_json["data"]["version"]
         )
 
     @patch("logging.Logger.warning")
-    def test_validate_json_for_model_invalid(
-        self, mock_log_warning: MagicMock
-    ):
-        """Tests validate_json_for_model when json is invalid."""
+    def test_validate_json_invalid(self, mock_log_warning: MagicMock):
+        """Tests validate_json when json is invalid."""
         content = {"foo": "bar"}
         with TestClient(app) as client:
             response = client.post(
-                "/api/v1/models/SubmitJobRequest/validate",
+                "/api/v1/validate_json",
                 json=content,
             )
         response_json = response.json()
@@ -1783,22 +1761,25 @@ class TestServer(unittest.TestCase):
             "There were validation errors", response_json["message"]
         )
         self.assertEqual(content, response_json["data"]["model_json"])
+        self.assertEqual(
+            aind_data_transfer_models_version, response_json["data"]["version"]
+        )
         mock_log_warning.assert_called_once_with(
             f"There were validation errors processing {content}"
         )
 
     @patch("logging.Logger.exception")
     @patch("pydantic.BaseModel.model_validate_json")
-    def test_validate_json_for_model_error(
+    def test_validate_json_error(
         self,
         mock_model_validate_json: MagicMock,
         mock_log_error: MagicMock,
     ):
-        """Tests validate_json_for_model when there is an unknown error."""
+        """Tests validate_json when there is an unknown error."""
         mock_model_validate_json.side_effect = Exception("Unknown error")
         with TestClient(app) as client:
             response = client.post(
-                "/api/v1/models/SubmitJobRequest/validate",
+                "/api/v1/validate_json",
                 json={"foo": "bar"},
             )
         response_json = response.json()
@@ -1808,6 +1789,9 @@ class TestServer(unittest.TestCase):
         )
         self.assertEqual({"foo": "bar"}, response_json["data"]["model_json"])
         self.assertEqual("('Unknown error',)", response_json["data"]["errors"])
+        self.assertEqual(
+            aind_data_transfer_models_version, response_json["data"]["version"]
+        )
         mock_model_validate_json.assert_called_once()
         mock_log_error.assert_called_once_with("Internal Server Error.")
 

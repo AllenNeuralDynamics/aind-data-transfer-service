@@ -9,11 +9,10 @@ from pathlib import PurePosixPath
 from typing import Optional
 
 import requests
-from aind_data_transfer_models.core import (
-    BasicUploadJobConfigs,
-    ModalityConfigs,
-    SubmitJobRequest,
+from aind_data_transfer_models import (
+    __version__ as aind_data_transfer_models_version,
 )
+from aind_data_transfer_models.core import SubmitJobRequest
 from fastapi import Request
 from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
@@ -177,38 +176,25 @@ async def validate_csv_legacy(request: Request):
         )
 
 
-async def validate_json_for_model(request: Request):
+async def validate_json(request: Request):
     """Validate raw json against aind-data-transfer-models. Returns validated
     json or errors if request is invalid."""
-    # POST /api/v1/models/{model_name}/validate
-    model_name = request.path_params.get("model_name")
-    logger.info(f"Received request to validate json for {model_name}")
+    logger.info("Received request to validate json")
     content = await request.json()
-    if model_name == "BasicUploadJobConfigs":
-        model = BasicUploadJobConfigs
-    elif model_name == "ModalityConfigs":
-        model = ModalityConfigs
-    elif model_name == "SubmitJobRequest":
-        model = SubmitJobRequest
-    else:
-        logger.warning(f"Model not found for {model_name}")
-        return JSONResponse(
-            status_code=404,
-            content={
-                "message": f"Model not found for {model_name}",
-            },
-        )
     try:
-        validated_model = model.model_validate_json(json.dumps(content))
+        validated_model = SubmitJobRequest.model_validate_json(
+            json.dumps(content)
+        )
         validated_content = json.loads(
             validated_model.model_dump_json(warnings=False, exclude_none=True)
         )
-        logger.info(f"Valid model detected for {model_name}")
+        logger.info("Valid model detected")
         return JSONResponse(
             status_code=200,
             content={
                 "message": "Valid model",
                 "data": {
+                    "version": aind_data_transfer_models_version,
                     "model_json": content,
                     "validated_model_json": validated_content,
                 },
@@ -221,6 +207,7 @@ async def validate_json_for_model(request: Request):
             content={
                 "message": "There were validation errors",
                 "data": {
+                    "version": aind_data_transfer_models_version,
                     "model_json": content,
                     "errors": e.json(),
                 },
@@ -233,6 +220,7 @@ async def validate_json_for_model(request: Request):
             content={
                 "message": "There was an internal server error",
                 "data": {
+                    "version": aind_data_transfer_models_version,
                     "model_json": content,
                     "errors": str(e.args),
                 },
@@ -826,11 +814,7 @@ routes = [
         "/api/submit_basic_jobs", endpoint=submit_basic_jobs, methods=["POST"]
     ),
     Route("/api/submit_hpc_jobs", endpoint=submit_hpc_jobs, methods=["POST"]),
-    Route(
-        "/api/v1/models/{model_name:str}/validate",
-        endpoint=validate_json_for_model,
-        methods=["POST"],
-    ),
+    Route("/api/v1/validate_json", endpoint=validate_json, methods=["POST"]),
     Route("/api/v1/validate_csv", endpoint=validate_csv, methods=["POST"]),
     Route("/api/v1/submit_jobs", endpoint=submit_jobs, methods=["POST"]),
     Route(
