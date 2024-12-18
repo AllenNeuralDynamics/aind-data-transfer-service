@@ -11,6 +11,7 @@ from pathlib import PurePosixPath
 import requests
 from aind_data_transfer_models.core import (
     BasicUploadJobConfigs,
+    ModalityConfigs,
     SubmitJobRequest,
 )
 from fastapi import Request
@@ -19,8 +20,6 @@ from fastapi.templating import Jinja2Templates
 from openpyxl import load_workbook
 from pydantic import SecretStr, ValidationError
 from starlette.applications import Starlette
-from starlette.middleware import Middleware
-from starlette.middleware.cors import CORSMiddleware
 from starlette.routing import Route
 
 from aind_data_transfer_service import OPEN_DATA_BUCKET_NAME
@@ -42,10 +41,8 @@ from aind_data_transfer_service.models import (
     AirflowTaskInstanceLogsRequestParameters,
     AirflowTaskInstancesRequestParameters,
     AirflowTaskInstancesResponse,
-    BasicUploadJobConfigsForm,
     JobStatus,
     JobTasks,
-    SubmitJobRequestForm,
 )
 
 template_directory = os.path.abspath(
@@ -71,10 +68,6 @@ templates = Jinja2Templates(directory=template_directory)
 # AIND_AIRFLOW_SERVICE_JOBS_URL
 # AIND_AIRFLOW_SERVICE_PASSWORD
 # AIND_AIRFLOW_SERVICE_USER
-
-middleware = [
-    Middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"])
-]
 
 
 async def validate_csv(request: Request):
@@ -178,34 +171,6 @@ async def validate_csv_legacy(request: Request):
         )
 
 
-async def get_json_schema_for_model(request: Request):
-    """Get the JSON schema for models from aind-data-transfer-models."""
-    # GET /api/v1/models/{model_name}/schema
-    model_name = request.path_params.get("model_name")
-    # simplified versions for form generation
-    if model_name == "BasicUploadJobConfigsForm":
-        model = BasicUploadJobConfigsForm
-    elif model_name == "SubmitJobRequestForm":
-        model = SubmitJobRequestForm
-    # full versions (from aind-data-transfer-models)
-    elif model_name == "BasicUploadJobConfigs":
-        model = BasicUploadJobConfigs
-    elif model_name == "SubmitJobRequest":
-        model = SubmitJobRequest
-    else:
-        return JSONResponse(
-            status_code=404,
-            content={
-                "message": f"Schema not found for {model_name}",
-            },
-        )
-    json_schema = model.model_json_schema()
-    return JSONResponse(
-        status_code=200,
-        content=json_schema,
-    )
-
-
 async def validate_json_for_model(request: Request):
     """Validate raw json against aind-data-transfer-models. Returns validated
     json or errors if request is invalid."""
@@ -214,6 +179,8 @@ async def validate_json_for_model(request: Request):
     content = await request.json()
     if model_name == "BasicUploadJobConfigs":
         model = BasicUploadJobConfigs
+    elif model_name == "ModalityConfigs":
+        model = ModalityConfigs
     elif model_name == "SubmitJobRequest":
         model = SubmitJobRequest
     else:
@@ -820,11 +787,6 @@ routes = [
     ),
     Route("/api/submit_hpc_jobs", endpoint=submit_hpc_jobs, methods=["POST"]),
     Route(
-        "/api/v1/models/{model_name:str}/schema",
-        endpoint=get_json_schema_for_model,
-        methods=["GET"],
-    ),
-    Route(
         "/api/v1/models/{model_name:str}/validate",
         endpoint=validate_json_for_model,
         methods=["POST"],
@@ -849,4 +811,4 @@ routes = [
     ),
 ]
 
-app = Starlette(routes=routes, middleware=middleware)
+app = Starlette(routes=routes)

@@ -1705,41 +1705,6 @@ class TestServer(unittest.TestCase):
             )
         self.assertEqual(200, submit_job_response.status_code)
 
-    @patch("pydantic.BaseModel.model_json_schema")
-    def test_get_json_schema_for_model(
-        self,
-        mock_model_json_schema: MagicMock,
-    ):
-        """Tests that the json schema for a model is returned."""
-        mock_model_json_schema.return_value = {"foo": "bar"}
-        models = [
-            "BasicUploadJobConfigsForm",
-            "SubmitJobRequestForm",
-            "BasicUploadJobConfigs",
-            "SubmitJobRequest",
-        ]
-        for model in models:
-            with TestClient(app) as client:
-                response = client.get(f"/api/v1/models/{model}/schema")
-            self.assertEqual(200, response.status_code)
-            self.assertEqual({"foo": "bar"}, response.json())
-        self.assertEqual(4, mock_model_json_schema.call_count)
-
-    @patch("pydantic.BaseModel.model_json_schema")
-    def test_get_json_schema_for_model_error(
-        self,
-        mock_model_json_schema: MagicMock,
-    ):
-        """Tests that 404 error is returned if model is not found."""
-        model = "Test"
-        with TestClient(app) as client:
-            response = client.get(f"/api/v1/models/{model}/schema")
-        self.assertEqual(404, response.status_code)
-        self.assertEqual(
-            {"message": f"Schema not found for {model}"}, response.json()
-        )
-        mock_model_json_schema.assert_not_called()
-
     def test_validate_json_for_model(self):
         """Tests validate_json_for_model when json is valid."""
         ephys_source_dir = PurePosixPath("shared_drive/ephys_data/690165")
@@ -1763,35 +1728,26 @@ class TestServer(unittest.TestCase):
             acq_datetime=acq_datetime,
             modalities=[ephys_config],
         )
-        # validate BasicUploadJobConfigs
-        post_request_content = json.loads(upload_job_configs.model_dump_json())
-        with TestClient(app) as client:
-            response = client.post(
-                "/api/v1/models/BasicUploadJobConfigs/validate",
-                json=post_request_content,
-            )
-        response_json = response.json()
-        self.assertEqual(200, response.status_code)
-        self.assertEqual("Valid model", response_json["message"])
-        self.assertEqual(
-            post_request_content, response_json["data"]["model_json"]
-        )
+        submit_job_request = SubmitJobRequest(upload_jobs=[upload_job_configs])
+        models_to_validate = {
+            "BasicUploadJobConfigs": upload_job_configs.model_dump_json(),
+            "ModalityConfigs": ephys_config.model_dump_json(),
+            "SubmitJobRequest": submit_job_request.model_dump_json(),
+        }
 
-        # validate SubmitJobRequest
-        submit_request = SubmitJobRequest(upload_jobs=[upload_job_configs])
-        post_request_content = json.loads(submit_request.model_dump_json())
-
-        with TestClient(app) as client:
-            response = client.post(
-                "/api/v1/models/SubmitJobRequest/validate",
-                json=post_request_content,
+        for model_name, model_json in models_to_validate.items():
+            post_request_content = json.loads(model_json)
+            with TestClient(app) as client:
+                response = client.post(
+                    f"/api/v1/models/{model_name}/validate",
+                    json=post_request_content,
+                )
+            response_json = response.json()
+            self.assertEqual(200, response.status_code)
+            self.assertEqual("Valid model", response_json["message"])
+            self.assertEqual(
+                post_request_content, response_json["data"]["model_json"]
             )
-        response_json = response.json()
-        self.assertEqual(200, response.status_code)
-        self.assertEqual("Valid model", response_json["message"])
-        self.assertEqual(
-            post_request_content, response_json["data"]["model_json"]
-        )
 
     def test_validate_json_for_model_not_found(self):
         """Tests validate_json_for_model when model is not found."""
