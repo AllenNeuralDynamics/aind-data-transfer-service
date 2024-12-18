@@ -12,6 +12,9 @@ from unittest.mock import MagicMock, patch
 
 from aind_data_schema_models.modalities import Modality
 from aind_data_schema_models.platforms import Platform
+from aind_data_transfer_models import (
+    __version__ as aind_data_transfer_models_version,
+)
 from aind_data_transfer_models.core import (
     BasicUploadJobConfigs,
     ModalityConfigs,
@@ -1365,10 +1368,12 @@ class TestServer(unittest.TestCase):
         self.assertEqual(response.status_code, 406)
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
+    @patch("logging.Logger.warning")
     @patch("requests.post")
     def test_submit_v1_jobs_406(
         self,
         mock_post: MagicMock,
+        mock_log_warning: MagicMock,
     ):
         """Tests submit jobs 406 response."""
         with TestClient(app) as client:
@@ -1377,6 +1382,9 @@ class TestServer(unittest.TestCase):
             )
         self.assertEqual(406, submit_job_response.status_code)
         mock_post.assert_not_called()
+        mock_log_warning.assert_called_once_with(
+            "There were validation errors processing {}"
+        )
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch("requests.post")
@@ -1697,6 +1705,95 @@ class TestServer(unittest.TestCase):
                 url="/api/v1/submit_jobs", json=post_request_content
             )
         self.assertEqual(200, submit_job_response.status_code)
+
+    def test_validate_json(self):
+        """Tests validate_json when json is valid."""
+        ephys_source_dir = PurePosixPath("shared_drive/ephys_data/690165")
+
+        s3_bucket = "private"
+        subject_id = "690165"
+        acq_datetime = datetime(2024, 2, 19, 11, 25, 17)
+        platform = Platform.ECEPHYS
+
+        ephys_config = ModalityConfigs(
+            modality=Modality.ECEPHYS,
+            source=ephys_source_dir,
+        )
+        project_name = "Ephys Platform"
+
+        upload_job_configs = BasicUploadJobConfigs(
+            project_name=project_name,
+            s3_bucket=s3_bucket,
+            platform=platform,
+            subject_id=subject_id,
+            acq_datetime=acq_datetime,
+            modalities=[ephys_config],
+        )
+        submit_job_request = SubmitJobRequest(upload_jobs=[upload_job_configs])
+        post_request_content = json.loads(submit_job_request.model_dump_json())
+        with TestClient(app) as client:
+            response = client.post(
+                "/api/v1/validate_json",
+                json=post_request_content,
+            )
+            response_json = response.json()
+        self.assertEqual(200, response.status_code)
+        self.assertEqual("Valid model", response_json["message"])
+        self.assertEqual(
+            post_request_content, response_json["data"]["model_json"]
+        )
+        self.assertEqual(
+            aind_data_transfer_models_version, response_json["data"]["version"]
+        )
+
+    @patch("logging.Logger.warning")
+    def test_validate_json_invalid(self, mock_log_warning: MagicMock):
+        """Tests validate_json when json is invalid."""
+        content = {"foo": "bar"}
+        with TestClient(app) as client:
+            response = client.post(
+                "/api/v1/validate_json",
+                json=content,
+            )
+        response_json = response.json()
+        self.assertEqual(406, response.status_code)
+        self.assertEqual(
+            "There were validation errors", response_json["message"]
+        )
+        self.assertEqual(content, response_json["data"]["model_json"])
+        self.assertEqual(
+            aind_data_transfer_models_version, response_json["data"]["version"]
+        )
+        mock_log_warning.assert_called_once_with(
+            f"There were validation errors processing {content}"
+        )
+
+    @patch("logging.Logger.exception")
+    @patch("pydantic.BaseModel.model_validate_json")
+    def test_validate_json_error(
+        self,
+        mock_model_validate_json: MagicMock,
+        mock_log_error: MagicMock,
+    ):
+        """Tests validate_json when there is an unknown error."""
+        mock_model_validate_json.side_effect = Exception("Unknown error")
+        with TestClient(app) as client:
+            response = client.post(
+                "/api/v1/validate_json",
+                json={"foo": "bar"},
+            )
+        response_json = response.json()
+        self.assertEqual(500, response.status_code)
+        self.assertEqual(
+            "There was an internal server error", response_json["message"]
+        )
+        self.assertEqual({"foo": "bar"}, response_json["data"]["model_json"])
+        self.assertEqual("('Unknown error',)", response_json["data"]["errors"])
+        self.assertEqual(
+            aind_data_transfer_models_version, response_json["data"]["version"]
+        )
+        mock_model_validate_json.assert_called_once()
+        mock_log_error.assert_called_once_with("Internal Server Error.")
 
 
 if __name__ == "__main__":

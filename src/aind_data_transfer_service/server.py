@@ -9,6 +9,9 @@ from pathlib import PurePosixPath
 from typing import Optional
 
 import requests
+from aind_data_transfer_models import (
+    __version__ as aind_data_transfer_models_version,
+)
 from aind_data_transfer_models.core import SubmitJobRequest
 from fastapi import Request
 from fastapi.responses import JSONResponse, StreamingResponse
@@ -170,6 +173,58 @@ async def validate_csv_legacy(request: Request):
         return JSONResponse(
             content=content,
             status_code=status_code,
+        )
+
+
+async def validate_json(request: Request):
+    """Validate raw json against aind-data-transfer-models. Returns validated
+    json or errors if request is invalid."""
+    logger.info("Received request to validate json")
+    content = await request.json()
+    try:
+        validated_model = SubmitJobRequest.model_validate_json(
+            json.dumps(content)
+        )
+        validated_content = json.loads(
+            validated_model.model_dump_json(warnings=False, exclude_none=True)
+        )
+        logger.info("Valid model detected")
+        return JSONResponse(
+            status_code=200,
+            content={
+                "message": "Valid model",
+                "data": {
+                    "version": aind_data_transfer_models_version,
+                    "model_json": content,
+                    "validated_model_json": validated_content,
+                },
+            },
+        )
+    except ValidationError as e:
+        logger.warning(f"There were validation errors processing {content}")
+        return JSONResponse(
+            status_code=406,
+            content={
+                "message": "There were validation errors",
+                "data": {
+                    "version": aind_data_transfer_models_version,
+                    "model_json": content,
+                    "errors": e.json(),
+                },
+            },
+        )
+    except Exception as e:
+        logger.exception("Internal Server Error.")
+        return JSONResponse(
+            status_code=500,
+            content={
+                "message": "There was an internal server error",
+                "data": {
+                    "version": aind_data_transfer_models_version,
+                    "model_json": content,
+                    "errors": str(e.args),
+                },
+            },
         )
 
 
@@ -759,6 +814,7 @@ routes = [
         "/api/submit_basic_jobs", endpoint=submit_basic_jobs, methods=["POST"]
     ),
     Route("/api/submit_hpc_jobs", endpoint=submit_hpc_jobs, methods=["POST"]),
+    Route("/api/v1/validate_json", endpoint=validate_json, methods=["POST"]),
     Route("/api/v1/validate_csv", endpoint=validate_csv, methods=["POST"]),
     Route("/api/v1/submit_jobs", endpoint=submit_jobs, methods=["POST"]),
     Route(
