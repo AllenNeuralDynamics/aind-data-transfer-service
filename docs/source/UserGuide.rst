@@ -84,10 +84,6 @@ portal can accessed at
    -  s3_bucket: As default, data will be uploaded to a default bucket
       in S3 managed by AIND. Please reach out to the Scientific
       Computing department if you wish to upload to a different bucket.
-   -  metadata_dir_force: We will automatically pull subject and
-      procedures data for a mouse. By setting this ``True``, we will
-      overwrite any data in the ``metadata_dir`` folder with data
-      acquired automatically from our service
    -  force_cloud_sync: We run a check to verify whether there is
       already a data asset with this name saved in our S3 bucket. If
       this field is set to ``True``, we will sync the data to the
