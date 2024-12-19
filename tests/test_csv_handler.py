@@ -49,7 +49,7 @@ class TestCsvHandler(unittest.TestCase):
                 subject_id="123454",
                 acq_datetime=datetime(2020, 10, 10, 14, 10, 10),
                 metadata_dir=None,
-                metadata_dir_force=False,
+                metadata_dir_force=None,
                 force_cloud_sync=False,
             ),
             BasicUploadJobConfigs(
@@ -76,7 +76,7 @@ class TestCsvHandler(unittest.TestCase):
                 subject_id="123456",
                 acq_datetime=datetime(2020, 10, 13, 13, 10, 10),
                 metadata_dir=None,
-                metadata_dir_force=False,
+                metadata_dir_force=None,
                 force_cloud_sync=False,
                 codeocean_configs=CodeOceanPipelineMonitorConfigs(
                     job_type="custom"
@@ -99,7 +99,7 @@ class TestCsvHandler(unittest.TestCase):
                 subject_id="123456",
                 acq_datetime=datetime(2020, 10, 13, 13, 10, 10),
                 metadata_dir=None,
-                metadata_dir_force=False,
+                metadata_dir_force=None,
                 force_cloud_sync=False,
             ),
         ]
