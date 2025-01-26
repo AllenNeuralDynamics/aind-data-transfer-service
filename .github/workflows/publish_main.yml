@@ -11,7 +11,7 @@ jobs:
     outputs:
       pkg_version: ${{ steps.output_version.outputs.pkg_version }}
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - name: Get version from file
       run: |
         pkg_name=$(grep -P 'version = \{attr = .*\}' pyproject.toml | grep -oP '\w+.__version__')
