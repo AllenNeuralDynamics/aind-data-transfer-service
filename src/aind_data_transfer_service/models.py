@@ -229,3 +229,10 @@ class JobParametersConfigs(BaseModel):
                 "param_name": param_name,
             }
         return None
+
+    @staticmethod
+    def get_parameter_name(job_type: str, task_id: str) -> str:
+        """Create the parameter name from job_type and task_id"""
+        return (
+            f"{JobParametersConfigs._PARAM_PREFIX}/{job_type}/tasks/{task_id}"
+        )

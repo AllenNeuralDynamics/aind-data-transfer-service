@@ -841,6 +841,46 @@ async def list_parameters(_: Request):
     )
 
 
+async def get_parameter(request: Request):
+    """Get a parameter from AWS parameter store based on job_type and task_id"""
+    job_type = request.path_params.get("job_type")
+    task_id = request.path_params.get("task_id")
+    if job_type is None or task_id is None:
+        return JSONResponse(
+            content={"message": "job_type and task_id are required"},
+            status_code=400,
+        )
+    param_name = JobParametersConfigs.get_parameter_name(job_type, task_id)
+    ssm_client = boto3.client("ssm")
+    try:
+        param_response = ssm_client.get_parameter(
+            Name=param_name, WithDecryption=True
+        )
+        param_value = json.loads(param_response["Parameter"]["Value"])
+        return JSONResponse(
+            content={
+                "message": f"Retrieved parameter for {param_name}",
+                "data": param_value,
+            },
+            status_code=200,
+        )
+    except ssm_client.exceptions.ParameterNotFound:
+        logger.warning(f"Parameter {param_name} not found")
+        return JSONResponse(
+            content={"message": f"Parameter {param_name} not found"},
+            status_code=404,
+        )
+    except Exception as e:
+        logger.error(f"Error retrieving parameter {param_name}: {e}")
+        return JSONResponse(
+            content={
+                "message": f"Error retrieving parameter {param_name}",
+                "data": {"error": f"{e.__class__.__name__}{e.args}"},
+            },
+            status_code=500,
+        )
+
+
 routes = [
     Route("/", endpoint=index, methods=["GET", "POST"]),
     Route("/api/validate_csv", endpoint=validate_csv_legacy, methods=["POST"]),
@@ -859,6 +899,11 @@ routes = [
     Route("/api/v1/get_tasks_list", endpoint=get_tasks_list, methods=["GET"]),
     Route("/api/v1/get_task_logs", endpoint=get_task_logs, methods=["GET"]),
     Route("/api/v1/parameters", endpoint=list_parameters, methods=["GET"]),
+    Route(
+        "/api/v1/parameters/job_types/{job_type:str}/tasks/{task_id:str}",
+        endpoint=get_parameter,
+        methods=["GET"],
+    ),
     Route("/jobs", endpoint=jobs, methods=["GET"]),
     Route("/job_status_table", endpoint=job_status_table, methods=["GET"]),
     Route("/job_tasks_table", endpoint=job_tasks_table, methods=["GET"]),
