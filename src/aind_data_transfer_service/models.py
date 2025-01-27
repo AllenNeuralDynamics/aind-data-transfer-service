@@ -209,12 +209,7 @@ class JobTasks(BaseModel):
 class JobParamConfigs(BaseModel):
     """Configs for job_type parameters in AWS Parameter Store"""
 
-    _AWS_ENV_NAME: ClassVar[str] = (
-        "prod" if os.getenv("ENV_NAME") == "prod" else "dev"
-    )
-    _PARAM_PREFIX: ClassVar[str] = (
-        f"/aind/{_AWS_ENV_NAME}/airflow/variables/job_types"
-    )
+    _PARAM_PREFIX: ClassVar[str] = os.getenv("AIND_AIRFLOW_PARAM_PREFIX", "")
     _PARAM_REGEX: ClassVar[Pattern] = re.compile(
         f"{_PARAM_PREFIX}/(?P<job_type>[^/]+)/tasks/(?P<task_id>[^/]+)"
     )

@@ -68,6 +68,8 @@ To run uvicorn locally:
    export AIND_AIRFLOW_SERVICE_PASSWORD='*****'
    export AIND_AIRFLOW_SERVICE_USER='user'
    export ENV_NAME='local'
+   export AWS_DEFAULT_REGION='us-west-2'
+   export AIND_AIRFLOW_PARAM_PREFIX='/aind/dev/airflow/variables/job_types'
    uvicorn aind_data_transfer_service.server:app --host 0.0.0.0 --port 5000 --reload
 
 You can now access aind-data-transfer-service at
