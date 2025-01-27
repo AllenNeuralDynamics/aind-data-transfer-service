@@ -779,6 +779,21 @@ async def jobs(request: Request):
     )
 
 
+async def job_params(request: Request):
+    """Get Job Parameters page"""
+    return templates.TemplateResponse(
+        name="job_params.html",
+        context=(
+            {
+                "request": request,
+                "project_names_url": os.getenv(
+                    "AIND_METADATA_SERVICE_PROJECT_NAMES_URL"
+                ),
+            }
+        ),
+    )
+
+
 async def download_job_template(_: Request):
     """Get job template as xlsx filestream for download"""
 
@@ -908,6 +923,7 @@ routes = [
     Route("/job_status_table", endpoint=job_status_table, methods=["GET"]),
     Route("/job_tasks_table", endpoint=job_tasks_table, methods=["GET"]),
     Route("/task_logs", endpoint=task_logs, methods=["GET"]),
+    Route("/job_params", endpoint=job_params, methods=["GET"]),
     Route(
         "/api/job_upload_template",
         endpoint=download_job_template,
