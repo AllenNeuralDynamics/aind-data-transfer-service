@@ -8,6 +8,7 @@ from asyncio import gather, sleep
 from pathlib import PurePosixPath
 from typing import Optional
 
+import boto3
 import requests
 from aind_data_transfer_models import (
     __version__ as aind_data_transfer_models_version,
@@ -40,6 +41,7 @@ from aind_data_transfer_service.models import (
     AirflowTaskInstanceLogsRequestParameters,
     AirflowTaskInstancesRequestParameters,
     AirflowTaskInstancesResponse,
+    JobParametersConfigs,
     JobStatus,
     JobTasks,
 )
@@ -807,6 +809,38 @@ async def download_job_template(_: Request):
         )
 
 
+async def list_parameters(_: Request):
+    """Get all job type parameters"""
+    ssm_client = boto3.client("ssm")
+    paginator = ssm_client.get_paginator("describe_parameters")
+    params_iterator = paginator.paginate(
+        ParameterFilters=[
+            {
+                "Key": "Path",
+                "Option": "Recursive",
+                "Values": [JobParametersConfigs._PARAM_PREFIX],
+            }
+        ]
+    )
+    params = []
+    for page in params_iterator:
+        for param in page["Parameters"]:
+            param_name = param["Name"]
+            if param_info := JobParametersConfigs.parse_parameter_name(
+                param_name
+            ):
+                params.append(param_info)
+            else:
+                logger.info(f"Ignoring {param_name}")
+    return JSONResponse(
+        content={
+            "message": "Retrieved job parameters",
+            "data": params,
+        },
+        status_code=200,
+    )
+
+
 routes = [
     Route("/", endpoint=index, methods=["GET", "POST"]),
     Route("/api/validate_csv", endpoint=validate_csv_legacy, methods=["POST"]),
@@ -824,6 +858,7 @@ routes = [
     ),
     Route("/api/v1/get_tasks_list", endpoint=get_tasks_list, methods=["GET"]),
     Route("/api/v1/get_task_logs", endpoint=get_task_logs, methods=["GET"]),
+    Route("/api/v1/parameters", endpoint=list_parameters, methods=["GET"]),
     Route("/jobs", endpoint=jobs, methods=["GET"]),
     Route("/job_status_table", endpoint=job_status_table, methods=["GET"]),
     Route("/job_tasks_table", endpoint=job_tasks_table, methods=["GET"]),

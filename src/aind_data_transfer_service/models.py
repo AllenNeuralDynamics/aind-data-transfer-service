@@ -1,8 +1,11 @@
 """Module for data models used in application"""
 
 import ast
+import os
+import re
 from datetime import datetime, timedelta, timezone
-from typing import List, Optional, Union
+from re import Pattern
+from typing import ClassVar, List, Optional, Union
 
 from pydantic import AwareDatetime, BaseModel, Field, field_validator
 from starlette.datastructures import QueryParams
@@ -200,3 +203,29 @@ class JobTasks(BaseModel):
             duration=airflow_task_instance.duration,
             comment=airflow_task_instance.note,
         )
+
+
+class JobParametersConfigs(BaseModel):
+    """Configs for job_type parameters in AWS Parameter Store"""
+
+    _AWS_ENV_NAME: ClassVar[str] = (
+        "prod" if os.getenv("ENV_NAME") == "prod" else "dev"
+    )
+    _PARAM_PREFIX: ClassVar[str] = (
+        f"/aind/{_AWS_ENV_NAME}/airflow/variables/job_types"
+    )
+    _PARAM_REGEX: ClassVar[Pattern] = re.compile(
+        f"{_PARAM_PREFIX}/(?P<job_type>[^/]+)/tasks/(?P<task_id>[^/]+)"
+    )
+
+    @staticmethod
+    def parse_parameter_name(param_name: str) -> Optional[dict]:
+        """Parse the parameter name to get job_type and task_id.
+        Returns None if the parameter name does not match expected regex."""
+        if match := JobParametersConfigs._PARAM_REGEX.match(param_name):
+            return {
+                "job_type": match.group("job_type"),
+                "task_id": match.group("task_id"),
+                "param_name": param_name,
+            }
+        return None
