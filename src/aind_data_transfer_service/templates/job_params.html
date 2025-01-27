@@ -46,11 +46,51 @@
                     </tr>
                 </thead>
             </table>
+            <!-- modal for displaying param value as json -->
+            <div class="modal fade" id="param-modal" tabindex="-1" aria-labelledby="param-modal-label" aria-hidden="true">
+                <div class="modal-dialog modal-xl">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="param-modal-label"></h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            <pre id="param-modal-content" class="bg-light p-1 border rounded"></pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
     <script>
         $(document).ready(function() {
             createJobParamsTable();
+            // Event listeners for param value modal
+            $('#param-modal').on('show.bs.modal', function(event) {
+                var button = $(event.relatedTarget);
+                var paramName = button.data('bs-param-name');
+                var jobType = button.data('bs-job-type');
+                var taskId = button.data('bs-task-id');
+                // update the modal label and contents
+                var modal = $(this);
+                modal.find('#param-modal-label').text(paramName);
+                var get_parameter_url = `/api/v1/parameters/job_types/${jobType}/tasks/${taskId}`;
+                $.ajax({
+                    url: get_parameter_url,
+                    type: 'GET',
+                    success: function(response) {
+                        jsonStr = JSON.stringify(response.data, null, 3);
+                        modal.find('#param-modal-content').text(jsonStr);
+                    },
+                    error: function(xhr, status, error) {
+                        modal.find('#param-modal-content').text(error);
+                    }
+                });
+            });
+            $('#param-modal').on('hidden.bs.modal', function() {
+                $(this).find('#param-modal-label').text('');
+                $(this).find('#param-modal-content').text('');
+            });
         });
         // Create DataTable for job params table
         function createJobParamsTable() {
@@ -63,7 +103,20 @@
                 columns: [
                     { data: 'job_type', searchable: true },
                     { data: 'task_id', searchable: true },
-                    { data: 'param_name', searchable: false }
+                    {
+                        data: 'param_name',
+                        render: function (data, type, row) {
+                            return `<button type="button" class="btn btn-link btn-sm" 
+                                        data-bs-toggle="modal" 
+                                        data-bs-target="#param-modal" 
+                                        data-bs-param-name=${data} 
+                                        data-bs-job-type=${row.job_type} 
+                                        data-bs-task-id=${row.task_id}
+                                    >${data}
+                                    </button>`;
+                        },
+                        searchable: false,
+                    }
                 ],
                 order: [0, 'asc'],
                 // options to match default jobs table
