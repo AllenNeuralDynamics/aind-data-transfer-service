@@ -7,6 +7,7 @@ from datetime import datetime, timedelta, timezone
 from re import Pattern
 from typing import ClassVar, List, Optional, Union
 
+from mypy_boto3_ssm.type_defs import ParameterMetadataTypeDef
 from pydantic import AwareDatetime, BaseModel, Field, field_validator
 from starlette.datastructures import QueryParams
 
@@ -205,7 +206,7 @@ class JobTasks(BaseModel):
         )
 
 
-class JobParametersConfigs(BaseModel):
+class JobParamConfigs(BaseModel):
     """Configs for job_type parameters in AWS Parameter Store"""
 
     _AWS_ENV_NAME: ClassVar[str] = (
@@ -219,20 +220,28 @@ class JobParametersConfigs(BaseModel):
     )
 
     @staticmethod
-    def parse_parameter_name(param_name: str) -> Optional[dict]:
-        """Parse the parameter name to get job_type and task_id.
-        Returns None if the parameter name does not match expected regex."""
-        if match := JobParametersConfigs._PARAM_REGEX.match(param_name):
-            return {
-                "job_type": match.group("job_type"),
-                "task_id": match.group("task_id"),
-                "param_name": param_name,
-            }
-        return None
-
-    @staticmethod
     def get_parameter_name(job_type: str, task_id: str) -> str:
         """Create the parameter name from job_type and task_id"""
-        return (
-            f"{JobParametersConfigs._PARAM_PREFIX}/{job_type}/tasks/{task_id}"
-        )
+        return f"{JobParamConfigs._PARAM_PREFIX}/{job_type}/tasks/{task_id}"
+
+
+class JobParamInfo(BaseModel):
+    """Model for job parameter info from AWS Parameter Store"""
+
+    name: Optional[str]
+    last_modified: Optional[datetime]
+    job_type: Optional[str]
+    task_id: Optional[str]
+
+    @classmethod
+    def from_aws_describe_parameter(cls, parameter: ParameterMetadataTypeDef):
+        """Map the parameter to the model"""
+        param_name = parameter.get("Name")
+        if match := JobParamConfigs._PARAM_REGEX.match(param_name):
+            return cls(
+                name=param_name,
+                last_modified=parameter.get("LastModifiedDate"),
+                job_type=match.group("job_type"),
+                task_id=match.group("task_id"),
+            )
+        return None

@@ -41,7 +41,8 @@ from aind_data_transfer_service.models import (
     AirflowTaskInstanceLogsRequestParameters,
     AirflowTaskInstancesRequestParameters,
     AirflowTaskInstancesResponse,
-    JobParametersConfigs,
+    JobParamInfo,
+    JobParamConfigs,
     JobStatus,
     JobTasks,
 )
@@ -833,20 +834,17 @@ async def list_parameters(_: Request):
             {
                 "Key": "Path",
                 "Option": "Recursive",
-                "Values": [JobParametersConfigs._PARAM_PREFIX],
+                "Values": [JobParamConfigs._PARAM_PREFIX],
             }
         ]
     )
     params = []
     for page in params_iterator:
         for param in page["Parameters"]:
-            param_name = param["Name"]
-            if param_info := JobParametersConfigs.parse_parameter_name(
-                param_name
-            ):
-                params.append(param_info)
+            if param_info := JobParamInfo.from_aws_describe_parameter(param):
+                params.append(json.loads(param_info.model_dump_json()))
             else:
-                logger.info(f"Ignoring {param_name}")
+                logger.info(f"Ignoring {param.get('Name')}")
     return JSONResponse(
         content={
             "message": "Retrieved job parameters",
@@ -857,7 +855,7 @@ async def list_parameters(_: Request):
 
 
 async def get_parameter(request: Request):
-    """Get a parameter from AWS parameter store based on job_type and task_id"""
+    """Get parameter from AWS parameter store based on job_type andtask_id"""
     job_type = request.path_params.get("job_type")
     task_id = request.path_params.get("task_id")
     if job_type is None or task_id is None:
@@ -865,7 +863,7 @@ async def get_parameter(request: Request):
             content={"message": "job_type and task_id are required"},
             status_code=400,
         )
-    param_name = JobParametersConfigs.get_parameter_name(job_type, task_id)
+    param_name = JobParamConfigs.get_parameter_name(job_type, task_id)
     ssm_client = boto3.client("ssm")
     try:
         param_response = ssm_client.get_parameter(

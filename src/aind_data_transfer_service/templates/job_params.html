@@ -46,6 +46,7 @@
                         <th>Job Type</th>
                         <th>Task ID</th>
                         <th>Parameter Name</th>
+                        <th>Last Modified</th>
                     </tr>
                 </thead>
             </table>
@@ -106,19 +107,8 @@
                 columns: [
                     { data: 'job_type', searchPanes: {show: true} },
                     { data: 'task_id', searchPanes: {show: true} },
-                    {
-                        data: 'param_name',
-                        render: function (data, type, row) {
-                            return `<button type="button" class="btn btn-link btn-sm" 
-                                        data-bs-toggle="modal" 
-                                        data-bs-target="#param-modal" 
-                                        data-bs-param-name=${data} 
-                                        data-bs-job-type=${row.job_type} 
-                                        data-bs-task-id=${row.task_id}
-                                    >${data}
-                                    </button>`;
-                        },
-                    }
+                    { data: 'name', render: renderParameterButton },
+                    { data: 'last_modified', render: renderDatetime },
                 ],
                 order: [0, 'asc'],
                 searchPanes: {
@@ -150,6 +140,24 @@
                     },
                 },
             });
+        }
+        function renderDatetime(data, type, row) {
+            return (type === 'display') ? moment.utc(data).local().format('YYYY-MM-DD h:mm:ss a') : data;
+        }
+        function renderParameterButton(data, type, row) {
+            if (type == 'display') {
+                return (
+                    `<button type="button" class="btn btn-link btn-sm" 
+                        data-bs-toggle="modal" 
+                        data-bs-target="#param-modal" 
+                        data-bs-param-name=${data} 
+                        data-bs-job-type=${row.job_type} 
+                        data-bs-task-id=${row.task_id}
+                    >${data}
+                    </button>`
+                );
+            }
+            return data;
         }
     </script>
     </body>
