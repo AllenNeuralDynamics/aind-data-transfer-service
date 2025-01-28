@@ -4,8 +4,7 @@ import ast
 import os
 import re
 from datetime import datetime, timedelta, timezone
-from re import Pattern
-from typing import ClassVar, List, Optional, Union
+from typing import List, Optional, Union
 
 from mypy_boto3_ssm.type_defs import ParameterMetadataTypeDef
 from pydantic import AwareDatetime, BaseModel, Field, field_validator
@@ -206,20 +205,6 @@ class JobTasks(BaseModel):
         )
 
 
-class JobParamConfigs(BaseModel):
-    """Configs for job_type parameters in AWS Parameter Store"""
-
-    _PARAM_PREFIX: ClassVar[str] = os.getenv("AIND_AIRFLOW_PARAM_PREFIX", "")
-    _PARAM_REGEX: ClassVar[Pattern] = re.compile(
-        f"{_PARAM_PREFIX}/(?P<job_type>[^/]+)/tasks/(?P<task_id>[^/]+)"
-    )
-
-    @staticmethod
-    def get_parameter_name(job_type: str, task_id: str) -> str:
-        """Create the parameter name from job_type and task_id"""
-        return f"{JobParamConfigs._PARAM_PREFIX}/{job_type}/tasks/{task_id}"
-
-
 class JobParamInfo(BaseModel):
     """Model for job parameter info from AWS Parameter Store"""
 
@@ -232,7 +217,11 @@ class JobParamInfo(BaseModel):
     def from_aws_describe_parameter(cls, parameter: ParameterMetadataTypeDef):
         """Map the parameter to the model"""
         param_name = parameter.get("Name")
-        if match := JobParamConfigs._PARAM_REGEX.match(param_name):
+        pattern = (
+            f"{os.getenv('AIND_AIRFLOW_PARAM_PREFIX')}"
+            "/(?P<job_type>[^/]+)/tasks/(?P<task_id>[^/]+)"
+        )
+        if match := re.match(pattern, param_name):
             return cls(
                 name=param_name,
                 last_modified=parameter.get("LastModifiedDate"),
@@ -240,3 +229,11 @@ class JobParamInfo(BaseModel):
                 task_id=match.group("task_id"),
             )
         return None
+
+    @staticmethod
+    def get_parameter_name(job_type: str, task_id: str) -> str:
+        """Create the parameter name from job_type and task_id"""
+        return (
+            f"{os.getenv('AIND_AIRFLOW_PARAM_PREFIX')}"
+            f"/{job_type}/tasks/{task_id}"
+        )

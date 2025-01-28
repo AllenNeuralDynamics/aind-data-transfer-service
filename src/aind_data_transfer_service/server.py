@@ -14,6 +14,7 @@ from aind_data_transfer_models import (
     __version__ as aind_data_transfer_models_version,
 )
 from aind_data_transfer_models.core import SubmitJobRequest
+from botocore.exceptions import ClientError
 from fastapi import Request
 from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
@@ -42,7 +43,6 @@ from aind_data_transfer_service.models import (
     AirflowTaskInstancesRequestParameters,
     AirflowTaskInstancesResponse,
     JobParamInfo,
-    JobParamConfigs,
     JobStatus,
     JobTasks,
 )
@@ -825,7 +825,7 @@ async def download_job_template(_: Request):
         )
 
 
-async def list_parameters(_: Request):
+def list_parameters(_: Request):
     """Get all job type parameters"""
     ssm_client = boto3.client("ssm")
     paginator = ssm_client.get_paginator("describe_parameters")
@@ -834,7 +834,7 @@ async def list_parameters(_: Request):
             {
                 "Key": "Path",
                 "Option": "Recursive",
-                "Values": [JobParamConfigs._PARAM_PREFIX],
+                "Values": [os.getenv("AIND_AIRFLOW_PARAM_PREFIX")],
             }
         ]
     )
@@ -854,16 +854,12 @@ async def list_parameters(_: Request):
     )
 
 
-async def get_parameter(request: Request):
-    """Get parameter from AWS parameter store based on job_type andtask_id"""
+def get_parameter(request: Request):
+    """Get parameter from AWS parameter store based on job_type and task_id"""
+    # path params are auto validated
     job_type = request.path_params.get("job_type")
     task_id = request.path_params.get("task_id")
-    if job_type is None or task_id is None:
-        return JSONResponse(
-            content={"message": "job_type and task_id are required"},
-            status_code=400,
-        )
-    param_name = JobParamConfigs.get_parameter_name(job_type, task_id)
+    param_name = JobParamInfo.get_parameter_name(job_type, task_id)
     ssm_client = boto3.client("ssm")
     try:
         param_response = ssm_client.get_parameter(
@@ -877,14 +873,8 @@ async def get_parameter(request: Request):
             },
             status_code=200,
         )
-    except ssm_client.exceptions.ParameterNotFound:
-        logger.warning(f"Parameter {param_name} not found")
-        return JSONResponse(
-            content={"message": f"Parameter {param_name} not found"},
-            status_code=404,
-        )
-    except Exception as e:
-        logger.error(f"Error retrieving parameter {param_name}: {e}")
+    except ClientError as e:
+        logger.exception(f"Error retrieving parameter {param_name}: {e}")
         return JSONResponse(
             content={
                 "message": f"Error retrieving parameter {param_name}",
