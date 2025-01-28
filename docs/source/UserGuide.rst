@@ -514,6 +514,15 @@ Viewing the status of submitted jobs
 The status of submitted jobs can be viewed at:
 http://aind-data-transfer-service/jobs
 
+Viewing job parameters based on job type
+--------------------------------------------
+
+We store pre-compiled job configurations in AWS Parameter Store based on `job_type`.
+Available job types and their configurations can be viewed at:
+http://aind-data-transfer-service/job_params
+
+To request a new job type, please reach out to Scientific Computing.
+
 Reporting bugs or making feature requests
 -----------------------------------------
 
