@@ -4,6 +4,7 @@ import csv
 import io
 import json
 import os
+import re
 from asyncio import gather, sleep
 from pathlib import PurePosixPath
 from typing import Optional
@@ -839,9 +840,15 @@ def list_parameters(_: Request):
         ]
     )
     params = []
+    param_regex = JobParamInfo.get_parameter_regex()
     for page in params_iterator:
         for param in page["Parameters"]:
-            if param_info := JobParamInfo.from_aws_describe_parameter(param):
+            if match := re.match(param_regex, param.get("Name")):
+                param_info = JobParamInfo.from_aws_describe_parameter(
+                    parameter=param,
+                    job_type=match.group("job_type"),
+                    task_id=match.group("task_id"),
+                )
                 params.append(json.loads(param_info.model_dump_json()))
             else:
                 logger.info(f"Ignoring {param.get('Name')}")

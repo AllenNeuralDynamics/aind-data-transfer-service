@@ -2,7 +2,6 @@
 
 import ast
 import os
-import re
 from datetime import datetime, timedelta, timezone
 from typing import List, Optional, Union
 
@@ -214,21 +213,27 @@ class JobParamInfo(BaseModel):
     task_id: Optional[str]
 
     @classmethod
-    def from_aws_describe_parameter(cls, parameter: ParameterMetadataTypeDef):
+    def from_aws_describe_parameter(
+        cls,
+        parameter: ParameterMetadataTypeDef,
+        job_type: Optional[str],
+        task_id: Optional[str],
+    ):
         """Map the parameter to the model"""
-        param_name = parameter.get("Name")
-        pattern = (
-            f"{os.getenv('AIND_AIRFLOW_PARAM_PREFIX')}"
-            "/(?P<job_type>[^/]+)/tasks/(?P<task_id>[^/]+)"
+        return cls(
+            name=parameter.get("Name"),
+            last_modified=parameter.get("LastModifiedDate"),
+            job_type=job_type,
+            task_id=task_id,
         )
-        if match := re.match(pattern, param_name):
-            return cls(
-                name=param_name,
-                last_modified=parameter.get("LastModifiedDate"),
-                job_type=match.group("job_type"),
-                task_id=match.group("task_id"),
-            )
-        return None
+
+    @staticmethod
+    def get_parameter_regex() -> str:
+        """Create the regex pattern to match the parameter name"""
+        return (
+            f"{os.getenv('AIND_AIRFLOW_PARAM_PREFIX')}"
+            f"/(?P<job_type>[^/]+)/tasks/(?P<task_id>[^/]+)"
+        )
 
     @staticmethod
     def get_parameter_name(job_type: str, task_id: str) -> str:
