@@ -1,0 +1,52 @@
+[
+   {
+      "Parameters": [
+         {
+            "Name": "/param_prefix/job1/tasks/task1",
+            "ARN": "ARN",
+            "Type": "String",
+            "LastModifiedDate": "2025-01-23 11:50:04.535000-08:00",
+            "LastModifiedUser": "LastModifiedUser",
+            "Version": 1,
+            "Tier": "Standard",
+            "Policies": [],
+            "DataType": "text"
+         },
+         {
+            "Name": "/param_prefix/job2/tasks/task2",
+            "ARN": "ARN",
+            "Type": "String",
+            "LastModifiedDate": "2025-01-23 11:50:04.605000-08:00",
+            "LastModifiedUser": "LastModifiedUser",
+            "Version": 1,
+            "Tier": "Standard",
+            "Policies": [],
+            "DataType": "text"
+         },
+         {
+            "Name": "/param_prefix/unexpected_param",
+            "ARN": "ARN",
+            "Type": "String",
+            "LastModifiedDate": "2025-01-23 11:50:04.605000-08:00",
+            "LastModifiedUser": "LastModifiedUser",
+            "Version": 1,
+            "Tier": "Standard",
+            "Policies": [],
+            "DataType": "text"
+         }
+      ],
+      "ResponseMetadata": {
+         "RequestId": "bd913f6f-d4e1-4043-b5e8-f2e9a4ea45fc",
+         "HTTPStatusCode": 200,
+         "HTTPHeaders": {
+            "server": "Server",
+            "date": "Tue, 28 Jan 2025 00:21:13 GMT",
+            "content-type": "application/x-amz-json-1.1",
+            "content-length": "818",
+            "connection": "keep-alive",
+            "x-amzn-requestid": "bd913f6f-d4e1-4043-b5e8-f2e9a4ea45fc"
+         },
+         "RetryAttempts": 0
+      }
+   }
+]
