@@ -21,7 +21,7 @@ dependencies = [
     'pydantic>=2.7,<2.9',
     'pydantic-settings>=2.0',
     'aind-data-schema>=1.0.0,<2.0',
-    'aind-data-transfer-models==0.15.0'
+    'aind-data-transfer-models==0.15.2'
 ]
 
 [project.optional-dependencies]
