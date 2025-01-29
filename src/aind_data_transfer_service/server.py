@@ -4,15 +4,18 @@ import csv
 import io
 import json
 import os
+import re
 from asyncio import gather, sleep
 from pathlib import PurePosixPath
 from typing import Optional
 
+import boto3
 import requests
 from aind_data_transfer_models import (
     __version__ as aind_data_transfer_models_version,
 )
 from aind_data_transfer_models.core import SubmitJobRequest
+from botocore.exceptions import ClientError
 from fastapi import Request
 from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
@@ -40,6 +43,7 @@ from aind_data_transfer_service.models import (
     AirflowTaskInstanceLogsRequestParameters,
     AirflowTaskInstancesRequestParameters,
     AirflowTaskInstancesResponse,
+    JobParamInfo,
     JobStatus,
     JobTasks,
 )
@@ -777,6 +781,21 @@ async def jobs(request: Request):
     )
 
 
+async def job_params(request: Request):
+    """Get Job Parameters page"""
+    return templates.TemplateResponse(
+        name="job_params.html",
+        context=(
+            {
+                "request": request,
+                "project_names_url": os.getenv(
+                    "AIND_METADATA_SERVICE_PROJECT_NAMES_URL"
+                ),
+            }
+        ),
+    )
+
+
 async def download_job_template(_: Request):
     """Get job template as xlsx filestream for download"""
 
@@ -807,6 +826,71 @@ async def download_job_template(_: Request):
         )
 
 
+def list_parameters(_: Request):
+    """Get all job type parameters"""
+    ssm_client = boto3.client("ssm")
+    paginator = ssm_client.get_paginator("describe_parameters")
+    params_iterator = paginator.paginate(
+        ParameterFilters=[
+            {
+                "Key": "Path",
+                "Option": "Recursive",
+                "Values": [os.getenv("AIND_AIRFLOW_PARAM_PREFIX")],
+            }
+        ]
+    )
+    params = []
+    param_regex = JobParamInfo.get_parameter_regex()
+    for page in params_iterator:
+        for param in page["Parameters"]:
+            if match := re.match(param_regex, param.get("Name")):
+                param_info = JobParamInfo.from_aws_describe_parameter(
+                    parameter=param,
+                    job_type=match.group("job_type"),
+                    task_id=match.group("task_id"),
+                )
+                params.append(json.loads(param_info.model_dump_json()))
+            else:
+                logger.info(f"Ignoring {param.get('Name')}")
+    return JSONResponse(
+        content={
+            "message": "Retrieved job parameters",
+            "data": params,
+        },
+        status_code=200,
+    )
+
+
+def get_parameter(request: Request):
+    """Get parameter from AWS parameter store based on job_type and task_id"""
+    # path params are auto validated
+    job_type = request.path_params.get("job_type")
+    task_id = request.path_params.get("task_id")
+    param_name = JobParamInfo.get_parameter_name(job_type, task_id)
+    ssm_client = boto3.client("ssm")
+    try:
+        param_response = ssm_client.get_parameter(
+            Name=param_name, WithDecryption=True
+        )
+        param_value = json.loads(param_response["Parameter"]["Value"])
+        return JSONResponse(
+            content={
+                "message": f"Retrieved parameter for {param_name}",
+                "data": param_value,
+            },
+            status_code=200,
+        )
+    except ClientError as e:
+        logger.exception(f"Error retrieving parameter {param_name}: {e}")
+        return JSONResponse(
+            content={
+                "message": f"Error retrieving parameter {param_name}",
+                "data": {"error": f"{e.__class__.__name__}{e.args}"},
+            },
+            status_code=500,
+        )
+
+
 routes = [
     Route("/", endpoint=index, methods=["GET", "POST"]),
     Route("/api/validate_csv", endpoint=validate_csv_legacy, methods=["POST"]),
@@ -824,10 +908,17 @@ routes = [
     ),
     Route("/api/v1/get_tasks_list", endpoint=get_tasks_list, methods=["GET"]),
     Route("/api/v1/get_task_logs", endpoint=get_task_logs, methods=["GET"]),
+    Route("/api/v1/parameters", endpoint=list_parameters, methods=["GET"]),
+    Route(
+        "/api/v1/parameters/job_types/{job_type:str}/tasks/{task_id:str}",
+        endpoint=get_parameter,
+        methods=["GET"],
+    ),
     Route("/jobs", endpoint=jobs, methods=["GET"]),
     Route("/job_status_table", endpoint=job_status_table, methods=["GET"]),
     Route("/job_tasks_table", endpoint=job_tasks_table, methods=["GET"]),
     Route("/task_logs", endpoint=task_logs, methods=["GET"]),
+    Route("/job_params", endpoint=job_params, methods=["GET"]),
     Route(
         "/api/job_upload_template",
         endpoint=download_job_template,
