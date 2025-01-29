@@ -7,14 +7,14 @@ import os
 import re
 from asyncio import gather, sleep
 from pathlib import PurePosixPath
-from typing import Optional
+from typing import List, Optional
 
 import boto3
 import requests
 from aind_data_transfer_models import (
     __version__ as aind_data_transfer_models_version,
 )
-from aind_data_transfer_models.core import SubmitJobRequest
+from aind_data_transfer_models.core import SubmitJobRequest, validation_context
 from botocore.exceptions import ClientError
 from fastapi import Request
 from fastapi.responses import JSONResponse, StreamingResponse
@@ -76,6 +76,16 @@ templates = Jinja2Templates(directory=template_directory)
 # LOG_LEVEL
 
 logger = get_logger(log_configs=LoggingConfigs())
+project_names_url = os.getenv("AIND_METADATA_SERVICE_PROJECT_NAMES_URL")
+
+
+def get_project_names() -> List[str]:
+    """Get a list of project_names"""
+    # TODO: Cache response for 5 minutes
+    response = requests.get(project_names_url)
+    response.raise_for_status()
+    project_names = response.json()["data"]
+    return project_names
 
 
 async def validate_csv(request: Request):
@@ -107,7 +117,9 @@ async def validate_csv(request: Request):
                 if not any(row.values()):
                     continue
                 try:
-                    job = map_csv_row_to_job(row=row)
+                    project_names = get_project_names()
+                    with validation_context({"project_names": project_names}):
+                        job = map_csv_row_to_job(row=row)
                     # Construct hpc job setting most of the vars from the env
                     basic_jobs.append(
                         json.loads(
@@ -186,9 +198,11 @@ async def validate_json(request: Request):
     logger.info("Received request to validate json")
     content = await request.json()
     try:
-        validated_model = SubmitJobRequest.model_validate_json(
-            json.dumps(content)
-        )
+        project_names = get_project_names()
+        with validation_context({"project_names": project_names}):
+            validated_model = SubmitJobRequest.model_validate_json(
+                json.dumps(content)
+            )
         validated_content = json.loads(
             validated_model.model_dump_json(warnings=False, exclude_none=True)
         )
@@ -237,7 +251,9 @@ async def submit_jobs(request: Request):
     logger.info("Received request to submit jobs")
     content = await request.json()
     try:
-        model = SubmitJobRequest.model_validate_json(json.dumps(content))
+        project_names = get_project_names()
+        with validation_context({"project_names": project_names}):
+            model = SubmitJobRequest.model_validate_json(json.dumps(content))
         full_content = json.loads(
             model.model_dump_json(warnings=False, exclude_none=True)
         )
@@ -482,6 +498,7 @@ async def submit_hpc_jobs(request: Request):  # noqa: C901
 async def get_job_status_list(request: Request):
     """Get status of jobs with default pagination of limit=25 and offset=0."""
 
+    # TODO: resolved "shadows name from outer scope warnings"
     async def fetch_jobs(
         client: AsyncClient, url: str, params: Optional[dict]
     ):
@@ -684,9 +701,7 @@ async def index(request: Request):
         context=(
             {
                 "request": request,
-                "project_names_url": os.getenv(
-                    "AIND_METADATA_SERVICE_PROJECT_NAMES_URL"
-                ),
+                "project_names_url": project_names_url,
             }
         ),
     )
@@ -773,9 +788,7 @@ async def jobs(request: Request):
                 "default_limit": default_limit,
                 "default_offset": default_offset,
                 "default_state": default_state,
-                "project_names_url": os.getenv(
-                    "AIND_METADATA_SERVICE_PROJECT_NAMES_URL"
-                ),
+                "project_names_url": project_names_url,
             }
         ),
     )

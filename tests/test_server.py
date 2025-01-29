@@ -31,7 +31,7 @@ from requests import Response
 from aind_data_transfer_service.configs.job_upload_template import (
     JobUploadTemplate,
 )
-from aind_data_transfer_service.server import app
+from aind_data_transfer_service.server import app, get_project_names
 from tests.test_configs import TestJobConfigs
 
 TEST_DIRECTORY = Path(os.path.dirname(os.path.realpath(__file__)))
@@ -556,6 +556,18 @@ class TestServer(unittest.TestCase):
         self.assertEqual(500, submit_job_response.status_code)
         self.assertEqual(0, mock_sleep.call_count)
         self.assertEqual(2, mock_log_error.call_count)
+
+    @patch("requests.get")
+    def test_get_project_names(self, mock_get: MagicMock):
+        """Tests get_project_names method"""
+        mock_response = Response()
+        mock_response.status_code = 200
+        mock_response._content = json.dumps(
+            {"data": ["project_name_0", "project_name_1"]}
+        ).encode("utf-8")
+        mock_get.return_value = mock_response
+        project_names = get_project_names()
+        self.assertEqual(["project_name_0", "project_name_1"], project_names)
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch("httpx.AsyncClient.get")
@@ -1439,8 +1451,13 @@ class TestServer(unittest.TestCase):
         mock_log_error.assert_called_once()
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
-    def test_validate_v1_csv(self):
+    @patch("aind_data_transfer_service.server.get_project_names")
+    def test_validate_v1_csv(self, mock_get_project_names: MagicMock):
         """Tests that valid csv file is returned."""
+        mock_get_project_names.return_value = [
+            "Ephys Platform",
+            "Behavior Platform",
+        ]
         with TestClient(app) as client:
             with open(NEW_SAMPLE_CSV, "rb") as f:
                 files = {
@@ -1451,8 +1468,13 @@ class TestServer(unittest.TestCase):
         self.assertEqual(200, response.status_code)
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
-    def test_validate_v1_null_csv(self):
+    @patch("aind_data_transfer_service.server.get_project_names")
+    def test_validate_v1_null_csv(self, mock_get_project_names: MagicMock):
         """Tests that invalid file type returns FileNotFoundError"""
+        mock_get_project_names.return_value = [
+            "Ephys Platform",
+            "Behavior Platform",
+        ]
         with TestClient(app) as client:
             with open(SAMPLE_INVALID_EXT, "rb") as f:
                 files = {
@@ -1466,8 +1488,15 @@ class TestServer(unittest.TestCase):
         )
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
-    def test_validate_v1_malformed_xlsx(self):
+    @patch("aind_data_transfer_service.server.get_project_names")
+    def test_validate_v1_malformed_xlsx(
+        self, mock_get_project_names: MagicMock
+    ):
         """Tests that invalid xlsx returns errors"""
+        mock_get_project_names.return_value = [
+            "Ephys Platform",
+            "Behavior Platform",
+        ]
         with TestClient(app) as client:
             with open(MALFORMED_SAMPLE_XLSX, "rb") as f:
                 files = {
@@ -1481,8 +1510,15 @@ class TestServer(unittest.TestCase):
         )
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
-    def test_validate_v1_csv_xlsx_empty_rows(self):
+    @patch("aind_data_transfer_service.server.get_project_names")
+    def test_validate_v1_csv_xlsx_empty_rows(
+        self, mock_get_project_names: MagicMock
+    ):
         """Tests that empty rows are ignored from valid csv and xlsx files."""
+        mock_get_project_names.return_value = [
+            "Ephys Platform",
+            "Behavior Platform",
+        ]
         for file_path in [SAMPLE_CSV_EMPTY_ROWS, SAMPLE_XLSX_EMPTY_ROWS]:
             with TestClient(app) as client:
                 with open(file_path, "rb") as f:
@@ -1495,8 +1531,12 @@ class TestServer(unittest.TestCase):
             self.assertEqual(200, response.status_code)
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
-    def test_validate_v1_malformed_csv2(self):
+    @patch("aind_data_transfer_service.server.get_project_names")
+    def test_validate_v1_malformed_csv2(
+        self, mock_get_project_names: MagicMock
+    ):
         """Tests that invalid csv returns errors"""
+        mock_get_project_names.return_value = ["Ephys Platform"]
         with TestClient(app) as client:
             with open(MALFORMED_SAMPLE2_CSV, "rb") as f:
                 files = {
@@ -1508,12 +1548,15 @@ class TestServer(unittest.TestCase):
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch("logging.Logger.warning")
     @patch("requests.post")
+    @patch("aind_data_transfer_service.server.get_project_names")
     def test_submit_v1_jobs_406(
         self,
+        mock_get_project_names: MagicMock,
         mock_post: MagicMock,
         mock_log_warning: MagicMock,
     ):
         """Tests submit jobs 406 response."""
+        mock_get_project_names.return_value = ["Ephys Platform"]
         with TestClient(app) as client:
             submit_job_response = client.post(
                 url="/api/v1/submit_jobs", json={}
@@ -1526,11 +1569,14 @@ class TestServer(unittest.TestCase):
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch("requests.post")
+    @patch("aind_data_transfer_service.server.get_project_names")
     def test_submit_v1_jobs_200(
         self,
+        mock_get_project_names: MagicMock,
         mock_post: MagicMock,
     ):
         """Tests submit jobs success."""
+        mock_get_project_names.return_value = ["Ephys Platform"]
         mock_response = Response()
         mock_response.status_code = 200
         mock_response._content = json.dumps({"message": "sent"}).encode(
@@ -1578,12 +1624,15 @@ class TestServer(unittest.TestCase):
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch("requests.post")
     @patch("logging.Logger.exception")
+    @patch("aind_data_transfer_service.server.get_project_names")
     def test_submit_v1_jobs_500(
         self,
+        mock_get_project_names: MagicMock,
         mock_log_exception: MagicMock,
         mock_post: MagicMock,
     ):
         """Tests submit jobs 500 response."""
+        mock_get_project_names.return_value = ["Ephys Platform"]
         mock_post.side_effect = Exception("Something went wrong")
         request_json = {
             "user_email": None,
@@ -1626,11 +1675,14 @@ class TestServer(unittest.TestCase):
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch("requests.post")
+    @patch("aind_data_transfer_service.server.get_project_names")
     def test_submit_v1_jobs_200_slurm_settings(
         self,
+        mock_get_project_names: MagicMock,
         mock_post: MagicMock,
     ):
         """Tests submit jobs success when user adds custom slurm settings."""
+        mock_get_project_names.return_value = ["Ephys Platform"]
         mock_response = Response()
         mock_response.status_code = 200
         mock_response._content = json.dumps({"message": "sent"}).encode(
@@ -1681,13 +1733,16 @@ class TestServer(unittest.TestCase):
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch("requests.post")
+    @patch("aind_data_transfer_service.server.get_project_names")
     def test_submit_v1_jobs_200_session_settings_config_file(
         self,
+        mock_get_project_names: MagicMock,
         mock_post: MagicMock,
     ):
         """Tests submit jobs success when user adds aind-metadata-mapper
         settings pointing to a config file."""
 
+        mock_get_project_names.return_value = ["Ephys Platform"]
         session_settings = {
             "session_settings": {
                 "job_settings": {
@@ -1746,11 +1801,15 @@ class TestServer(unittest.TestCase):
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch("requests.post")
+    @patch("aind_data_transfer_service.server.get_project_names")
     def test_submit_v1_jobs_200_trigger_capsule_configs(
         self,
+        mock_get_project_names: MagicMock,
         mock_post: MagicMock,
     ):
         """Tests submission when user adds trigger_capsule_configs"""
+
+        mock_get_project_names.return_value = ["Ephys Platform"]
 
         mock_response = Response()
         mock_response.status_code = 200
@@ -1799,11 +1858,15 @@ class TestServer(unittest.TestCase):
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch("requests.post")
+    @patch("aind_data_transfer_service.server.get_project_names")
     def test_submit_v1_jobs_200_basic_serialization(
         self,
+        mock_get_project_names: MagicMock,
         mock_post: MagicMock,
     ):
         """Tests submission when user posts standard pydantic json"""
+
+        mock_get_project_names.return_value = ["Ephys Platform"]
 
         mock_response = Response()
         mock_response.status_code = 200
@@ -1844,8 +1907,12 @@ class TestServer(unittest.TestCase):
             )
         self.assertEqual(200, submit_job_response.status_code)
 
-    def test_validate_json(self):
+    @patch("aind_data_transfer_service.server.get_project_names")
+    def test_validate_json(self, mock_get_project_names: MagicMock):
         """Tests validate_json when json is valid."""
+
+        mock_get_project_names.return_value = ["Ephys Platform"]
+
         ephys_source_dir = PurePosixPath("shared_drive/ephys_data/690165")
 
         s3_bucket = "private"
@@ -1885,8 +1952,12 @@ class TestServer(unittest.TestCase):
         )
 
     @patch("logging.Logger.warning")
-    def test_validate_json_invalid(self, mock_log_warning: MagicMock):
+    @patch("aind_data_transfer_service.server.get_project_names")
+    def test_validate_json_invalid(
+        self, mock_get_project_names: MagicMock, mock_log_warning: MagicMock
+    ):
         """Tests validate_json when json is invalid."""
+        mock_get_project_names.return_value = ["Ephys Platform"]
         content = {"foo": "bar"}
         with TestClient(app) as client:
             response = client.post(
@@ -1908,12 +1979,16 @@ class TestServer(unittest.TestCase):
 
     @patch("logging.Logger.exception")
     @patch("pydantic.BaseModel.model_validate_json")
+    @patch("aind_data_transfer_service.server.get_project_names")
     def test_validate_json_error(
         self,
+        mock_get_project_names: MagicMock,
         mock_model_validate_json: MagicMock,
         mock_log_error: MagicMock,
     ):
         """Tests validate_json when there is an unknown error."""
+
+        mock_get_project_names.return_value = ["Ephys Platform"]
         mock_model_validate_json.side_effect = Exception("Unknown error")
         with TestClient(app) as client:
             response = client.post(
