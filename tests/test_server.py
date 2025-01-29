@@ -22,6 +22,7 @@ from aind_data_transfer_models.core import (
     V0036JobProperties,
 )
 from aind_data_transfer_models.trigger import TriggerConfigModel, ValidJobType
+from botocore.exceptions import ClientError
 from fastapi.responses import StreamingResponse
 from fastapi.testclient import TestClient
 from pydantic import SecretStr
@@ -57,6 +58,12 @@ GET_DAG_RUN_RESPONSE = (
 LIST_TASK_INSTANCES_RESPONSE = (
     TEST_DIRECTORY / "resources" / "airflow_task_instances_response.json"
 )
+DESCRIBE_PARAMETERS_RESPONSE = (
+    TEST_DIRECTORY / "resources" / "describe_parameters_response.json"
+)
+GET_PARAMETER_RESPONSE = (
+    TEST_DIRECTORY / "resources" / "get_parameter_response.json"
+)
 
 
 class TestServer(unittest.TestCase):
@@ -83,6 +90,7 @@ class TestServer(unittest.TestCase):
         "AIND_AIRFLOW_SERVICE_JOBS_URL": "airflow_jobs_url",
         "AIND_AIRFLOW_SERVICE_USER": "airflow_user",
         "AIND_AIRFLOW_SERVICE_PASSWORD": "airflow_password",
+        "AIND_AIRFLOW_PARAM_PREFIX": "/param_prefix",
     }
 
     with open(SAMPLE_CSV, "r") as file:
@@ -99,6 +107,12 @@ class TestServer(unittest.TestCase):
 
     with open(LIST_TASK_INSTANCES_RESPONSE) as f:
         list_task_instances_response = json.load(f)
+
+    with open(DESCRIBE_PARAMETERS_RESPONSE) as f:
+        describe_parameters_response = json.load(f)
+
+    with open(GET_PARAMETER_RESPONSE) as f:
+        get_parameter_response = json.load(f)
 
     expected_job_configs = deepcopy(TestJobConfigs.expected_job_configs)
     for config in expected_job_configs:
@@ -1135,6 +1149,122 @@ class TestServer(unittest.TestCase):
         )
         mock_log_error.assert_called_once()
 
+    @patch("logging.Logger.info")
+    @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
+    @patch("boto3.client")
+    def test_list_parameters(
+        self,
+        mock_ssm_client,
+        mock_log_info: MagicMock,
+    ):
+        """Tests list_parameters gets parameter info from aws param store."""
+        mock_paginator = MagicMock()
+        mock_paginator.paginate.return_value = (
+            self.describe_parameters_response
+        )
+        mock_ssm_client.return_value.get_paginator.return_value = (
+            mock_paginator
+        )
+        expected_params_list = [
+            {
+                "job_type": "job1",
+                "last_modified": "2025-01-23T11:50:04.535000-08:00",
+                "name": "/param_prefix/job1/tasks/task1",
+                "task_id": "task1",
+            },
+            {
+                "job_type": "job2",
+                "last_modified": "2025-01-23T11:50:04.605000-08:00",
+                "name": "/param_prefix/job2/tasks/task2",
+                "task_id": "task2",
+            },
+        ]
+        with TestClient(app) as client:
+            response = client.get("/api/v1/parameters")
+        mock_ssm_client.assert_called_once_with("ssm")
+        mock_ssm_client.return_value.get_paginator.assert_called_once_with(
+            "describe_parameters"
+        )
+        mock_paginator.paginate.assert_called_once_with(
+            ParameterFilters=[
+                {
+                    "Key": "Path",
+                    "Option": "Recursive",
+                    "Values": ["/param_prefix"],
+                }
+            ]
+        )
+        response_content = response.json()
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response_content,
+            {
+                "message": "Retrieved job parameters",
+                "data": expected_params_list,
+            },
+        )
+        # params that do not match expected format are ignored
+        mock_log_info.assert_any_call(
+            "Ignoring /param_prefix/unexpected_param"
+        )
+
+    @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
+    @patch("boto3.client")
+    def test_get_parameter(
+        self,
+        mock_ssm_client,
+    ):
+        """Tests get_parameter retrieves values from aws param store."""
+        mock_ssm_client.return_value.get_parameter.return_value = (
+            self.get_parameter_response
+        )
+        expected_param_name = "/param_prefix/ecephys/tasks/task1"
+        with TestClient(app) as client:
+            response = client.get(
+                "/api/v1/parameters/job_types/ecephys/tasks/task1"
+            )
+        mock_ssm_client.assert_called_once_with("ssm")
+        mock_ssm_client.return_value.get_parameter.assert_called_once_with(
+            Name=expected_param_name, WithDecryption=True
+        )
+        response_content = response.json()
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response_content,
+            {
+                "message": f"Retrieved parameter for {expected_param_name}",
+                "data": {"foo": "bar"},
+            },
+        )
+
+    @patch("logging.Logger.exception")
+    @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
+    @patch("boto3.client")
+    def test_get_parameter_error(
+        self,
+        mock_ssm_client,
+        mock_log_error: MagicMock,
+    ):
+        """Tests get_parameter when there is a client error."""
+        mock_ssm_client.return_value.get_parameter.side_effect = ClientError(
+            {
+                "Error": {
+                    "Code": "ParameterNotFound",
+                    "Message": "Parameter not found",
+                }
+            },
+            "GetParameter",
+        )
+        with TestClient(app) as client:
+            response = client.get("/api/v1/parameters/job_types/foo/tasks/bar")
+        response_content = response.json()
+        self.assertEqual(response.status_code, 500)
+        self.assertEqual(
+            response_content["message"],
+            "Error retrieving parameter /param_prefix/foo/tasks/bar",
+        )
+        mock_log_error.assert_called_once()
+
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     def test_index(self):
         """Tests that form renders at startup as expected."""
@@ -1294,6 +1424,14 @@ class TestServer(unittest.TestCase):
             list(response.headers.items()),
         )
         self.assertEqual(200, response.status_code)
+
+    @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
+    def test_job_params(self):
+        """Tests that job params page renders at startup as expected."""
+        with TestClient(app) as client:
+            response = client.get("/job_params")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("Job Parameters", response.text)
 
     @patch("aind_data_transfer_service.server.JobUploadTemplate")
     @patch("logging.Logger.exception")

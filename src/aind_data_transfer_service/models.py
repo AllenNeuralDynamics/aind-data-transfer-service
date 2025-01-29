@@ -1,9 +1,11 @@
 """Module for data models used in application"""
 
 import ast
+import os
 from datetime import datetime, timedelta, timezone
 from typing import List, Optional, Union
 
+from mypy_boto3_ssm.type_defs import ParameterMetadataTypeDef
 from pydantic import AwareDatetime, BaseModel, Field, field_validator
 from starlette.datastructures import QueryParams
 
@@ -199,4 +201,44 @@ class JobTasks(BaseModel):
             end_time=airflow_task_instance.end_date,
             duration=airflow_task_instance.duration,
             comment=airflow_task_instance.note,
+        )
+
+
+class JobParamInfo(BaseModel):
+    """Model for job parameter info from AWS Parameter Store"""
+
+    name: Optional[str]
+    last_modified: Optional[datetime]
+    job_type: Optional[str]
+    task_id: Optional[str]
+
+    @classmethod
+    def from_aws_describe_parameter(
+        cls,
+        parameter: ParameterMetadataTypeDef,
+        job_type: Optional[str],
+        task_id: Optional[str],
+    ):
+        """Map the parameter to the model"""
+        return cls(
+            name=parameter.get("Name"),
+            last_modified=parameter.get("LastModifiedDate"),
+            job_type=job_type,
+            task_id=task_id,
+        )
+
+    @staticmethod
+    def get_parameter_regex() -> str:
+        """Create the regex pattern to match the parameter name"""
+        return (
+            f"{os.getenv('AIND_AIRFLOW_PARAM_PREFIX')}"
+            f"/(?P<job_type>[^/]+)/tasks/(?P<task_id>[^/]+)"
+        )
+
+    @staticmethod
+    def get_parameter_name(job_type: str, task_id: str) -> str:
+        """Create the parameter name from job_type and task_id"""
+        return (
+            f"{os.getenv('AIND_AIRFLOW_PARAM_PREFIX')}"
+            f"/{job_type}/tasks/{task_id}"
         )
