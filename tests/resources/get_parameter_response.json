@@ -1,0 +1,24 @@
+{
+   "Parameter": {
+      "Name": "/param_prefix/ecephys/tasks/task1",
+      "Type": "String",
+      "Value": "{\"foo\": \"bar\"}",
+      "Version": 1,
+      "LastModifiedDate": "2025-01-23 11:50:04.535000-08:00",
+      "ARN": "ARN",
+      "DataType": "text"
+   },
+   "ResponseMetadata": {
+      "RequestId": "e87ed289-0460-4f08-aef2-20d836bb5beb",
+      "HTTPStatusCode": 200,
+      "HTTPHeaders": {
+         "server": "Server",
+         "date": "Tue, 28 Jan 2025 02:08:07 GMT",
+         "content-type": "application/x-amz-json-1.1",
+         "content-length": "630",
+         "connection": "keep-alive",
+         "x-amzn-requestid": "e87ed289-0460-4f08-aef2-20d836bb5beb"
+      },
+      "RetryAttempts": 0
+   }
+}
