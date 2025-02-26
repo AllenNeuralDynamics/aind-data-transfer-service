@@ -1001,4 +1001,4 @@ routes = [
 ]
 
 app = Starlette(routes=routes)
-app.add_middleware(SessionMiddleware, secret_key="!secret")
+app.add_middleware(SessionMiddleware, secret_key=None)
