@@ -26,7 +26,6 @@ from starlette.applications import Starlette
 from starlette.routing import Route
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.config import Config
-# from starlette.requests import Request
 from starlette.responses import RedirectResponse
 from authlib.integrations.starlette_client import OAuth, OAuthError
 
