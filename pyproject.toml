@@ -51,7 +51,8 @@ server = [
     'wtforms',
     'requests==2.25.0',
     'openpyxl',
-    'python-logging-loki'
+    'python-logging-loki',
+    'authlib'
 ]
 
 [tool.setuptools.packages.find]
