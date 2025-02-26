@@ -24,7 +24,11 @@ from openpyxl import load_workbook
 from pydantic import SecretStr, ValidationError
 from starlette.applications import Starlette
 from starlette.routing import Route
-from starlette.responses import Response, JSONResponse
+from starlette.middleware.sessions import SessionMiddleware
+from starlette.config import Config
+# from starlette.requests import Request
+from starlette.responses import RedirectResponse
+from authlib.integrations.starlette_client import OAuth, OAuthError
 
 from aind_data_transfer_service import OPEN_DATA_BUCKET_NAME
 from aind_data_transfer_service.configs.csv_handler import map_csv_row_to_job
@@ -78,6 +82,7 @@ templates = Jinja2Templates(directory=template_directory)
 
 logger = get_logger(log_configs=LoggingConfigs())
 project_names_url = os.getenv("AIND_METADATA_SERVICE_PROJECT_NAMES_URL")
+AIND_SSO_SECRET_NAME = os.getenv('AIND_SSO_SECRET_NAME')
 
 
 def get_project_names() -> List[str]:
@@ -87,6 +92,32 @@ def get_project_names() -> List[str]:
     response.raise_for_status()
     project_names = response.json()["data"]
     return project_names
+
+
+def set_oauth() -> OAuth:
+    """Set up OAuth for the service"""
+    secrets_client = boto3.client('secretsmanager')
+    try:
+        secret_response = secrets_client.get_secret_value(
+            SecretId=AIND_SSO_SECRET_NAME
+        )
+        secret_value = json.loads(secret_response["SecretString"])
+    except ClientError as e:
+        return {"error": f"{e.__class__.__name__}{e.args}"}
+    for secrets in secret_value:
+        os.environ[secrets] = secret_value[secrets]
+    config = Config()
+    oauth = OAuth(config)
+    oauth.register(
+        name='azure',
+        client_id=config("CLIENT_ID"),
+        client_secret=config("CLIENT_SECRET"),
+        server_metadata_url=config("AUTHORITY"),
+        client_kwargs={
+            'scope': 'openid email profile'
+        }
+    )
+    return oauth
 
 
 async def validate_csv(request: Request):
@@ -797,7 +828,8 @@ async def jobs(request: Request):
 
 async def job_params(request: Request):
     """Get Job Parameters page"""
-    if request.user.is_authenticated:
+    user = request.session.get('user')
+    if user:
         return templates.TemplateResponse(
             name="job_params.html",
             context=(
@@ -809,9 +841,7 @@ async def job_params(request: Request):
                 }
             ),
         )
-    else:
-        async with sso:
-            return await sso.get_login_redirect()
+    return RedirectResponse(url='/login')
 
 
 async def download_job_template(_: Request):
@@ -907,62 +937,32 @@ def get_parameter(request: Request):
             },
             status_code=500,
         )
-from starlette.applications import Starlette
-from starlette.authentication import (
-    AuthCredentials, AuthenticationBackend, AuthenticationError, SimpleUser
-)
-from starlette.middleware import Middleware
-from starlette.middleware.authentication import AuthenticationMiddleware
-from starlette.responses import PlainTextResponse 
-from starlette.routing import Route
-import base64
-import binascii
-
-from fastapi_sso.sso.microsoft import MicrosoftSSO
-
-class BasicAuthBackend(AuthenticationBackend):
-    async def authenticate(self, conn):
-        if "Authorization" not in conn.headers:
-            print("Auth not in headers")
-            return
-
-        auth = conn.headers["Authorization"]
-        try:
-            print("trying decoding")
-            scheme, credentials = auth.split()
-            if scheme.lower() != 'basic':
-                return
-            decoded = base64.b64decode(credentials).decode("ascii")
-        except (ValueError, UnicodeDecodeError, binascii.Error) as exc:
-            raise AuthenticationError('Invalid basic auth credentials')
-
-        username, _, password = decoded.partition(":")
-        # TODO: You'd want to verify the username and password here.
-        return AuthCredentials(["authenticated"]), SimpleUser(username)
 
 
-sso = MicrosoftSSO(
-    client_id=CLIENT_ID,
-    client_secret=CLIENT_SECRET,
-    tenant=TENANT,
-    redirect_uri="http://localhost:8000/job_params",
-    allow_insecure_http=True,
-)
+async def login(request: Request):
+    """Redirect to Azure login page"""
+    oauth = set_oauth()
+    redirect_uri = request.url_for('auth')
+    return await oauth.azure.authorize_redirect(request, redirect_uri)
 
-async def home(request: Request):
-    return Response(content="Hello, World!", media_type="text/plain")
 
-async def auth_init(request: Request):
-    """Initialize auth and redirect"""
-    async with sso:
-        return await sso.get_login_redirect()
-
-async def auth_callback(request: Request):
-    """Verify login"""
-    async with sso:
-        response = await sso.verify_and_process(request, convert_response=False)
-        response_json = JSONResponse(response)
-        return response_json
+async def auth(request: Request):
+    """Authenticate user and store user info in session"""
+    oauth = set_oauth()
+    try:
+        token = await oauth.azure.authorize_access_token(request)
+    except OAuthError as error:
+        return JSONResponse(
+            content={
+                "message": "Error Logging In",
+                "data": {"error": f"{error.__class__.__name__}{error.args}"},
+            },
+            status_code=500,
+        )
+    user = token.get('userinfo')
+    if user:
+        request.session['user'] = dict(user)
+    return RedirectResponse(url='/')
 
 routes = [
     Route("/", endpoint=index, methods=["GET", "POST"]),
@@ -997,15 +997,9 @@ routes = [
         endpoint=download_job_template,
         methods=["GET"],
     ),
-    Route("/auth/login", endpoint=auth_init, methods=["GET"]),
-    Route("/auth/callback", endpoint=auth_callback, methods=["GET"]),
-    Route("/home", endpoint=home, methods=["GET"]),
+    Route("/login", login, methods=["GET"]),
+    Route("/auth", auth, methods=["GET"])
 ]
 
-middleware = [
-    Middleware(AuthenticationMiddleware, backend=BasicAuthBackend())
-]
-
-app = Starlette(routes=routes, middleware=middleware)
-
-# app = Starlette(routes=routes)
+app = Starlette(routes=routes)
+app.add_middleware(SessionMiddleware, secret_key="!secret")
