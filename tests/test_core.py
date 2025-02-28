@@ -95,6 +95,7 @@ class TestUploadJobConfigsV2(unittest.TestCase):
                 "job_type": True,
                 "s3_bucket": True,
                 "acq_datetime": True,
+                "s3_prefix": True,
                 "task_overrides": True,
             }
         )
@@ -115,6 +116,14 @@ class TestUploadJobConfigsV2(unittest.TestCase):
                 **self.base_configs,
             )
 
+    def test_s3_prefix(self):
+        """Test s3_prefix property"""
+
+        self.assertEqual(
+            "behavior_123456_2020-10-13_13-10-10",
+            self.example_configs.s3_prefix,
+        )
+
     def test_map_bucket(self):
         """Test map_bucket method"""
         default_configs = UploadJobConfigsV2(
@@ -124,6 +133,7 @@ class TestUploadJobConfigsV2(unittest.TestCase):
         base_configs = default_configs.model_dump(
             exclude={
                 "s3_bucket": True,
+                "s3_prefix": True,
             }
         )
         private_configs1 = UploadJobConfigsV2(
@@ -167,6 +177,35 @@ class TestUploadJobConfigsV2(unittest.TestCase):
         model_json = self.example_configs.model_dump_json()
         deserialized = UploadJobConfigsV2.model_validate_json(model_json)
         self.assertEqual(self.example_configs, deserialized)
+
+    def test_deserialization_fail(self):
+        """Tests deserialization fails with incorrect computed field"""
+        corrupt_json = json.dumps(
+            {
+                "platform": {
+                    "name": "Behavior platform",
+                    "abbreviation": "behavior",
+                },
+                "modalities": [
+                    {
+                        "name": "Behavior videos",
+                        "abbreviation": "behavior-videos",
+                    }
+                ],
+                "subject_id": "123456",
+                "acq_datetime": "2020-10-13T13:10:10",
+                "s3_prefix": "incorrect",
+            }
+        )
+        with self.assertRaises(ValidationError) as e:
+            UploadJobConfigsV2.model_validate_json(corrupt_json)
+        errors = json.loads(e.exception.json())
+        expected_msg = (
+            "Value error, s3_prefix incorrect doesn't match computed "
+            "behavior_123456_2020-10-13_13-10-10!"
+        )
+        self.assertEqual(1, len(errors))
+        self.assertEqual(expected_msg, errors[0]["msg"])
 
     def test_task_overrides(self):
         """Tests that task overrides are set correctly"""

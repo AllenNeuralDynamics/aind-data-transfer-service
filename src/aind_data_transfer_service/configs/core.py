@@ -6,6 +6,9 @@ from datetime import datetime
 from enum import Enum
 from typing import Any, ClassVar, Dict, List, Literal, Optional, Set, Union
 
+from aind_data_schema_models.data_name_patterns import (
+    build_data_name,
+)
 from aind_data_schema_models.modalities import Modality
 from aind_data_schema_models.platforms import Platform
 from aind_data_transfer_models.s3_upload_configs import (
@@ -18,7 +21,9 @@ from pydantic import (
     EmailStr,
     Field,
     ValidationInfo,
+    computed_field,
     field_validator,
+    model_validator,
 )
 from pydantic_settings import BaseSettings
 
@@ -171,6 +176,39 @@ class UploadJobConfigsV2(BaseSettings):
         ),
         title="Task Overrides",
     )
+
+    @computed_field
+    def s3_prefix(self) -> str:
+        """Construct s3_prefix from configs."""
+        return build_data_name(
+            label=f"{self.platform.abbreviation}_{self.subject_id}",
+            creation_datetime=self.acq_datetime,
+        )
+
+    @model_validator(mode="before")
+    def check_computed_field(cls, data: Any) -> Any:
+        """If the computed field is present, we check that it's expected. If
+        this validator isn't added, then an 'extra field not allow' error
+        will be raised when serializing and deserializing json."""
+        if isinstance(data, dict) and data.get("s3_prefix") is not None:
+            expected_s3_prefix = build_data_name(
+                label=(
+                    f"{data.get('platform', dict()).get('abbreviation')}"
+                    f"_{data.get('subject_id')}"
+                ),
+                creation_datetime=datetime.fromisoformat(
+                    data.get("acq_datetime")
+                ),
+            )
+            if expected_s3_prefix != data.get("s3_prefix"):
+                raise ValueError(
+                    f"s3_prefix {data.get('s3_prefix')} doesn't match "
+                    f"computed {expected_s3_prefix}!"
+                )
+            else:
+                del data["s3_prefix"]
+        return data
+
     @field_validator("acq_datetime", mode="before")
     def _parse_datetime(cls, datetime_val: Any) -> datetime:
         """Parses datetime string to %YYYY-%MM-%DD HH:mm:ss"""
