@@ -13,9 +13,66 @@ from aind_data_transfer_models.s3_upload_configs import (
 from pydantic import ValidationError
 
 from aind_data_transfer_service.configs.core import (
+    CustomTask,
+    SkipTask,
     SubmitJobRequestV2,
+    TaskId,
     UploadJobConfigsV2,
 )
+
+
+class TestTaskConfigs(unittest.TestCase):
+    """Tests Task class"""
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        """Set up test class"""
+        custom_task = CustomTask(
+            task_id=TaskId.CHECK_SOURCE_FOLDERS_EXIST,
+            image="some_image",
+            image_version="1.0.0",
+            image_environment={"key": "value"},
+            parameters_settings={"param1": "value1", "param2": "value2"},
+        )
+        cls.custom_task = custom_task
+        cls.custom_task_configs = custom_task.model_dump()
+
+    def test_skip_task(self):
+        """Tests SkipTask is created correctly."""
+        task_configs = SkipTask(task_id=TaskId.CHECK_SOURCE_FOLDERS_EXIST)
+        self.assertEqual(
+            {"task_id": "check_source_folders_exist", "skip_task": True},
+            json.loads(task_configs.model_dump_json()),
+        )
+
+    def test_custom_task(self):
+        """Tests that CustomTask is created correctly."""
+        task_configs = CustomTask(**self.custom_task_configs)
+        self.assertEqual(
+            {
+                "task_id": "check_source_folders_exist",
+                "image": "some_image",
+                "image_version": "1.0.0",
+                "image_environment": {"key": "value"},
+                "parameters_settings": {
+                    "param1": "value1",
+                    "param2": "value2",
+                },
+            },
+            json.loads(task_configs.model_dump_json()),
+        )
+
+    def test_custom_task_error(self):
+        """Tests that an error is raised if dicts are not json serializable"""
+        for field in ["image_environment", "parameters_settings"]:
+            expected_error = f"Value error, {field} must be json serializable!"
+            invalid_configs = self.custom_task_configs.copy()
+            invalid_configs[field] = {"param1": list}
+            with self.assertRaises(ValidationError) as e:
+                CustomTask(**invalid_configs)
+            errors = e.exception.errors()
+            self.assertEqual(1, len(errors))
+            self.assertIn(expected_error, errors[0]["msg"])
 
 
 class TestUploadJobConfigsV2(unittest.TestCase):
@@ -38,6 +95,7 @@ class TestUploadJobConfigsV2(unittest.TestCase):
                 "job_type": True,
                 "s3_bucket": True,
                 "acq_datetime": True,
+                "task_overrides": True,
             }
         )
 
@@ -154,6 +212,41 @@ class TestUploadJobConfigsV2(unittest.TestCase):
         model_json = self.example_configs.model_dump_json()
         deserialized = UploadJobConfigsV2.model_validate_json(model_json)
         self.assertEqual(self.example_configs, deserialized)
+
+    def test_task_overrides(self):
+        """Tests that task overrides are set correctly"""
+        task_overrides = [
+            CustomTask(
+                task_id=TaskId.MAKE_MODALITY_LIST,
+                image="some_image",
+                image_version="1.0.0",
+                image_environment={"key": "value"},
+                parameters_settings={"param1": "value1", "param2": "value2"},
+            ),
+            SkipTask(task_id=TaskId.GATHER_FINAL_METADATA),
+            SkipTask(task_id=TaskId.REGISTER_DATA_ASSET_TO_CODEOCEAN),
+        ]
+        job_configs = UploadJobConfigsV2(
+            acq_datetime=datetime(2020, 10, 13, 13, 10, 10),
+            task_overrides=task_overrides,
+            **self.base_configs,
+        )
+        self.assertEqual(3, len(job_configs.task_overrides))
+        # if we add a duplicate task_id, an error should be raised
+        task_overrides.append(SkipTask(task_id=TaskId.MAKE_MODALITY_LIST))
+        with self.assertRaises(ValidationError) as e:
+            UploadJobConfigsV2(
+                acq_datetime=datetime(2020, 10, 13, 13, 10, 10),
+                task_overrides=task_overrides,
+                **self.base_configs,
+            )
+        errors = e.exception.errors()
+        self.assertEqual(1, len(errors))
+        self.assertEqual(
+            "Value error, Task IDs must be unique! Duplicates: "
+            "{'make_modality_list'}",
+            errors[0]["msg"],
+        )
 
 
 class TestSubmitJobRequestV2(unittest.TestCase):
