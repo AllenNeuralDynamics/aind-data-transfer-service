@@ -181,31 +181,6 @@ class TestUploadJobConfigsV2(unittest.TestCase):
         self.assertEqual(BucketType.PRIVATE, private_configs1.s3_bucket)
         self.assertEqual(BucketType.PRIVATE, private_configs2.s3_bucket)
 
-    def test_parse_datetime(self):
-        """Test parse_datetime method"""
-
-        configs1 = UploadJobConfigsV2(
-            acq_datetime="2020-05-23T09:05:03",
-            **self.base_configs,
-        )
-        configs2 = UploadJobConfigsV2(
-            acq_datetime="05/23/2020 09:05:03 AM",
-            **self.base_configs,
-        )
-        self.assertEqual(datetime(2020, 5, 23, 9, 5, 3), configs1.acq_datetime)
-        self.assertEqual(datetime(2020, 5, 23, 9, 5, 3), configs2.acq_datetime)
-
-    def test_parse_datetime_error(self):
-        """Test parse_datetime method raises error"""
-
-        with self.assertRaises(ValidationError) as e:
-            UploadJobConfigsV2(
-                acq_datetime="2020/05/23T09:05:03",
-                **self.base_configs,
-            )
-        error_msg = json.loads(e.exception.json())[0]["msg"]
-        self.assertTrue("Value error, Incorrect datetime format" in error_msg)
-
     def test_round_trip(self):
         """Tests model can be serialized and de-serialized easily"""
         model_json = self.example_configs.model_dump_json()

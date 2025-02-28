@@ -145,12 +145,6 @@ class UploadJobConfigsV2(BaseSettings):
         )
 
     model_config = ConfigDict(use_enum_values=True, extra="allow")
-    _DATETIME_PATTERN1: ClassVar = re.compile(
-        r"^\d{4}-\d{2}-\d{2}[ |T]\d{2}:\d{2}:\d{2}$"
-    )
-    _DATETIME_PATTERN2: ClassVar = re.compile(
-        r"^\d{1,2}/\d{1,2}/\d{4} \d{1,2}:\d{2}:\d{2} [APap][Mm]$"
-    )
 
     user_email: Optional[EmailStr] = Field(
         default=None,
@@ -239,26 +233,6 @@ class UploadJobConfigsV2(BaseSettings):
             else:
                 del data["s3_prefix"]
         return data
-
-    @field_validator("acq_datetime", mode="before")
-    def _parse_datetime(cls, datetime_val: Any) -> datetime:
-        """Parses datetime string to %YYYY-%MM-%DD HH:mm:ss"""
-        is_str = isinstance(datetime_val, str)
-        if is_str and re.match(
-            UploadJobConfigsV2._DATETIME_PATTERN1, datetime_val
-        ):
-            return datetime.fromisoformat(datetime_val)
-        elif is_str and re.match(
-            UploadJobConfigsV2._DATETIME_PATTERN2, datetime_val
-        ):
-            return datetime.strptime(datetime_val, "%m/%d/%Y %I:%M:%S %p")
-        elif is_str:
-            raise ValueError(
-                "Incorrect datetime format, should be"
-                " YYYY-MM-DD HH:mm:ss or MM/DD/YYYY I:MM:SS P"
-            )
-        else:
-            return datetime_val
 
     @field_validator("project_name", mode="before")
     def validate_project_name(cls, v: str, info: ValidationInfo) -> str:
