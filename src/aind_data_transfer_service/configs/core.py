@@ -112,17 +112,6 @@ class UploadJobConfigsV2(BaseSettings):
     # @field_validator for s3_bucket and others
 
     model_config = ConfigDict(use_enum_values=True, extra="allow")
-    # Need some way to extract abbreviations. Maybe a public method can be
-    # added to the Platform class
-    _PLATFORM_MAP: ClassVar = {
-        p().abbreviation.upper(): p().abbreviation for p in Platform.ALL
-    }
-    # Need some way to extract abbreviations. Maybe a public method can be
-    # added to the Modality class
-    _MODALITY_MAP: ClassVar = {
-        m().abbreviation.upper().replace("-", "_"): m().abbreviation
-        for m in Modality.ALL
-    }
     _DATETIME_PATTERN1: ClassVar = re.compile(
         r"^\d{4}-\d{2}-\d{2}[ |T]\d{2}:\d{2}:\d{2}$"
     )
@@ -182,46 +171,6 @@ class UploadJobConfigsV2(BaseSettings):
         ),
         title="Task Overrides",
     )
-
-    # TODO: do we still need to parse platform and modality from string?
-    @field_validator("platform", mode="before")
-    def parse_platform_string(
-        cls, input_platform: Union[str, dict, Platform]
-    ) -> Union[dict, Platform]:
-        """Attempts to convert strings to a Platform model. Raises an error
-        if unable to do so."""
-        if isinstance(input_platform, str):
-            platform_abbreviation = cls._PLATFORM_MAP.get(
-                input_platform.upper()
-            )
-            if platform_abbreviation is None:
-                raise AttributeError(f"Unknown Platform: {input_platform}")
-            else:
-                return Platform.from_abbreviation(platform_abbreviation)
-        else:
-            return input_platform
-
-    @field_validator("modalities", mode="before")
-    def parse_modality_string(
-        cls, input_modalities: List[Union[str, dict, Modality]]
-    ) -> List[Union[dict, Modality]]:
-        """Attempts to convert strings to a Modality model. Raises an error
-        if unable to do so."""
-        modalities = []
-        for input_modality in input_modalities:
-            if isinstance(input_modality, str):
-                modality_abbreviation = cls._MODALITY_MAP.get(
-                    input_modality.upper().replace("-", "_")
-                )
-                if modality_abbreviation is None:
-                    raise AttributeError(f"Unknown Modality: {input_modality}")
-                modalities.append(
-                    Modality.from_abbreviation(modality_abbreviation)
-                )
-            else:
-                modalities.append(input_modality)
-        return modalities
-
     @field_validator("acq_datetime", mode="before")
     def _parse_datetime(cls, datetime_val: Any) -> datetime:
         """Parses datetime string to %YYYY-%MM-%DD HH:mm:ss"""

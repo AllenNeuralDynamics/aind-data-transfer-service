@@ -162,51 +162,6 @@ class TestUploadJobConfigsV2(unittest.TestCase):
         error_msg = json.loads(e.exception.json())[0]["msg"]
         self.assertTrue("Value error, Incorrect datetime format" in error_msg)
 
-    def test_parse_platform_string(self):
-        """Tests platform can be parsed from string"""
-
-        base_configs = self.example_configs.model_dump(
-            exclude={
-                "platform": True,
-            }
-        )
-        configs = UploadJobConfigsV2(platform="behavior", **base_configs)
-        self.assertEqual(Platform.BEHAVIOR, configs.platform)
-
-    def test_parse_platform_string_error(self):
-        """Tests that an error is raised if an unknown platform is used"""
-
-        base_configs = self.example_configs.model_dump(
-            exclude={
-                "platform": True,
-            }
-        )
-
-        with self.assertRaises(AttributeError) as e:
-            UploadJobConfigsV2(platform="MISSING", **base_configs)
-        self.assertEqual("Unknown Platform: MISSING", e.exception.args[0])
-
-    def test_parse_modality_string(self):
-        """Test parse_modality_string method"""
-        base_configs = self.example_configs.model_dump(
-            exclude={
-                "modalities": True,
-            }
-        )
-        configs = UploadJobConfigsV2(modalities=["ecephys"], **base_configs)
-        self.assertEqual([Modality.ECEPHYS], configs.modalities)
-
-    def test_parse_modality_string_error(self):
-        """Test parse_modality_string method raises error"""
-        base_configs = self.example_configs.model_dump(
-            exclude={
-                "modalities": True,
-            }
-        )
-        with self.assertRaises(AttributeError) as e:
-            UploadJobConfigsV2(modalities=["abcdef"], **base_configs)
-        self.assertEqual("Unknown Modality: abcdef", e.exception.args[0])
-
     def test_round_trip(self):
         """Tests model can be serialized and de-serialized easily"""
         model_json = self.example_configs.model_dump_json()
