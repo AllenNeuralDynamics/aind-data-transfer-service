@@ -2,6 +2,8 @@
 
 import json
 import re
+from contextlib import contextmanager
+from contextvars import ContextVar
 from datetime import datetime
 from enum import Enum
 from typing import Any, ClassVar, Dict, List, Literal, Optional, Set, Union
@@ -26,6 +28,31 @@ from pydantic import (
     model_validator,
 )
 from pydantic_settings import BaseSettings
+
+_validation_context: ContextVar[Union[Dict[str, Any], None]] = ContextVar(
+    "_validation_context", default=None
+)
+
+
+@contextmanager
+def validation_context(context: Union[Dict[str, Any], None]) -> None:
+    """
+    Following guide in:
+    https://docs.pydantic.dev/latest/concepts/validators/#validation-context
+    Parameters
+    ----------
+    context : Union[Dict[str, Any], None]
+
+    Returns
+    -------
+    None
+
+    """
+    token = _validation_context.set(context)
+    try:
+        yield
+    finally:
+        _validation_context.reset(token)
 
 
 # TODO: add all possible job types as enums. Alternatively,
@@ -108,13 +135,14 @@ class CustomTask(Task):
 class UploadJobConfigsV2(BaseSettings):
     """Configuration for a data transfer upload job"""
 
-    # TODO: add back:
-    # context manager
-    # user_email
-    # email_notification_types
-    # project_name
-    # s3_prefix (build_data_name)
-    # @field_validator for s3_bucket and others
+    # noinspection PyMissingConstructor
+    def __init__(self, /, **data: Any) -> None:
+        """Add context manager to init for validating project_names."""
+        self.__pydantic_validator__.validate_python(
+            data,
+            self_instance=self,
+            context=_validation_context.get(),
+        )
 
     model_config = ConfigDict(use_enum_values=True, extra="allow")
     _DATETIME_PATTERN1: ClassVar = re.compile(
@@ -152,6 +180,9 @@ class UploadJobConfigsV2(BaseSettings):
             "Bucket where data will be uploaded (defaults to open bucket)."
         ),
         title="S3 Bucket",
+    )
+    project_name: str = Field(
+        ..., description="Name of project", title="Project Name"
     )
     platform: Platform.ONE_OF = Field(
         ..., description="Platform", title="Platform"
@@ -228,6 +259,29 @@ class UploadJobConfigsV2(BaseSettings):
             )
         else:
             return datetime_val
+
+    @field_validator("project_name", mode="before")
+    def validate_project_name(cls, v: str, info: ValidationInfo) -> str:
+        """
+        Validate the project name. If a list of project_names is provided in a
+        context manager, then it will validate against the list. Otherwise, it
+        won't raise any validation error.
+        Parameters
+        ----------
+        v : str
+          Value input into project_name field.
+        info : ValidationInfo
+
+        Returns
+        -------
+        str
+
+        """
+        project_names = (info.context or dict()).get("project_names")
+        if project_names is not None and v not in project_names:
+            raise ValueError(f"{v} must be one of {project_names}")
+        else:
+            return v
 
     @field_validator("task_overrides", mode="after")
     def check_task_overrides(

@@ -18,6 +18,7 @@ from aind_data_transfer_service.configs.core import (
     SubmitJobRequestV2,
     TaskId,
     UploadJobConfigsV2,
+    validation_context,
 )
 
 
@@ -82,6 +83,7 @@ class TestUploadJobConfigsV2(unittest.TestCase):
     def setUpClass(cls) -> None:
         """Set up test class"""
         example_configs = UploadJobConfigsV2(
+            project_name="Behavior Platform",
             platform=Platform.BEHAVIOR,
             modalities=[
                 Modality.BEHAVIOR_VIDEOS,
@@ -122,6 +124,38 @@ class TestUploadJobConfigsV2(unittest.TestCase):
         self.assertEqual(
             "behavior_123456_2020-10-13_13-10-10",
             self.example_configs.s3_prefix,
+        )
+
+    def test_project_names_validation(self):
+        """Test project_name is validated against list context provided."""
+
+        model = json.loads(self.example_configs.model_dump_json())
+        with validation_context(
+            {"project_names": ["Behavior Platform", "Other Platform"]}
+        ):
+            round_trip_model = UploadJobConfigsV2(**model)
+
+        self.assertEqual(
+            "behavior_123456_2020-10-13_13-10-10",
+            round_trip_model.s3_prefix,
+        )
+
+    def test_project_names_validation_fail(self):
+        """Test project_name is validated against list context provided and
+        fails validation."""
+
+        model = json.loads(self.example_configs.model_dump_json())
+        with self.assertRaises(ValidationError) as err:
+            with validation_context({"project_names": ["Other Platform"]}):
+                UploadJobConfigsV2(**model)
+
+        err_msg = json.loads(err.exception.json())[0]["msg"]
+        self.assertEqual(
+            (
+                "Value error, Behavior Platform must be one of "
+                "['Other Platform']"
+            ),
+            err_msg,
         )
 
     def test_map_bucket(self):
@@ -182,6 +216,7 @@ class TestUploadJobConfigsV2(unittest.TestCase):
         """Tests deserialization fails with incorrect computed field"""
         corrupt_json = json.dumps(
             {
+                "project_name": "Behavior Platform",
                 "platform": {
                     "name": "Behavior platform",
                     "abbreviation": "behavior",
@@ -251,6 +286,7 @@ class TestSubmitJobRequestV2(unittest.TestCase):
         """Set up example configs to be used in tests"""
 
         example_upload_config = UploadJobConfigsV2(
+            project_name="Behavior Platform",
             platform=Platform.BEHAVIOR,
             modalities=[
                 Modality.BEHAVIOR_VIDEOS,
@@ -383,6 +419,7 @@ class TestSubmitJobRequestV2(unittest.TestCase):
     def test_extra_allow(self):
         """Tests that extra fields can be passed into model."""
         config = UploadJobConfigsV2(
+            project_name="some project",
             platform=Platform.ECEPHYS,
             modalities=[Modality.ECEPHYS],
             subject_id="123456",
