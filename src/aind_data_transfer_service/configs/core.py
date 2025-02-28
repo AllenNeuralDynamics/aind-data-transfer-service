@@ -8,9 +8,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Any, ClassVar, Dict, List, Literal, Optional, Set, Union
 
-from aind_data_schema_models.data_name_patterns import (
-    build_data_name,
-)
+from aind_data_schema_models.data_name_patterns import build_data_name
 from aind_data_schema_models.modalities import Modality
 from aind_data_schema_models.platforms import Platform
 from aind_data_transfer_models.s3_upload_configs import (
@@ -53,15 +51,6 @@ def validation_context(context: Union[Dict[str, Any], None]) -> None:
         yield
     finally:
         _validation_context.reset(token)
-
-
-# TODO: add all possible job types as enums. Alternatively,
-# remove the enum if we allow any new job type
-class JobType(str, Enum):
-    """Job types for data transfer upload jobs."""
-
-    DEFAULT = "default"
-    TEST = "test"
 
 
 class TaskId(str, Enum):
@@ -159,11 +148,11 @@ class UploadJobConfigsV2(BaseSettings):
         ),
     )
 
-    job_type: JobType = Field(
-        default=JobType.DEFAULT,
+    job_type: str = Field(
+        default="default",
         description=(
-            "Job type for the upload job. Tasks will be run with default "
-            "settings based on the job_type."
+            "Job type for the upload job. Tasks will be run based on the "
+            "job_type unless otherwise specified in task_overrides."
         ),
         title="Job Type",
     )
@@ -234,6 +223,29 @@ class UploadJobConfigsV2(BaseSettings):
                 del data["s3_prefix"]
         return data
 
+    @field_validator("job_type", mode="before")
+    def validate_job_type(cls, v: str, info: ValidationInfo) -> str:
+        """
+        Validate the job_type. If a list of job_types is provided in a
+        context manager, then it will validate against the list. Otherwise, it
+        won't raise any validation error.
+        Parameters
+        ----------
+        v : str
+          Value input into job_type field.
+        info : ValidationInfo
+
+        Returns
+        -------
+        str
+
+        """
+        job_types = (info.context or dict()).get("job_types")
+        if job_types is not None and v not in job_types:
+            raise ValueError(f"{v} must be one of {job_types}")
+        else:
+            return v
+    
     @field_validator("project_name", mode="before")
     def validate_project_name(cls, v: str, info: ValidationInfo) -> str:
         """

@@ -102,31 +102,56 @@ class TestUploadJobConfigsV2(unittest.TestCase):
             }
         )
 
-    def test_job_type(self):
-        """Tests default, valid, and invalid job_type property"""
-        self.assertEqual("default", self.example_configs.job_type)
-        valid_configs = UploadJobConfigsV2(
-            job_type="test",
-            acq_datetime=datetime(2020, 10, 13, 13, 10, 10),
-            **self.base_configs,
-        )
-        self.assertEqual("test", valid_configs.job_type)
-        with self.assertRaises(ValidationError):
-            UploadJobConfigsV2(
-                job_type="random_string",
-                acq_datetime=datetime(2020, 10, 13, 13, 10, 10),
-                **self.base_configs,
-            )
-
     def test_s3_prefix(self):
-        """Test s3_prefix property"""
+        """Test s3_prefix computed property"""
 
         self.assertEqual(
             "behavior_123456_2020-10-13_13-10-10",
             self.example_configs.s3_prefix,
         )
+    
+    def test_job_type_default(self):
+        """Tests default, valid, and invalid job_type property"""
+        self.assertEqual("default", self.example_configs.job_type)
+    
+    def test_job_type_validation(self):
+        """Test job_type is validated against list context provided."""
+        with validation_context(
+            {"job_types": ["default", "ecephys"]}
+        ):
+            round_trip_model = UploadJobConfigsV2(
+                job_type="ecephys",
+                acq_datetime=datetime(2020, 10, 13, 13, 10, 10),
+                **self.base_configs
+            )
 
-    def test_project_names_validation(self):
+        self.assertEqual(
+            "ecephys",
+            round_trip_model.job_type,
+        )
+
+    def test_job_type_validation_fail(self):
+        """Test job_type is validated against list context provided and
+        fails validation."""
+
+        with self.assertRaises(ValidationError) as err:
+            with validation_context({"job_types": ["default", "ecephys"]}):
+                UploadJobConfigsV2(
+                    job_type="random_string",
+                    acq_datetime=datetime(2020, 10, 13, 13, 10, 10),
+                    **self.base_configs
+                )
+
+        err_msg = json.loads(err.exception.json())[0]["msg"]
+        self.assertEqual(
+            (
+                "Value error, random_string must be one of "
+                "['default', 'ecephys']"
+            ),
+            err_msg,
+        )
+
+    def test_project_name_validation(self):
         """Test project_name is validated against list context provided."""
 
         model = json.loads(self.example_configs.model_dump_json())
@@ -140,7 +165,7 @@ class TestUploadJobConfigsV2(unittest.TestCase):
             round_trip_model.s3_prefix,
         )
 
-    def test_project_names_validation_fail(self):
+    def test_project_name_validation_fail(self):
         """Test project_name is validated against list context provided and
         fails validation."""
 
@@ -158,8 +183,8 @@ class TestUploadJobConfigsV2(unittest.TestCase):
             err_msg,
         )
 
-    def test_map_bucket(self):
-        """Test map_bucket method"""
+    def test_s3_bucket(self):
+        """Test s3_bucket allowed values"""
         default_configs = UploadJobConfigsV2(
             acq_datetime=datetime(2020, 10, 13, 13, 10, 10),
             **self.base_configs,
