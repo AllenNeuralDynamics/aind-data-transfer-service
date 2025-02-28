@@ -181,7 +181,7 @@ class UploadJobConfigsV2(BaseSettings):
         description="Datetime data was acquired",
         title="Acquisition Datetime",
     )
-    task_overrides: Optional[List[CustomTask | SkipTask]] = Field(
+    task_overrides: Optional[List[Union[CustomTask, SkipTask]]] = Field(
         default=None,
         description=(
             "List of tasks to run with custom settings. If null, "
@@ -270,8 +270,8 @@ class UploadJobConfigsV2(BaseSettings):
 
     @field_validator("task_overrides", mode="after")
     def check_task_overrides(
-        cls, v: Optional[List[CustomTask | SkipTask]]
-    ) -> Optional[List[CustomTask | SkipTask]]:
+        cls, v: Optional[List[Union[CustomTask, SkipTask]]]
+    ) -> Optional[List[Union[CustomTask, SkipTask]]]:
         """Checks that task_ids are unique."""
         if v is not None:
             task_ids = [task.task_id for task in v]
