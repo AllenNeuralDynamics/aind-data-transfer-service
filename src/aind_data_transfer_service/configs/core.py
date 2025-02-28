@@ -1,12 +1,11 @@
 """Core models for using V2 of aind-data-transfer-service"""
 
 import json
-import re
 from contextlib import contextmanager
 from contextvars import ContextVar
 from datetime import datetime
 from enum import Enum
-from typing import Any, ClassVar, Dict, List, Literal, Optional, Set, Union
+from typing import Any, Dict, List, Literal, Optional, Set, Union
 
 from aind_data_schema_models.data_name_patterns import build_data_name
 from aind_data_schema_models.modalities import Modality
@@ -245,7 +244,7 @@ class UploadJobConfigsV2(BaseSettings):
             raise ValueError(f"{v} must be one of {job_types}")
         else:
             return v
-    
+
     @field_validator("project_name", mode="before")
     def validate_project_name(cls, v: str, info: ValidationInfo) -> str:
         """

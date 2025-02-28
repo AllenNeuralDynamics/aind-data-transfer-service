@@ -104,25 +104,22 @@ class TestUploadJobConfigsV2(unittest.TestCase):
 
     def test_s3_prefix(self):
         """Test s3_prefix computed property"""
-
         self.assertEqual(
             "behavior_123456_2020-10-13_13-10-10",
             self.example_configs.s3_prefix,
         )
-    
+
     def test_job_type_default(self):
         """Tests default, valid, and invalid job_type property"""
         self.assertEqual("default", self.example_configs.job_type)
-    
+
     def test_job_type_validation(self):
         """Test job_type is validated against list context provided."""
-        with validation_context(
-            {"job_types": ["default", "ecephys"]}
-        ):
+        with validation_context({"job_types": ["default", "ecephys"]}):
             round_trip_model = UploadJobConfigsV2(
                 job_type="ecephys",
                 acq_datetime=datetime(2020, 10, 13, 13, 10, 10),
-                **self.base_configs
+                **self.base_configs,
             )
 
         self.assertEqual(
@@ -133,13 +130,12 @@ class TestUploadJobConfigsV2(unittest.TestCase):
     def test_job_type_validation_fail(self):
         """Test job_type is validated against list context provided and
         fails validation."""
-
         with self.assertRaises(ValidationError) as err:
             with validation_context({"job_types": ["default", "ecephys"]}):
                 UploadJobConfigsV2(
                     job_type="random_string",
                     acq_datetime=datetime(2020, 10, 13, 13, 10, 10),
-                    **self.base_configs
+                    **self.base_configs,
                 )
 
         err_msg = json.loads(err.exception.json())[0]["msg"]
@@ -153,7 +149,6 @@ class TestUploadJobConfigsV2(unittest.TestCase):
 
     def test_project_name_validation(self):
         """Test project_name is validated against list context provided."""
-
         model = json.loads(self.example_configs.model_dump_json())
         with validation_context(
             {"project_names": ["Behavior Platform", "Other Platform"]}
@@ -168,7 +163,6 @@ class TestUploadJobConfigsV2(unittest.TestCase):
     def test_project_name_validation_fail(self):
         """Test project_name is validated against list context provided and
         fails validation."""
-
         model = json.loads(self.example_configs.model_dump_json())
         with self.assertRaises(ValidationError) as err:
             with validation_context({"project_names": ["Other Platform"]}):
@@ -284,7 +278,6 @@ class TestSubmitJobRequestV2(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         """Set up example configs to be used in tests"""
-
         example_upload_config = UploadJobConfigsV2(
             project_name="Behavior Platform",
             platform=Platform.BEHAVIOR,
@@ -298,7 +291,6 @@ class TestSubmitJobRequestV2(unittest.TestCase):
 
     def test_min_items(self):
         """Tests error is raised if no job list is empty"""
-
         with self.assertRaises(ValidationError) as e:
             SubmitJobRequestV2(upload_jobs=[])
         expected_message = (
@@ -310,7 +302,6 @@ class TestSubmitJobRequestV2(unittest.TestCase):
 
     def test_max_items(self):
         """Tests error is raised if job list is greater than maximum allowed"""
-
         upload_job = UploadJobConfigsV2(
             **self.example_upload_config.model_dump(round_trip=True)
         )
@@ -328,7 +319,6 @@ class TestSubmitJobRequestV2(unittest.TestCase):
 
     def test_default_settings(self):
         """Tests defaults are set correctly."""
-
         upload_job = UploadJobConfigsV2(
             **self.example_upload_config.model_dump(round_trip=True)
         )
@@ -362,7 +352,6 @@ class TestSubmitJobRequestV2(unittest.TestCase):
 
     def test_email_validation(self):
         """Tests user can not input invalid email address."""
-
         upload_job_configs = self.example_upload_config.model_dump(
             round_trip=True
         )
@@ -381,7 +370,6 @@ class TestSubmitJobRequestV2(unittest.TestCase):
 
     def test_propagate_email_settings(self):
         """Tests global email settings is propagated to individual jobs."""
-
         example_job_configs = self.example_upload_config.model_dump(
             exclude={"user_email", "email_notification_types"}, round_trip=True
         )
