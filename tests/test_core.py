@@ -35,10 +35,27 @@ class TestUploadJobConfigsV2(unittest.TestCase):
         cls.example_configs = example_configs
         cls.base_configs = example_configs.model_dump(
             exclude={
+                "job_type": True,
                 "s3_bucket": True,
                 "acq_datetime": True,
             }
         )
+
+    def test_job_type(self):
+        """Tests default, valid, and invalid job_type property"""
+        self.assertEqual("default", self.example_configs.job_type)
+        valid_configs = UploadJobConfigsV2(
+            job_type="test",
+            acq_datetime=datetime(2020, 10, 13, 13, 10, 10),
+            **self.base_configs,
+        )
+        self.assertEqual("test", valid_configs.job_type)
+        with self.assertRaises(ValidationError):
+            UploadJobConfigsV2(
+                job_type="random_string",
+                acq_datetime=datetime(2020, 10, 13, 13, 10, 10),
+                **self.base_configs,
+            )
 
     def test_map_bucket(self):
         """Test map_bucket method"""

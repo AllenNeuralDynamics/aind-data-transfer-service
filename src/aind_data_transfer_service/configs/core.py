@@ -2,6 +2,7 @@
 
 import re
 from datetime import datetime
+from enum import Enum
 from typing import Any, ClassVar, List, Literal, Optional, Set, Union
 
 from aind_data_schema_models.modalities import Modality
@@ -18,6 +19,15 @@ from pydantic import (
     field_validator,
 )
 from pydantic_settings import BaseSettings
+
+
+# TODO: add all possible job types as enums. Alternatively,
+# remove the enum if we allow any new job type
+class JobType(str, Enum):
+    """Job types for data transfer upload jobs."""
+
+    DEFAULT = "default"
+    TEST = "test"
 
 
 class UploadJobConfigsV2(BaseSettings):
@@ -63,6 +73,14 @@ class UploadJobConfigsV2(BaseSettings):
         ),
     )
 
+    job_type: JobType = Field(
+        default=JobType.DEFAULT,
+        description=(
+            "Job type for the upload job. Tasks will be run with default "
+            "settings based on the job_type."
+        ),
+        title="Job Type",
+    )
     # TODO: check default and allowed buckets
     s3_bucket: Literal[BucketType.PRIVATE, BucketType.OPEN] = Field(
         default=BucketType.OPEN,
