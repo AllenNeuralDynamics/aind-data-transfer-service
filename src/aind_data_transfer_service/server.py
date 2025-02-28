@@ -941,6 +941,7 @@ def get_parameter(request: Request):
 async def login(request: Request):
     """Redirect to Azure login page"""
     oauth = set_oauth()
+    print(oauth)
     redirect_uri = request.url_for('auth')
     return await oauth.azure.authorize_redirect(request, redirect_uri)
 
@@ -961,7 +962,15 @@ async def auth(request: Request):
     user = token.get('userinfo')
     if user:
         request.session['user'] = dict(user)
-    return RedirectResponse(url='/')
+    return templates.TemplateResponse(
+        name="admin.html",
+        context=(
+            {
+                "request": request
+            }
+        )
+    )
+
 
 routes = [
     Route("/", endpoint=index, methods=["GET", "POST"]),
