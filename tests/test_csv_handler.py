@@ -35,7 +35,7 @@ class TestCsvHandler(unittest.TestCase):
             BasicUploadJobConfigs(
                 project_name="Ephys Platform",
                 process_capsule_id=None,
-                s3_bucket="private",
+                s3_bucket="default",
                 platform=Platform.ECEPHYS,
                 modalities=[
                     ModalityConfigs(
