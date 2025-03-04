@@ -70,6 +70,8 @@ class EmailNotificationType(str, Enum):
 class TaskId(str, Enum):
     """Tasks run during a data transfer upload job."""
 
+    SEND_JOB_START_EMAIL = "send_job_start_email"
+    CHECK_S3_FOLDER_EXIST = "check_s3_folder_exist"
     CHECK_SOURCE_FOLDERS_EXIST = "check_source_folders_exist"
     CREATE_FOLDER = "create_folder"
     GATHER_PRELIMINARY_METADATA = "gather_preliminary_metadata"
@@ -81,6 +83,7 @@ class TaskId(str, Enum):
     UPDATE_DOCDB_RECORD = "update_docdb_record"
     EXPAND_PIPELINES = "expand_pipelines"
     REMOVE_FOLDER = "remove_folder"
+    SEND_JOB_END_EMAIL = "send_job_end_email"
 
 
 class Task(BaseSettings):
@@ -157,6 +160,15 @@ class UploadJobConfigsV2(BaseSettings):
 
     model_config = ConfigDict(use_enum_values=True, extra="allow")
 
+    job_type: str = Field(
+        default="default",
+        description=(
+            "Job type for the upload job. Tasks will be run based on the "
+            "job_type unless otherwise specified in task_overrides."
+        ),
+        title="Job Type",
+    )
+
     user_email: Optional[EmailStr] = Field(
         default=None,
         description=(
@@ -169,15 +181,6 @@ class UploadJobConfigsV2(BaseSettings):
             "Types of job statuses to receive email notifications about"
         ),
     )
-
-    job_type: str = Field(
-        default="default",
-        description=(
-            "Job type for the upload job. Tasks will be run based on the "
-            "job_type unless otherwise specified in task_overrides."
-        ),
-        title="Job Type",
-    )
     s3_bucket: Literal[
         BucketType.PRIVATE, BucketType.OPEN, BucketType.DEFAULT
     ] = Field(
@@ -188,6 +191,7 @@ class UploadJobConfigsV2(BaseSettings):
         ),
         title="S3 Bucket",
     )
+
     project_name: str = Field(
         ..., description="Name of project", title="Project Name"
     )
@@ -198,7 +202,7 @@ class UploadJobConfigsV2(BaseSettings):
         ...,
         description="Data collection modalities",
         title="Modalities",
-        min_items=1,
+        min_length=1,
     )
     subject_id: str = Field(..., description="Subject ID", title="Subject ID")
     acq_datetime: datetime = Field(
@@ -247,16 +251,17 @@ class UploadJobConfigsV2(BaseSettings):
                 del data["s3_prefix"]
         return data
 
-    @field_validator("job_type", mode="before")
-    def validate_job_type(cls, v: str, info: ValidationInfo) -> str:
+    @field_validator("job_type", "project_name", mode="before")
+    def validate_with_context(cls, v: str, info: ValidationInfo) -> str:
         """
-        Validate the job_type. If a list of job_types is provided in a
+        Validate certain fields. If a list of accepted values is provided in a
         context manager, then it will validate against the list. Otherwise, it
         won't raise any validation error.
+
         Parameters
         ----------
         v : str
-          Value input into job_type field.
+          Value input into the field.
         info : ValidationInfo
 
         Returns
@@ -264,32 +269,9 @@ class UploadJobConfigsV2(BaseSettings):
         str
 
         """
-        job_types = (info.context or dict()).get("job_types")
-        if job_types is not None and v not in job_types:
-            raise ValueError(f"{v} must be one of {job_types}")
-        else:
-            return v
-
-    @field_validator("project_name", mode="before")
-    def validate_project_name(cls, v: str, info: ValidationInfo) -> str:
-        """
-        Validate the project name. If a list of project_names is provided in a
-        context manager, then it will validate against the list. Otherwise, it
-        won't raise any validation error.
-        Parameters
-        ----------
-        v : str
-          Value input into project_name field.
-        info : ValidationInfo
-
-        Returns
-        -------
-        str
-
-        """
-        project_names = (info.context or dict()).get("project_names")
-        if project_names is not None and v not in project_names:
-            raise ValueError(f"{v} must be one of {project_names}")
+        valid_list = (info.context or dict()).get(f"{info.field_name}s")
+        if valid_list is not None and v not in valid_list:
+            raise ValueError(f"{v} must be one of {valid_list}")
         else:
             return v
 
@@ -313,6 +295,7 @@ class SubmitJobRequestV2(BaseSettings):
     and allows a user to add an email address to receive notifications."""
 
     model_config = ConfigDict(use_enum_values=True, extra="allow")
+
     job_type: Literal["transform_and_upload_v2"] = "transform_and_upload_v2"
     user_email: Optional[EmailStr] = Field(
         default=None,
@@ -329,8 +312,8 @@ class SubmitJobRequestV2(BaseSettings):
     upload_jobs: List[UploadJobConfigsV2] = Field(
         ...,
         description="List of upload jobs to process. Max of 1000 at a time.",
-        min_items=1,
-        max_items=1000,
+        min_length=1,
+        max_length=1000,
     )
 
     @model_validator(mode="after")

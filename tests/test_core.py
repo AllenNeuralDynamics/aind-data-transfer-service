@@ -310,7 +310,7 @@ class TestSubmitJobRequestV2(unittest.TestCase):
         )
         cls.example_upload_config = example_upload_config
 
-    def test_min_items(self):
+    def test_min_length(self):
         """Tests error is raised if no job list is empty"""
         with self.assertRaises(ValidationError) as e:
             SubmitJobRequestV2(upload_jobs=[])
@@ -321,7 +321,7 @@ class TestSubmitJobRequestV2(unittest.TestCase):
         self.assertEqual(1, len(json.loads(e.exception.json())))
         self.assertEqual(expected_message, actual_message)
 
-    def test_max_items(self):
+    def test_max_length(self):
         """Tests error is raised if job list is greater than maximum allowed"""
         upload_job = UploadJobConfigsV2(
             **self.example_upload_config.model_dump(round_trip=True)
