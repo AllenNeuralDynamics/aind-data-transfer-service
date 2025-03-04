@@ -48,20 +48,26 @@ class TestTaskConfigs(unittest.TestCase):
             "parameters_settings": {},
         }
         task = Task(**expected_configs)
-        self.assertDictEqual(expected_configs, json.loads(task.model_dump_json()))
+        self.assertDictEqual(
+            expected_configs, json.loads(task.model_dump_json())
+        )
         # other fields not required if skip_task is True
         task = Task(
             task_id=TaskId.CHECK_SOURCE_FOLDERS_EXIST,
             skip_task=True,
         )
-        self.assertDictEqual(expected_configs, json.loads(task.model_dump_json()))
+        self.assertDictEqual(
+            expected_configs, json.loads(task.model_dump_json())
+        )
         # if a user provided a custom field, it should be cleared
         task = Task(
             task_id=TaskId.CHECK_SOURCE_FOLDERS_EXIST,
             skip_task=True,
             image="some_image",
         )
-        self.assertDictEqual(expected_configs, json.loads(task.model_dump_json()))
+        self.assertDictEqual(
+            expected_configs, json.loads(task.model_dump_json())
+        )
 
     def test_custom_task(self):
         """Tests that a custom Task can be created correctly."""
@@ -91,7 +97,7 @@ class TestTaskConfigs(unittest.TestCase):
             errors = e.exception.errors()
             self.assertEqual(1, len(errors))
             self.assertIn(expected_error, errors[0]["msg"])
-    
+
     def test_modality_task(self):
         """Tests that a ModalityTask can be created correctly."""
         expected_configs = {
@@ -101,28 +107,37 @@ class TestTaskConfigs(unittest.TestCase):
             "image_version": "",
             "image_environment": {},
             "parameters_settings": {},
-            "modality": {'abbreviation': 'behavior-videos', 'name': 'Behavior videos'},
-            "source": 'dir/data_set_1',
+            "modality": {
+                "abbreviation": "behavior-videos",
+                "name": "Behavior videos",
+            },
+            "source": "dir/data_set_1",
             "chunk": None,
             "use_job_type_settings": True,
         }
         task = ModalityTask(**expected_configs)
-        self.assertDictEqual(expected_configs, json.loads(task.model_dump_json()))
-        # other fields not required since use_job_type_settings is True on default
+        self.assertDictEqual(
+            expected_configs, json.loads(task.model_dump_json())
+        )
+        # other fields not required by default
         task = ModalityTask(
             modality=Modality.BEHAVIOR_VIDEOS,
             source=(PurePosixPath("dir") / "data_set_1"),
         )
-        self.assertDictEqual(expected_configs, json.loads(task.model_dump_json()))
+        self.assertDictEqual(
+            expected_configs, json.loads(task.model_dump_json())
+        )
         # if a user provided a custom field, it should be cleared
         task = ModalityTask(
             modality=Modality.BEHAVIOR_VIDEOS,
             source=(PurePosixPath("dir") / "data_set_1"),
             image="some_image",
         )
-        self.assertDictEqual(expected_configs, json.loads(task.model_dump_json()))
+        self.assertDictEqual(
+            expected_configs, json.loads(task.model_dump_json())
+        )
         # if use_job_type_settings is False, then other settings are required
-        with self.assertRaises(ValidationError) as e:
+        with self.assertRaises(ValidationError):
             ModalityTask(
                 modality=Modality.BEHAVIOR_VIDEOS,
                 source=(PurePosixPath("dir") / "data_set_1"),
