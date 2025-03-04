@@ -89,16 +89,14 @@ class Task(BaseSettings):
     task_id: TaskId = Field(
         ..., description="Task ID (task name)", title="Task ID"
     )
-
-
-class SkipTask(Task):
-    """Configuration to skip a task during a data transfer upload job."""
-
-    skip_task: Literal[True] = True
-
-
-class CustomTask(Task):
-    """Configuration for a task run during a data transfer upload job."""
+    skip_task: bool = Field(
+        default=False,
+        description=(
+            "Skip running this task. If true, only task_id and skip_step are "
+            "required."
+        ),
+        title="Skip Step",
+    )
 
     image: str = Field(
         ..., description="Name of docker image to run", title="Image"
@@ -120,6 +118,16 @@ class CustomTask(Task):
         description="Settings for the task. Must be json serializable.",
         title="Parameters Settings",
     )
+
+    @model_validator(mode="before")
+    def check_skip_task(cls, data: Any) -> Any:
+        """If skip_task is True, then clear the other fields."""
+        if data.get("skip_task") is True:
+            data["image"] = ""
+            data["image_version"] = ""
+            data["image_environment"] = {}
+            data["parameters_settings"] = {}
+        return data
 
     @field_validator("image_environment", "parameters_settings", mode="after")
     def validate_json_serializable(
@@ -198,7 +206,7 @@ class UploadJobConfigsV2(BaseSettings):
         description="Datetime data was acquired",
         title="Acquisition Datetime",
     )
-    task_overrides: Optional[List[Union[CustomTask, SkipTask]]] = Field(
+    task_overrides: Optional[List[Task]] = Field(
         default=None,
         description=(
             "List of tasks to run with custom settings. If null, "
@@ -287,8 +295,8 @@ class UploadJobConfigsV2(BaseSettings):
 
     @field_validator("task_overrides", mode="after")
     def check_task_overrides(
-        cls, v: Optional[List[Union[CustomTask, SkipTask]]]
-    ) -> Optional[List[Union[CustomTask, SkipTask]]]:
+        cls, v: Optional[List[Task]]
+    ) -> Optional[List[Task]]:
         """Checks that task_ids are unique."""
         if v is not None:
             task_ids = [task.task_id for task in v]

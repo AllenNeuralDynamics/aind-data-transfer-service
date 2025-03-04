@@ -10,10 +10,9 @@ from pydantic import ValidationError
 
 from aind_data_transfer_service.configs.core import (
     BucketType,
-    CustomTask,
     EmailNotificationType,
-    SkipTask,
     SubmitJobRequestV2,
+    Task,
     TaskId,
     UploadJobConfigsV2,
     validation_context,
@@ -26,7 +25,7 @@ class TestTaskConfigs(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         """Set up test class"""
-        custom_task = CustomTask(
+        custom_task = Task(
             task_id=TaskId.CHECK_SOURCE_FOLDERS_EXIST,
             image="some_image",
             image_version="1.0.0",
@@ -37,19 +36,37 @@ class TestTaskConfigs(unittest.TestCase):
         cls.custom_task_configs = custom_task.model_dump()
 
     def test_skip_task(self):
-        """Tests SkipTask is created correctly."""
-        task_configs = SkipTask(task_id=TaskId.CHECK_SOURCE_FOLDERS_EXIST)
-        self.assertEqual(
-            {"task_id": "check_source_folders_exist", "skip_task": True},
-            json.loads(task_configs.model_dump_json()),
+        """Tests a skipped Task can be created correctly."""
+        expected_configs = {
+            "task_id": "check_source_folders_exist",
+            "skip_task": True,
+            "image": "",
+            "image_version": "",
+            "image_environment": {},
+            "parameters_settings": {},
+        }
+        task = Task(**expected_configs)
+        self.assertEqual(expected_configs, json.loads(task.model_dump_json()))
+        # other fields not required if skip_task is True
+        task = Task(
+            task_id=TaskId.CHECK_SOURCE_FOLDERS_EXIST,
+            skip_task=True,
         )
+        self.assertEqual(expected_configs, json.loads(task.model_dump_json()))
+        # if a user provided a custom field, it should be cleared
+        task = Task(
+            task_id=TaskId.CHECK_SOURCE_FOLDERS_EXIST,
+            skip_task=True,
+            image="some_image",
+        )
+        self.assertEqual(expected_configs, json.loads(task.model_dump_json()))
 
     def test_custom_task(self):
-        """Tests that CustomTask is created correctly."""
-        task_configs = CustomTask(**self.custom_task_configs)
+        """Tests that a custom Task can be created correctly."""
         self.assertEqual(
             {
                 "task_id": "check_source_folders_exist",
+                "skip_task": False,
                 "image": "some_image",
                 "image_version": "1.0.0",
                 "image_environment": {"key": "value"},
@@ -58,7 +75,7 @@ class TestTaskConfigs(unittest.TestCase):
                     "param2": "value2",
                 },
             },
-            json.loads(task_configs.model_dump_json()),
+            json.loads(self.custom_task.model_dump_json()),
         )
 
     def test_custom_task_error(self):
@@ -68,7 +85,7 @@ class TestTaskConfigs(unittest.TestCase):
             invalid_configs = self.custom_task_configs.copy()
             invalid_configs[field] = {"param1": list}
             with self.assertRaises(ValidationError) as e:
-                CustomTask(**invalid_configs)
+                Task(**invalid_configs)
             errors = e.exception.errors()
             self.assertEqual(1, len(errors))
             self.assertIn(expected_error, errors[0]["msg"])
@@ -239,15 +256,17 @@ class TestUploadJobConfigsV2(unittest.TestCase):
     def test_task_overrides(self):
         """Tests that task overrides are set correctly"""
         task_overrides = [
-            CustomTask(
+            Task(
                 task_id=TaskId.MAKE_MODALITY_LIST,
                 image="some_image",
                 image_version="1.0.0",
                 image_environment={"key": "value"},
                 parameters_settings={"param1": "value1", "param2": "value2"},
             ),
-            SkipTask(task_id=TaskId.GATHER_FINAL_METADATA),
-            SkipTask(task_id=TaskId.REGISTER_DATA_ASSET_TO_CODEOCEAN),
+            Task(task_id=TaskId.GATHER_FINAL_METADATA, skip_task=True),
+            Task(
+                task_id=TaskId.REGISTER_DATA_ASSET_TO_CODEOCEAN, skip_task=True
+            ),
         ]
         job_configs = UploadJobConfigsV2(
             acq_datetime=datetime(2020, 10, 13, 13, 10, 10),
@@ -256,7 +275,9 @@ class TestUploadJobConfigsV2(unittest.TestCase):
         )
         self.assertEqual(3, len(job_configs.task_overrides))
         # if we add a duplicate task_id, an error should be raised
-        task_overrides.append(SkipTask(task_id=TaskId.MAKE_MODALITY_LIST))
+        task_overrides.append(
+            Task(task_id=TaskId.MAKE_MODALITY_LIST, skip_task=True)
+        )
         with self.assertRaises(ValidationError) as e:
             UploadJobConfigsV2(
                 acq_datetime=datetime(2020, 10, 13, 13, 10, 10),
