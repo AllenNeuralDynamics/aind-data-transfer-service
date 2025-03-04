@@ -10,11 +10,6 @@ from typing import Any, Dict, List, Literal, Optional, Set, Union
 from aind_data_schema_models.data_name_patterns import build_data_name
 from aind_data_schema_models.modalities import Modality
 from aind_data_schema_models.platforms import Platform
-from aind_data_transfer_models.s3_upload_configs import (
-    BucketType,
-    EmailNotificationType,
-    S3UploadSubmitJobRequest,
-)
 from pydantic import (
     ConfigDict,
     EmailStr,
@@ -50,6 +45,26 @@ def validation_context(context: Union[Dict[str, Any], None]) -> None:
         yield
     finally:
         _validation_context.reset(token)
+
+
+class BucketType(str, Enum):
+    """Types of s3 buckets"""
+
+    PRIVATE = "private"
+    OPEN = "open"
+    SCRATCH = "scratch"
+    ARCHIVE = "archive"
+    DEFAULT = "default"  # Send data to bucket determined by service
+
+
+class EmailNotificationType(str, Enum):
+    """Types of email notifications"""
+
+    BEGIN = "begin"
+    END = "end"
+    FAIL = "fail"
+    RETRY = "retry"
+    ALL = "all"
 
 
 class TaskId(str, Enum):
@@ -155,11 +170,13 @@ class UploadJobConfigsV2(BaseSettings):
         ),
         title="Job Type",
     )
-    # TODO: check default and allowed buckets
-    s3_bucket: Literal[BucketType.PRIVATE, BucketType.OPEN] = Field(
-        default=BucketType.OPEN,
+    s3_bucket: Literal[
+        BucketType.PRIVATE, BucketType.OPEN, BucketType.DEFAULT
+    ] = Field(
+        default=BucketType.DEFAULT,
         description=(
-            "Bucket where data will be uploaded (defaults to open bucket)."
+            "Bucket where data will be uploaded. If not provided, will upload "
+            "to default bucket."
         ),
         title="S3 Bucket",
     )
@@ -283,15 +300,41 @@ class UploadJobConfigsV2(BaseSettings):
         return v
 
 
-class SubmitJobRequestV2(S3UploadSubmitJobRequest):
+class SubmitJobRequestV2(BaseSettings):
     """Main request that will be sent to the backend. Bundles jobs into a list
     and allows a user to add an email address to receive notifications."""
 
     model_config = ConfigDict(use_enum_values=True, extra="allow")
     job_type: Literal["transform_and_upload_v2"] = "transform_and_upload_v2"
+    user_email: Optional[EmailStr] = Field(
+        default=None,
+        description=(
+            "Optional email address to receive job status notifications"
+        ),
+    )
+    email_notification_types: Set[EmailNotificationType] = Field(
+        default={EmailNotificationType.FAIL},
+        description=(
+            "Types of job statuses to receive email notifications about"
+        ),
+    )
     upload_jobs: List[UploadJobConfigsV2] = Field(
         ...,
         description="List of upload jobs to process. Max of 1000 at a time.",
         min_items=1,
         max_items=1000,
     )
+
+    @model_validator(mode="after")
+    def propagate_email_settings(self):
+        """Propagate email settings from global to individual jobs"""
+        global_email_user = self.user_email
+        global_email_notification_types = self.email_notification_types
+        for upload_job in self.upload_jobs:
+            if global_email_user is not None and upload_job.user_email is None:
+                upload_job.user_email = global_email_user
+            if upload_job.email_notification_types is None:
+                upload_job.email_notification_types = (
+                    global_email_notification_types
+                )
+        return self

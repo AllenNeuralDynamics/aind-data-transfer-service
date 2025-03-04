@@ -6,14 +6,12 @@ from datetime import datetime
 
 from aind_data_schema_models.modalities import Modality
 from aind_data_schema_models.platforms import Platform
-from aind_data_transfer_models.s3_upload_configs import (
-    BucketType,
-    EmailNotificationType,
-)
 from pydantic import ValidationError
 
 from aind_data_transfer_service.configs.core import (
+    BucketType,
     CustomTask,
+    EmailNotificationType,
     SkipTask,
     SubmitJobRequestV2,
     TaskId,
@@ -189,6 +187,7 @@ class TestUploadJobConfigsV2(unittest.TestCase):
                 "s3_prefix": True,
             }
         )
+        open_configs = UploadJobConfigsV2(s3_bucket="open", **base_configs)
         private_configs1 = UploadJobConfigsV2(
             s3_bucket="private", **base_configs
         )
@@ -196,7 +195,8 @@ class TestUploadJobConfigsV2(unittest.TestCase):
             s3_bucket=BucketType.PRIVATE, **base_configs
         )
 
-        self.assertEqual(BucketType.OPEN, default_configs.s3_bucket)
+        self.assertEqual(BucketType.DEFAULT, default_configs.s3_bucket)
+        self.assertEqual(BucketType.OPEN, open_configs.s3_bucket)
         self.assertEqual(BucketType.PRIVATE, private_configs1.s3_bucket)
         self.assertEqual(BucketType.PRIVATE, private_configs2.s3_bucket)
 
