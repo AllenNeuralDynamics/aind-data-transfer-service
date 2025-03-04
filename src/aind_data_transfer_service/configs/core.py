@@ -5,6 +5,7 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 from datetime import datetime
 from enum import Enum
+from pathlib import PurePosixPath
 from typing import Any, Dict, List, Literal, Optional, Set, Union
 
 from aind_data_schema_models.data_name_patterns import build_data_name
@@ -146,6 +147,45 @@ class Task(BaseSettings):
         return v
 
 
+class ModalityTask(Task):
+    """Configuration for the modality tranformation task."""
+
+    task_id: Literal[TaskId.MAKE_MODALITY_LIST] = TaskId.MAKE_MODALITY_LIST
+    skip_task: Literal[False] = False
+
+    modality: Modality.ONE_OF = Field(
+        ..., description="Data collection modality", title="Modality"
+    )
+    source: PurePosixPath = Field(
+        ...,
+        description="Location of raw data to be uploaded",
+        title="Data Source",
+    )
+    chunk: Optional[str] = Field(
+        default=None,
+        description="Chunk of data to be uploaded. If set, will only upload "
+        "this chunk.",
+        title="Chunk",
+    )
+    use_job_type_settings: bool = Field(
+        default=True,
+        description=(
+            "Use task settings (image, parameter_settings, etc.) for the "
+            "job_type. If false, will use the settings provided here."
+        ),
+    )
+
+    @model_validator(mode="before")
+    def check_use_job_type_settings(cls, data: Any) -> Any:
+        """If use_job_type_settings is set, then clear the other fields."""
+        if data.get("use_job_type_settings") is not False:
+            data["image"] = ""
+            data["image_version"] = ""
+            data["image_environment"] = {}
+            data["parameters_settings"] = {}
+        return data
+
+
 class UploadJobConfigsV2(BaseSettings):
     """Configuration for a data transfer upload job"""
 
@@ -210,13 +250,15 @@ class UploadJobConfigsV2(BaseSettings):
         description="Datetime data was acquired",
         title="Acquisition Datetime",
     )
-    task_overrides: Optional[List[Task]] = Field(
-        default=None,
+    tasks: List[Union[Task, ModalityTask]] = Field(
+        ...,
         description=(
-            "List of tasks to run with custom settings. If null, "
-            "will use default task settings for the job_type."
+            "List of tasks to run with custom settings. A ModalityTask must "
+            "be provided for each modality. For other tasks, default settings "
+            "for the job_type will be used unless overridden here."
         ),
-        title="Task Overrides",
+        title="Tasks",
+        min_length=1,
     )
 
     @computed_field
@@ -275,18 +317,26 @@ class UploadJobConfigsV2(BaseSettings):
         else:
             return v
 
-    @field_validator("task_overrides", mode="after")
-    def check_task_overrides(
-        cls, v: Optional[List[Task]]
-    ) -> Optional[List[Task]]:
-        """Checks that task_ids are unique."""
-        if v is not None:
-            task_ids = [task.task_id for task in v]
-            duplicates = {t.value for t in task_ids if task_ids.count(t) > 1}
-            if duplicates:
-                raise ValueError(
-                    f"Task IDs must be unique! Duplicates: {duplicates}"
-                )
+    @field_validator("tasks", mode="after")
+    def validate_tasks(
+        cls, v: List[Union[Task, ModalityTask]]
+    ) -> List[Union[Task, ModalityTask]]:
+        """Validates that ModalityTasks are provided and all other task_ids "
+        are unique."""
+        # check at least 1 ModalityTask is provided
+        if not any(isinstance(task, ModalityTask) for task in v):
+            raise ValueError(
+                "A ModalityTask must be provided for each modality!"
+            )
+        # check other tasks are unique
+        task_ids = [
+            task.task_id for task in v if not isinstance(task, ModalityTask)
+        ]
+        duplicates = {t.value for t in task_ids if task_ids.count(t) > 1}
+        if duplicates:
+            raise ValueError(
+                f"Task IDs must be unique! Duplicates: {duplicates}"
+            )
         return v
 
 
