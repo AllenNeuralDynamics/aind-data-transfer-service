@@ -129,6 +129,7 @@ class AirflowTaskInstanceLogsRequestParameters(BaseModel):
     dag_run_id: str = Field(..., min_length=1, exclude=True)
     task_id: str = Field(..., min_length=1, exclude=True)
     try_number: int = Field(..., ge=0, exclude=True)
+    map_index: int = Field(..., ge=-1)
     full_content: bool = True
 
     @classmethod
