@@ -254,17 +254,21 @@ class BasicUploadJobConfigs(BaseSettings):
     def _parse_datetime(cls, datetime_val: Any) -> datetime:
         """Parses datetime string to %YYYY-%MM-%DD HH:mm:ss"""
         is_str = isinstance(datetime_val, str)
+        validation_error = ValueError(
+                "Incorrect datetime format, should be"
+                " ISO format (YYYY-MM-DD HH:mm:ss) or MM/DD/YYYY I:MM:SS P"
+            )
         if is_str and re.match(
             BasicUploadJobConfigs._DATETIME_PATTERN2, datetime_val
         ):
             return datetime.strptime(datetime_val, "%m/%d/%Y %I:%M:%S %p")
         elif is_str:
-            return datetime.fromisoformat(datetime_val)
+            try:
+                return datetime.fromisoformat(datetime_val)
+            except ValueError:
+                raise validation_error
         elif is_str:
-            raise ValueError(
-                "Incorrect datetime format, should be"
-                " ISO format (YYYY-MM-DD HH:mm:ss) or MM/DD/YYYY I:MM:SS P"
-            )
+            raise validation_error
         else:
             return datetime_val
 

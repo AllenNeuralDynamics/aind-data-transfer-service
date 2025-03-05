@@ -165,7 +165,7 @@ class TestJobConfigs(unittest.TestCase):
 
         self.assertTrue(
             (
-                "Incorrect datetime format, should be YYYY-MM-DD HH:mm:ss "
+                "Incorrect datetime format, should be ISO format (YYYY-MM-DD HH:mm:ss) "
                 "or MM/DD/YYYY I:MM:SS P"
             )
             in repr(e1.exception)
