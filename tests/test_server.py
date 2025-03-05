@@ -1942,7 +1942,6 @@ class TestServer(unittest.TestCase):
                 json=post_request_content,
             )
             response_json = response.json()
-        print(response.text)
         self.assertEqual(200, response.status_code)
         self.assertEqual("Valid model", response_json["message"])
         self.assertEqual(
