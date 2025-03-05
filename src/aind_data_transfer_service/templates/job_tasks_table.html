@@ -27,7 +27,7 @@
     <tr>
       <td>{{job_task.task_id}}</td>
       <td>{{job_task.try_number}}</td>
-      <td id="map_index_label">
+      <td>
         {% if job_task.map_index > -1 %}
           <span>{{job_task.map_index}}</span>
         {% else %}
@@ -111,8 +111,8 @@
     function updateTaskLogsModal(jobId, taskId, taskState, taskTryNumber, taskMapIndex) {
       console.log('updateTaskLogsModal', jobId, taskId, taskState, taskTryNumber, taskMapIndex);
       // Update the modal header with the task id, try number, map index, and state
-      var mapIndexNum = document.getElementById('map_index_label').textContent
-      document.getElementById('modal-title-task').textContent = `${taskId} (try ${taskTryNumber}, map_index ${mapIndexNum})`;
+      var tryMapLabel = taskMapIndex > -1 ? `${taskId} (try ${taskTryNumber}, map_index ${taskMapIndex})` :  `${taskId} (try ${taskTryNumber})`;
+      document.getElementById('modal-title-task').textContent = tryMapLabel;
       var modalTitleTaskState = document.getElementById('modal-title-task-state');
       modalTitleTaskState.textContent = taskState;
       if (taskState) {
