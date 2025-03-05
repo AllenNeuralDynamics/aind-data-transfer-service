@@ -76,7 +76,7 @@ class TaskId(str, Enum):
     CHECK_SOURCE_FOLDERS_EXIST = "check_source_folders_exist"
     CREATE_FOLDER = "create_folder"
     GATHER_PRELIMINARY_METADATA = "gather_preliminary_metadata"
-    MAKE_MODALITY_LIST = "make_modality_list"  # TODO: rename to compress_data?
+    MAKE_MODALITY_LIST = "make_modality_list"
     GATHER_FINAL_METADATA = "gather_final_metadata"
     FINAL_CHECK_S3_FOLDER_EXIST = "final_check_s3_folder_exist"
     UPLOAD_DATA_TO_S3 = "upload_data_to_s3"
@@ -142,7 +142,9 @@ class Task(BaseSettings):
             json.dumps(v)
         except Exception as e:
             raise ValueError(
-                f"{info.field_name} must be json serializable! {e}"
+                f"{info.field_name} must be json serializable! If "
+                f"converting from a Pydantic model, please use "
+                f'model.model_dump(mode="json"). {e}'
             )
         return v
 
