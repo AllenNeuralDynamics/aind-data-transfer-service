@@ -122,9 +122,6 @@ class BasicUploadJobConfigs(BaseSettings):
         for a in Platform.abbreviation_map.keys()
     }
     _MODALITY_ENTRY_PATTERN: ClassVar = re.compile(r"^modality(\d*)$")
-    _DATETIME_PATTERN1: ClassVar = re.compile(
-        r"^\d{4}-\d{2}-\d{2}[ |T]\d{2}:\d{2}:\d{2}$"
-    )
     _DATETIME_PATTERN2: ClassVar = re.compile(
         r"^\d{1,2}/\d{1,2}/\d{4} \d{1,2}:\d{2}:\d{2} [APap][Mm]$"
     )
@@ -258,17 +255,15 @@ class BasicUploadJobConfigs(BaseSettings):
         """Parses datetime string to %YYYY-%MM-%DD HH:mm:ss"""
         is_str = isinstance(datetime_val, str)
         if is_str and re.match(
-            BasicUploadJobConfigs._DATETIME_PATTERN1, datetime_val
-        ):
-            return datetime.fromisoformat(datetime_val)
-        elif is_str and re.match(
             BasicUploadJobConfigs._DATETIME_PATTERN2, datetime_val
         ):
             return datetime.strptime(datetime_val, "%m/%d/%Y %I:%M:%S %p")
         elif is_str:
+            return datetime.fromisoformat(datetime_val)
+        elif is_str:
             raise ValueError(
                 "Incorrect datetime format, should be"
-                " YYYY-MM-DD HH:mm:ss or MM/DD/YYYY I:MM:SS P"
+                " ISO format (YYYY-MM-DD HH:mm:ss) or MM/DD/YYYY I:MM:SS P"
             )
         else:
             return datetime_val
