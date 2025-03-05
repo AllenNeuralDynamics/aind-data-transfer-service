@@ -1922,7 +1922,7 @@ class TestServer(unittest.TestCase):
 
         s3_bucket = "private"
         subject_id = "690165"
-        acq_datetime = datetime(2024, 2, 19, 11, 25, 17)
+        acq_datetime = datetime(2024, 2, 19, 11, 25, 17, tzinfo=timezone.utc)
         platform = Platform.ECEPHYS
 
         ephys_config = ModalityConfigs(
