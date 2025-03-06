@@ -88,6 +88,45 @@ def get_project_names() -> List[str]:
     return project_names
 
 
+def get_parameter_infos(version: Optional[str] = None) -> List[JobParamInfo]:
+    """Get a list of job_type parameters"""
+    ssm_client = boto3.client("ssm")
+    paginator = ssm_client.get_paginator("describe_parameters")
+    params_iterator = paginator.paginate(
+        ParameterFilters=[
+            {
+                "Key": "Path",
+                "Option": "Recursive",
+                "Values": [JobParamInfo.get_parameter_prefix(version)],
+            }
+        ]
+    )
+    params = []
+    param_regex = JobParamInfo.get_parameter_regex(version)
+    for page in params_iterator:
+        for param in page["Parameters"]:
+            if match := re.match(param_regex, param.get("Name")):
+                param_info = JobParamInfo.from_aws_describe_parameter(
+                    parameter=param,
+                    job_type=match.group("job_type"),
+                    task_id=match.group("task_id"),
+                )
+                params.append(param_info)
+            else:
+                logger.info(f"Ignoring {param.get('Name')}")
+    return params
+
+
+def get_parameter_value(param_name: str) -> dict:
+    """Get a parameter value from AWS param store based on paramater name"""
+    ssm_client = boto3.client("ssm")
+    param_response = ssm_client.get_parameter(
+        Name=param_name, WithDecryption=True
+    )
+    param_value = json.loads(param_response["Parameter"]["Value"])
+    return param_value
+
+
 async def validate_csv(request: Request):
     """Validate a csv or xlsx file. Return parsed contents as json."""
     logger.info("Received request to validate csv")
@@ -839,39 +878,54 @@ async def download_job_template(_: Request):
         )
 
 
-def list_parameters(_: Request):
-    """Get all job type parameters"""
-    ssm_client = boto3.client("ssm")
-    paginator = ssm_client.get_paginator("describe_parameters")
-    params_iterator = paginator.paginate(
-        ParameterFilters=[
-            {
-                "Key": "Path",
-                "Option": "Recursive",
-                "Values": [os.getenv("AIND_AIRFLOW_PARAM_PREFIX")],
-            }
-        ]
-    )
-    params = []
-    param_regex = JobParamInfo.get_parameter_regex()
-    for page in params_iterator:
-        for param in page["Parameters"]:
-            if match := re.match(param_regex, param.get("Name")):
-                param_info = JobParamInfo.from_aws_describe_parameter(
-                    parameter=param,
-                    job_type=match.group("job_type"),
-                    task_id=match.group("task_id"),
-                )
-                params.append(json.loads(param_info.model_dump_json()))
-            else:
-                logger.info(f"Ignoring {param.get('Name')}")
+def list_parameters_v2(_: Request):
+    """List v2 job type parameters"""
+    params = get_parameter_infos("v2")
     return JSONResponse(
         content={
             "message": "Retrieved job parameters",
-            "data": params,
+            "data": [p.model_dump(mode="json") for p in params],
         },
         status_code=200,
     )
+
+
+def list_parameters(_: Request):
+    """List v1 job type parameters"""
+    params = get_parameter_infos()
+    return JSONResponse(
+        content={
+            "message": "Retrieved job parameters",
+            "data": [p.model_dump(mode="json") for p in params],
+        },
+        status_code=200,
+    )
+
+
+def get_parameter_v2(request: Request):
+    """Get v2 parameter from AWS param store based on job_type and task_id"""
+    # path params are auto validated
+    job_type = request.path_params.get("job_type")
+    task_id = request.path_params.get("task_id")
+    param_name = JobParamInfo.get_parameter_name(job_type, task_id, "v2")
+    try:
+        param_value = get_parameter_value(param_name)
+        return JSONResponse(
+            content={
+                "message": f"Retrieved parameter for {param_name}",
+                "data": param_value,
+            },
+            status_code=200,
+        )
+    except ClientError as e:
+        logger.exception(f"Error retrieving parameter {param_name}: {e}")
+        return JSONResponse(
+            content={
+                "message": f"Error retrieving parameter {param_name}",
+                "data": {"error": f"{e.__class__.__name__}{e.args}"},
+            },
+            status_code=500,
+        )
 
 
 def get_parameter(request: Request):
@@ -880,12 +934,8 @@ def get_parameter(request: Request):
     job_type = request.path_params.get("job_type")
     task_id = request.path_params.get("task_id")
     param_name = JobParamInfo.get_parameter_name(job_type, task_id)
-    ssm_client = boto3.client("ssm")
     try:
-        param_response = ssm_client.get_parameter(
-            Name=param_name, WithDecryption=True
-        )
-        param_value = json.loads(param_response["Parameter"]["Value"])
+        param_value = get_parameter_value(param_name)
         return JSONResponse(
             content={
                 "message": f"Retrieved parameter for {param_name}",
@@ -925,6 +975,12 @@ routes = [
     Route(
         "/api/v1/parameters/job_types/{job_type:str}/tasks/{task_id:str}",
         endpoint=get_parameter,
+        methods=["GET"],
+    ),
+    Route("/api/v2/parameters", endpoint=list_parameters_v2, methods=["GET"]),
+    Route(
+        "/api/v2/parameters/job_types/{job_type:str}/tasks/{task_id:str}",
+        endpoint=get_parameter_v2,
         methods=["GET"],
     ),
     Route("/jobs", endpoint=jobs, methods=["GET"]),

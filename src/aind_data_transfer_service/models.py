@@ -210,15 +210,12 @@ class JobParamInfo(BaseModel):
 
     name: Optional[str]
     last_modified: Optional[datetime]
-    job_type: Optional[str]
-    task_id: Optional[str]
+    job_type: str
+    task_id: str
 
     @classmethod
     def from_aws_describe_parameter(
-        cls,
-        parameter: ParameterMetadataTypeDef,
-        job_type: Optional[str],
-        task_id: Optional[str],
+        cls, parameter: ParameterMetadataTypeDef, job_type: str, task_id: str
     ):
         """Map the parameter to the model"""
         return cls(
@@ -229,17 +226,28 @@ class JobParamInfo(BaseModel):
         )
 
     @staticmethod
-    def get_parameter_regex() -> str:
-        """Create the regex pattern to match the parameter name"""
-        return (
-            f"{os.getenv('AIND_AIRFLOW_PARAM_PREFIX')}"
-            f"/(?P<job_type>[^/]+)/tasks/(?P<task_id>[^/]+)"
-        )
+    def get_parameter_prefix(version: Optional[str] = None) -> str:
+        """Get the prefix for job_type parameters"""
+        prefix = os.getenv("AIND_AIRFLOW_PARAM_PREFIX")
+        if version is None:
+            return prefix
+        return f"{prefix}/{version}"
 
     @staticmethod
-    def get_parameter_name(job_type: str, task_id: str) -> str:
+    def get_parameter_regex(version: Optional[str] = None) -> str:
+        """Create the regex pattern to match the parameter name"""
+        prefix = os.getenv("AIND_AIRFLOW_PARAM_PREFIX")
+        regex = "(?P<job_type>[^/]+)/tasks/(?P<task_id>[^/]+)"
+        if version is None:
+            return f"{prefix}/{regex}"
+        return f"{prefix}/{version}/{regex}"
+
+    @staticmethod
+    def get_parameter_name(
+        job_type: str, task_id: str, version: Optional[str] = None
+    ) -> str:
         """Create the parameter name from job_type and task_id"""
-        return (
-            f"{os.getenv('AIND_AIRFLOW_PARAM_PREFIX')}"
-            f"/{job_type}/tasks/{task_id}"
-        )
+        prefix = os.getenv("AIND_AIRFLOW_PARAM_PREFIX")
+        if version is None:
+            return f"{prefix}/{job_type}/tasks/{task_id}"
+        return f"{prefix}/{version}/{job_type}/tasks/{task_id}"

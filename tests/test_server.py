@@ -1168,48 +1168,63 @@ class TestServer(unittest.TestCase):
         mock_ssm_client.return_value.get_paginator.return_value = (
             mock_paginator
         )
-        expected_params_list = [
-            {
-                "job_type": "job1",
-                "last_modified": "2025-01-23T11:50:04.535000-08:00",
-                "name": "/param_prefix/job1/tasks/task1",
-                "task_id": "task1",
-            },
-            {
-                "job_type": "job2",
-                "last_modified": "2025-01-23T11:50:04.605000-08:00",
-                "name": "/param_prefix/job2/tasks/task2",
-                "task_id": "task2",
-            },
-        ]
-        with TestClient(app) as client:
-            response = client.get("/api/v1/parameters")
-        mock_ssm_client.assert_called_once_with("ssm")
-        mock_ssm_client.return_value.get_paginator.assert_called_once_with(
-            "describe_parameters"
-        )
-        mock_paginator.paginate.assert_called_once_with(
-            ParameterFilters=[
+        expected_params = {
+            "v1": [
                 {
-                    "Key": "Path",
-                    "Option": "Recursive",
-                    "Values": ["/param_prefix"],
-                }
-            ]
-        )
-        response_content = response.json()
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(
-            response_content,
-            {
-                "message": "Retrieved job parameters",
-                "data": expected_params_list,
-            },
-        )
-        # params that do not match expected format are ignored
-        mock_log_info.assert_any_call(
-            "Ignoring /param_prefix/unexpected_param"
-        )
+                    "job_type": "job1",
+                    "last_modified": "2025-01-23T11:50:04.535000-08:00",
+                    "name": "/param_prefix/job1/tasks/task1",
+                    "task_id": "task1",
+                },
+                {
+                    "job_type": "job2",
+                    "last_modified": "2025-01-23T11:50:04.605000-08:00",
+                    "name": "/param_prefix/job2/tasks/task2",
+                    "task_id": "task2",
+                },
+            ],
+            "v2": [
+                {
+                    "job_type": "job1",
+                    "last_modified": "2025-01-23T11:50:04.605000-08:00",
+                    "name": "/param_prefix/v2/job1/tasks/task1",
+                    "task_id": "task1",
+                },
+            ],
+        }
+        for version, params_list in expected_params.items():
+            with TestClient(app) as client:
+                response = client.get(f"/api/{version}/parameters")
+            mock_ssm_client.assert_called_with("ssm")
+            mock_ssm_client.return_value.get_paginator.assert_called_with(
+                "describe_parameters"
+            )
+            if version == "v1":
+                expected_filter = "/param_prefix"
+            else:
+                expected_filter = f"/param_prefix/{version}"
+            mock_paginator.paginate.assert_called_with(
+                ParameterFilters=[
+                    {
+                        "Key": "Path",
+                        "Option": "Recursive",
+                        "Values": [expected_filter],
+                    }
+                ]
+            )
+            response_content = response.json()
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(
+                response_content,
+                {
+                    "message": "Retrieved job parameters",
+                    "data": params_list,
+                },
+            )
+            # params that do not match expected format are ignored
+            mock_log_info.assert_any_call(
+                "Ignoring /param_prefix/unexpected_param"
+            )
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch("boto3.client")
@@ -1221,24 +1236,28 @@ class TestServer(unittest.TestCase):
         mock_ssm_client.return_value.get_parameter.return_value = (
             self.get_parameter_response
         )
-        expected_param_name = "/param_prefix/ecephys/tasks/task1"
-        with TestClient(app) as client:
-            response = client.get(
-                "/api/v1/parameters/job_types/ecephys/tasks/task1"
+        expected_params = {
+            "v1": "/param_prefix/ecephys/tasks/task1",
+            "v2": "/param_prefix/v2/ecephys/tasks/task1",
+        }
+        for version, param_name in expected_params.items():
+            with TestClient(app) as client:
+                response = client.get(
+                    f"/api/{version}/parameters/job_types/ecephys/tasks/task1"
+                )
+            mock_ssm_client.assert_called_with("ssm")
+            mock_ssm_client.return_value.get_parameter.assert_called_with(
+                Name=param_name, WithDecryption=True
             )
-        mock_ssm_client.assert_called_once_with("ssm")
-        mock_ssm_client.return_value.get_parameter.assert_called_once_with(
-            Name=expected_param_name, WithDecryption=True
-        )
-        response_content = response.json()
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(
-            response_content,
-            {
-                "message": f"Retrieved parameter for {expected_param_name}",
-                "data": {"foo": "bar"},
-            },
-        )
+            response_content = response.json()
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(
+                response_content,
+                {
+                    "message": f"Retrieved parameter for {param_name}",
+                    "data": {"foo": "bar"},
+                },
+            )
 
     @patch("logging.Logger.exception")
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
@@ -1258,15 +1277,22 @@ class TestServer(unittest.TestCase):
             },
             "GetParameter",
         )
-        with TestClient(app) as client:
-            response = client.get("/api/v1/parameters/job_types/foo/tasks/bar")
-        response_content = response.json()
-        self.assertEqual(response.status_code, 500)
-        self.assertEqual(
-            response_content["message"],
-            "Error retrieving parameter /param_prefix/foo/tasks/bar",
-        )
-        mock_log_error.assert_called_once()
+        expected_params = {
+            "v1": "/param_prefix/foo/tasks/bar",
+            "v2": "/param_prefix/v2/foo/tasks/bar",
+        }
+        for version, param_name in expected_params.items():
+            with TestClient(app) as client:
+                response = client.get(
+                    f"/api/{version}/parameters/job_types/foo/tasks/bar"
+                )
+            response_content = response.json()
+            self.assertEqual(response.status_code, 500)
+            self.assertEqual(
+                response_content["message"],
+                f"Error retrieving parameter {param_name}",
+            )
+            mock_log_error.assert_called()
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     def test_index(self):
