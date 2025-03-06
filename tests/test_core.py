@@ -219,35 +219,20 @@ class TestUploadJobConfigsV2(unittest.TestCase):
         deserialized = UploadJobConfigsV2.model_validate_json(model_json)
         self.assertEqual(self.example_configs, deserialized)
 
-    def test_deserialization_fail(self):
-        """Tests deserialization fails with incorrect computed field"""
-        corrupt_json = json.dumps(
-            {
-                "project_name": "Behavior Platform",
-                "platform": {
-                    "name": "Behavior platform",
-                    "abbreviation": "behavior",
-                },
-                "modalities": [
-                    {
-                        "name": "Behavior videos",
-                        "abbreviation": "behavior-videos",
-                    }
-                ],
-                "subject_id": "123456",
-                "acq_datetime": "2020-10-13T13:10:10",
-                "s3_prefix": "incorrect",
-            }
+    def test_extra_ignore(self):
+        """Tests that extra fields can be passed into model."""
+        config = UploadJobConfigsV2(
+            **self.base_configs, extra_field_1="an extra field",
         )
-        with self.assertRaises(ValidationError) as e:
-            UploadJobConfigsV2.model_validate_json(corrupt_json)
-        errors = json.loads(e.exception.json())
-        expected_msg = (
-            "Value error, s3_prefix incorrect doesn't match computed "
-            "behavior_123456_2020-10-13_13-10-10!"
+        config_json = config.model_dump_json()
+        self.assertEqual(
+            config, UploadJobConfigsV2.model_validate_json(config_json)
         )
-        self.assertEqual(1, len(errors))
-        self.assertEqual(expected_msg, errors[0]["msg"])
+        # this also ignores incorrect computed fields
+        config_json = config.model_dump(exclude={"s3_prefix": True})
+        config = UploadJobConfigsV2(s3_prefix="random_string", **config_json)
+        self.assertNotEqual("random_string", config.s3_prefix)
+        self.assertEqual(self.example_configs, config)
 
     def test_check_tasks(self):
         """Tests that tasks can be set correctly"""
@@ -369,7 +354,7 @@ class TestSubmitJobRequestV2(unittest.TestCase):
         job_settings = SubmitJobRequestV2(upload_jobs=[upload_job])
         self.assertIsNone(job_settings.user_email)
         self.assertEqual({"fail"}, job_settings.email_notification_types)
-        self.assertEqual("transform_and_upload_v2", job_settings.job_type)
+        self.assertEqual("transform_and_upload_v2", job_settings.dag_id)
 
     def test_non_default_settings(self):
         """Tests user can modify the settings."""
@@ -437,32 +422,6 @@ class TestSubmitJobRequestV2(unittest.TestCase):
         self.assertEqual(
             {"begin", "fail"},
             job_settings.upload_jobs[1].email_notification_types,
-        )
-
-    def test_extra_allow(self):
-        """Tests that extra fields can be passed into model."""
-        config = UploadJobConfigsV2(
-            project_name="some project",
-            platform=Platform.ECEPHYS,
-            modalities=[Modality.ECEPHYS],
-            subject_id="123456",
-            acq_datetime=datetime(2020, 1, 2, 3, 4, 5),
-            tasks=[
-                Task(
-                    task_id="make_modality_list",
-                    dynamic_parameters_settings={
-                        "modality": Modality.BEHAVIOR_VIDEOS.abbreviation,
-                        "source": (
-                            PurePosixPath("dir") / "data_set_1"
-                        ).as_posix(),
-                    },
-                )
-            ],
-            extra_field_1="an extra field",
-        )
-        config_json = config.model_dump_json()
-        self.assertEqual(
-            config, UploadJobConfigsV2.model_validate_json(config_json)
         )
 
 

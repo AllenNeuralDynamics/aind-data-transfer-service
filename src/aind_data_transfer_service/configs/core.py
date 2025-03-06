@@ -124,7 +124,7 @@ class UploadJobConfigsV2(BaseSettings):
             context=_validation_context.get(),
         )
 
-    model_config = ConfigDict(use_enum_values=True, extra="allow")
+    model_config = ConfigDict(use_enum_values=True, extra="ignore")
 
     job_type: str = Field(
         default="default",
@@ -195,30 +195,6 @@ class UploadJobConfigsV2(BaseSettings):
             creation_datetime=self.acq_datetime,
         )
 
-    @model_validator(mode="before")
-    def check_computed_field(cls, data: Any) -> Any:
-        """If the computed field is present, we check that it's expected. If
-        this validator isn't added, then an 'extra field not allow' error
-        will be raised when serializing and deserializing json."""
-        if isinstance(data, dict) and data.get("s3_prefix") is not None:
-            expected_s3_prefix = build_data_name(
-                label=(
-                    f"{data.get('platform', dict()).get('abbreviation')}"
-                    f"_{data.get('subject_id')}"
-                ),
-                creation_datetime=datetime.fromisoformat(
-                    data.get("acq_datetime")
-                ),
-            )
-            if expected_s3_prefix != data.get("s3_prefix"):
-                raise ValueError(
-                    f"s3_prefix {data.get('s3_prefix')} doesn't match "
-                    f"computed {expected_s3_prefix}!"
-                )
-            else:
-                del data["s3_prefix"]
-        return data
-
     @field_validator("job_type", "project_name", mode="before")
     def validate_with_context(cls, v: str, info: ValidationInfo) -> str:
         """
@@ -271,9 +247,9 @@ class SubmitJobRequestV2(BaseSettings):
     """Main request that will be sent to the backend. Bundles jobs into a list
     and allows a user to add an email address to receive notifications."""
 
-    model_config = ConfigDict(use_enum_values=True, extra="allow")
+    model_config = ConfigDict(use_enum_values=True, extra="ignore")
 
-    job_type: Literal["transform_and_upload_v2"] = "transform_and_upload_v2"
+    dag_id: Literal["transform_and_upload_v2"] = "transform_and_upload_v2"
     user_email: Optional[EmailStr] = Field(
         default=None,
         description=(
