@@ -4,7 +4,6 @@ import json
 from contextlib import contextmanager
 from contextvars import ContextVar
 from datetime import datetime
-from enum import Enum
 from pathlib import PurePosixPath
 from typing import Any, Dict, List, Literal, Optional, Set, Union
 
@@ -48,49 +47,10 @@ def validation_context(context: Union[Dict[str, Any], None]) -> None:
         _validation_context.reset(token)
 
 
-class BucketType(str, Enum):
-    """Types of s3 buckets"""
-
-    PRIVATE = "private"
-    OPEN = "open"
-    SCRATCH = "scratch"
-    ARCHIVE = "archive"
-    DEFAULT = "default"  # Send data to bucket determined by service
-
-
-class EmailNotificationType(str, Enum):
-    """Types of email notifications"""
-
-    BEGIN = "begin"
-    END = "end"
-    FAIL = "fail"
-    RETRY = "retry"
-    ALL = "all"
-
-
-class TaskId(str, Enum):
-    """Tasks run during a data transfer upload job."""
-
-    SEND_JOB_START_EMAIL = "send_job_start_email"
-    CHECK_S3_FOLDER_EXIST = "check_s3_folder_exist"
-    CHECK_SOURCE_FOLDERS_EXIST = "check_source_folders_exist"
-    CREATE_FOLDER = "create_folder"
-    GATHER_PRELIMINARY_METADATA = "gather_preliminary_metadata"
-    MAKE_MODALITY_LIST = "make_modality_list"
-    GATHER_FINAL_METADATA = "gather_final_metadata"
-    FINAL_CHECK_S3_FOLDER_EXIST = "final_check_s3_folder_exist"
-    UPLOAD_DATA_TO_S3 = "upload_data_to_s3"
-    REGISTER_DATA_ASSET_TO_CODEOCEAN = "register_data_asset_to_codeocean"
-    UPDATE_DOCDB_RECORD = "update_docdb_record"
-    EXPAND_PIPELINES = "expand_pipelines"
-    REMOVE_FOLDER = "remove_folder"
-    SEND_JOB_END_EMAIL = "send_job_end_email"
-
-
 class Task(BaseSettings):
     """Configuration for a task run during a data transfer upload job."""
 
-    task_id: TaskId = Field(
+    task_id: str = Field(
         ..., description="Task ID (task name)", title="Task ID"
     )
     skip_task: bool = Field(
@@ -152,7 +112,7 @@ class Task(BaseSettings):
 class ModalityTask(Task):
     """Configuration for the modality tranformation task."""
 
-    task_id: Literal[TaskId.MAKE_MODALITY_LIST] = TaskId.MAKE_MODALITY_LIST
+    task_id: Literal["make_modality_list"] = "make_modality_list"
     skip_task: Literal[False] = False
 
     modality: Modality.ONE_OF = Field(
@@ -217,16 +177,16 @@ class UploadJobConfigsV2(BaseSettings):
             "Optional email address to receive job status notifications"
         ),
     )
-    email_notification_types: Optional[Set[EmailNotificationType]] = Field(
+    email_notification_types: Optional[
+        Set[Literal["begin", "end", "fail", "retry", "all"]]
+    ] = Field(
         default=None,
         description=(
             "Types of job statuses to receive email notifications about"
         ),
     )
-    s3_bucket: Literal[
-        BucketType.PRIVATE, BucketType.OPEN, BucketType.DEFAULT
-    ] = Field(
-        default=BucketType.DEFAULT,
+    s3_bucket: Literal["private", "open", "default"] = Field(
+        default="default",
         description=(
             "Bucket where data will be uploaded. If not provided, will upload "
             "to default bucket."
@@ -334,7 +294,7 @@ class UploadJobConfigsV2(BaseSettings):
         task_ids = [
             task.task_id for task in v if not isinstance(task, ModalityTask)
         ]
-        duplicates = {t.value for t in task_ids if task_ids.count(t) > 1}
+        duplicates = {t for t in task_ids if task_ids.count(t) > 1}
         if duplicates:
             raise ValueError(
                 f"Task IDs must be unique! Duplicates: {duplicates}"
@@ -355,8 +315,10 @@ class SubmitJobRequestV2(BaseSettings):
             "Optional email address to receive job status notifications"
         ),
     )
-    email_notification_types: Set[EmailNotificationType] = Field(
-        default={EmailNotificationType.FAIL},
+    email_notification_types: Set[
+        Literal["begin", "end", "fail", "retry", "all"]
+    ] = Field(
+        default={"fail"},
         description=(
             "Types of job statuses to receive email notifications about"
         ),

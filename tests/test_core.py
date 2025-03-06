@@ -10,12 +10,9 @@ from aind_data_schema_models.platforms import Platform
 from pydantic import ValidationError
 
 from aind_data_transfer_service.configs.core import (
-    BucketType,
-    EmailNotificationType,
     ModalityTask,
     SubmitJobRequestV2,
     Task,
-    TaskId,
     UploadJobConfigsV2,
     validation_context,
 )
@@ -28,7 +25,7 @@ class TestTaskConfigs(unittest.TestCase):
     def setUpClass(cls) -> None:
         """Set up test class"""
         custom_task = Task(
-            task_id=TaskId.CHECK_SOURCE_FOLDERS_EXIST,
+            task_id="check_source_folders_exist",
             image="some_image",
             image_version="1.0.0",
             image_environment={"key": "value"},
@@ -53,7 +50,7 @@ class TestTaskConfigs(unittest.TestCase):
         )
         # other fields not required if skip_task is True
         task = Task(
-            task_id=TaskId.CHECK_SOURCE_FOLDERS_EXIST,
+            task_id="check_source_folders_exist",
             skip_task=True,
         )
         self.assertDictEqual(
@@ -61,7 +58,7 @@ class TestTaskConfigs(unittest.TestCase):
         )
         # if a user provided a custom field, it should be cleared
         task = Task(
-            task_id=TaskId.CHECK_SOURCE_FOLDERS_EXIST,
+            task_id="check_source_folders_exist",
             skip_task=True,
             image="some_image",
         )
@@ -260,17 +257,12 @@ class TestUploadJobConfigsV2(unittest.TestCase):
             }
         )
         open_configs = UploadJobConfigsV2(s3_bucket="open", **base_configs)
-        private_configs1 = UploadJobConfigsV2(
+        private_configs = UploadJobConfigsV2(
             s3_bucket="private", **base_configs
         )
-        private_configs2 = UploadJobConfigsV2(
-            s3_bucket=BucketType.PRIVATE, **base_configs
-        )
-
-        self.assertEqual(BucketType.DEFAULT, default_configs.s3_bucket)
-        self.assertEqual(BucketType.OPEN, open_configs.s3_bucket)
-        self.assertEqual(BucketType.PRIVATE, private_configs1.s3_bucket)
-        self.assertEqual(BucketType.PRIVATE, private_configs2.s3_bucket)
+        self.assertEqual("default", default_configs.s3_bucket)
+        self.assertEqual("open", open_configs.s3_bucket)
+        self.assertEqual("private", private_configs.s3_bucket)
 
     def test_round_trip(self):
         """Tests model can be serialized and de-serialized easily"""
@@ -322,16 +314,14 @@ class TestUploadJobConfigsV2(unittest.TestCase):
                 source=(PurePosixPath("dir") / "data_set_2"),
                 chunk="1",
             ),
-            Task(task_id=TaskId.GATHER_FINAL_METADATA, skip_task=True),
-            Task(
-                task_id=TaskId.REGISTER_DATA_ASSET_TO_CODEOCEAN, skip_task=True
-            ),
+            Task(task_id="gather_final_metadata", skip_task=True),
+            Task(task_id="register_data_asset_to_codeocean", skip_task=True),
         ]
         job_configs = UploadJobConfigsV2(**configs)
         self.assertEqual(4, len(job_configs.tasks))
         # there can only be multiple tasks for ModalityTasks
         configs["tasks"].append(
-            Task(task_id=TaskId.GATHER_FINAL_METADATA, skip_task=True)
+            Task(task_id="gather_final_metadata", skip_task=True)
         )
         with self.assertRaises(ValidationError) as e:
             UploadJobConfigsV2(**configs)
@@ -344,7 +334,7 @@ class TestUploadJobConfigsV2(unittest.TestCase):
         )
         # if we do not provide any ModalityTask, an error should be raised
         configs["tasks"] = [
-            Task(task_id=TaskId.GATHER_FINAL_METADATA, skip_task=True),
+            Task(task_id="gather_final_metadata", skip_task=True),
         ]
         with self.assertRaises(ValidationError) as e:
             UploadJobConfigsV2(**configs)
@@ -415,9 +405,7 @@ class TestSubmitJobRequestV2(unittest.TestCase):
 
         job_settings = SubmitJobRequestV2(upload_jobs=[upload_job])
         self.assertIsNone(job_settings.user_email)
-        self.assertEqual(
-            {EmailNotificationType.FAIL}, job_settings.email_notification_types
-        )
+        self.assertEqual({"fail"}, job_settings.email_notification_types)
         self.assertEqual("transform_and_upload_v2", job_settings.job_type)
 
     def test_non_default_settings(self):
@@ -428,15 +416,12 @@ class TestSubmitJobRequestV2(unittest.TestCase):
 
         job_settings = SubmitJobRequestV2(
             user_email="abc@acme.com",
-            email_notification_types={
-                EmailNotificationType.BEGIN,
-                EmailNotificationType.FAIL,
-            },
+            email_notification_types={"begin", "fail"},
             upload_jobs=[UploadJobConfigsV2(**upload_job_configs)],
         )
         self.assertEqual("abc@acme.com", job_settings.user_email)
         self.assertEqual(
-            {EmailNotificationType.BEGIN, EmailNotificationType.FAIL},
+            {"begin", "fail"},
             job_settings.email_notification_types,
         )
 
@@ -465,15 +450,12 @@ class TestSubmitJobRequestV2(unittest.TestCase):
         )
         new_job = UploadJobConfigsV2(
             user_email="xyz@acme.org",
-            email_notification_types=[EmailNotificationType.ALL],
+            email_notification_types=["all"],
             **example_job_configs,
         )
         job_settings = SubmitJobRequestV2(
             user_email="abc@acme.org",
-            email_notification_types={
-                EmailNotificationType.BEGIN,
-                EmailNotificationType.FAIL,
-            },
+            email_notification_types={"begin", "fail"},
             upload_jobs=[
                 new_job,
                 UploadJobConfigsV2(**example_job_configs),
