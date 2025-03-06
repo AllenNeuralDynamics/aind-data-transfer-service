@@ -39,28 +39,14 @@ class TestTaskConfigs(unittest.TestCase):
         expected_configs = {
             "task_id": "check_source_folders_exist",
             "skip_task": True,
-            "image": "",
-            "image_version": "",
+            "image": None,
+            "image_version": None,
             "image_environment": {},
             "parameters_settings": {},
         }
-        task = Task(**expected_configs)
-        self.assertDictEqual(
-            expected_configs, json.loads(task.model_dump_json())
-        )
-        # other fields not required if skip_task is True
         task = Task(
             task_id="check_source_folders_exist",
             skip_task=True,
-        )
-        self.assertDictEqual(
-            expected_configs, json.loads(task.model_dump_json())
-        )
-        # if a user provided a custom field, it should be cleared
-        task = Task(
-            task_id="check_source_folders_exist",
-            skip_task=True,
-            image="some_image",
         )
         self.assertDictEqual(
             expected_configs, json.loads(task.model_dump_json())
@@ -100,8 +86,8 @@ class TestTaskConfigs(unittest.TestCase):
         expected_configs = {
             "task_id": "make_modality_list",
             "skip_task": False,
-            "image": "",
-            "image_version": "",
+            "image": None,
+            "image_version": None,
             "image_environment": {},
             "parameters_settings": {},
             "modality": {
@@ -110,13 +96,7 @@ class TestTaskConfigs(unittest.TestCase):
             },
             "source": "dir/data_set_1",
             "chunk": None,
-            "use_job_type_settings": True,
         }
-        task = ModalityTask(**expected_configs)
-        self.assertDictEqual(
-            expected_configs, json.loads(task.model_dump_json())
-        )
-        # other fields not required by default
         task = ModalityTask(
             modality=Modality.BEHAVIOR_VIDEOS,
             source=(PurePosixPath("dir") / "data_set_1"),
@@ -124,22 +104,6 @@ class TestTaskConfigs(unittest.TestCase):
         self.assertDictEqual(
             expected_configs, json.loads(task.model_dump_json())
         )
-        # if a user provided a custom field, it should be cleared
-        task = ModalityTask(
-            modality=Modality.BEHAVIOR_VIDEOS,
-            source=(PurePosixPath("dir") / "data_set_1"),
-            image="some_image",
-        )
-        self.assertDictEqual(
-            expected_configs, json.loads(task.model_dump_json())
-        )
-        # if use_job_type_settings is False, then other settings are required
-        with self.assertRaises(ValidationError):
-            ModalityTask(
-                modality=Modality.BEHAVIOR_VIDEOS,
-                source=(PurePosixPath("dir") / "data_set_1"),
-                use_job_type_settings=False,
-            )
 
 
 class TestUploadJobConfigsV2(unittest.TestCase):

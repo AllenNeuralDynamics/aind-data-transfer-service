@@ -62,50 +62,41 @@ class Task(BaseSettings):
         title="Skip Step",
     )
 
-    image: str = Field(
-        ..., description="Name of docker image to run", title="Image"
+    image: Optional[str] = Field(
+        default=None, description="Name of docker image to run", title="Image"
     )
-    image_version: str = Field(
-        ...,
+    image_version: Optional[str] = Field(
+        default=None,
         description="Version of docker image to run",
         title="Image Version",
     )
-    image_environment: Dict[str, Any] = Field(
-        ...,
+    image_environment: Optional[Dict[str, Any]] = Field(
+        default={},
         description=(
             "Environment for the docker image. Must be json serializable."
         ),
         title="Image Environment",
     )
-    parameters_settings: Dict[str, Any] = Field(
-        ...,
+    parameters_settings: Optional[Dict[str, Any]] = Field(
+        default={},
         description="Settings for the task. Must be json serializable.",
         title="Parameters Settings",
     )
 
-    @model_validator(mode="before")
-    def check_skip_task(cls, data: Any) -> Any:
-        """If skip_task is True, then clear the other fields."""
-        if data.get("skip_task") is True:
-            data["image"] = ""
-            data["image_version"] = ""
-            data["image_environment"] = {}
-            data["parameters_settings"] = {}
-        return data
-
     @field_validator("image_environment", "parameters_settings", mode="after")
     def validate_json_serializable(
-        cls, v: Dict[str, Any], info: ValidationInfo
-    ) -> Dict[str, Any]:
+        cls, v: Optional[Dict[str, Any]], info: ValidationInfo
+    ) -> Optional[Dict[str, Any]]:
         """Validate that fields are json serializable."""
-        try:
-            json.dumps(v)
-        except Exception as e:
-            raise ValueError(
-                f"{info.field_name} must be json serializable! If "
-                f"converting from a Pydantic model, please use "
-                f'model.model_dump(mode="json"). {e}'
-            )
+        if v is not None:
+            try:
+                json.dumps(v)
+            except Exception as e:
+                raise ValueError(
+                    f"{info.field_name} must be json serializable! If "
+                    f"converting from a Pydantic model, please use "
+                    f'model.model_dump(mode="json"). {e}'
+                )
         return v
 
 
@@ -129,23 +120,6 @@ class ModalityTask(Task):
         "this chunk.",
         title="Chunk",
     )
-    use_job_type_settings: bool = Field(
-        default=True,
-        description=(
-            "Use task settings (image, parameter_settings, etc.) for the "
-            "job_type. If false, will use the settings provided here."
-        ),
-    )
-
-    @model_validator(mode="before")
-    def check_use_job_type_settings(cls, data: Any) -> Any:
-        """If use_job_type_settings is set, then clear the other fields."""
-        if data.get("use_job_type_settings") is not False:
-            data["image"] = ""
-            data["image_version"] = ""
-            data["image_environment"] = {}
-            data["parameters_settings"] = {}
-        return data
 
 
 class UploadJobConfigsV2(BaseSettings):
