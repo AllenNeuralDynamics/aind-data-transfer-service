@@ -17,14 +17,13 @@ from aind_data_transfer_service.configs.core import (
 )
 
 
-class TestTaskConfigs(unittest.TestCase):
+class TestTask(unittest.TestCase):
     """Tests Task class"""
 
     @classmethod
     def setUpClass(cls) -> None:
         """Set up test class"""
         custom_task = Task(
-            task_id="check_source_folders_exist",
             image="some_image",
             image_version="1.0.0",
             image_environment={"key": "value"},
@@ -39,7 +38,6 @@ class TestTaskConfigs(unittest.TestCase):
         # custom task
         self.assertDictEqual(
             {
-                "task_id": "check_source_folders_exist",
                 "skip_task": False,
                 "image": "some_image",
                 "image_version": "1.0.0",
@@ -56,7 +54,6 @@ class TestTaskConfigs(unittest.TestCase):
         )
         # skippable task
         expected_configs = {
-            "task_id": "check_source_folders_exist",
             "skip_task": True,
             "image": None,
             "image_version": None,
@@ -64,7 +61,7 @@ class TestTaskConfigs(unittest.TestCase):
             "parameters_settings": {},
             "dynamic_parameters_settings": {},
         }
-        task = Task(task_id="check_source_folders_exist", skip_task=True)
+        task = Task(skip_task=True)
         self.assertDictEqual(
             expected_configs, json.loads(task.model_dump_json())
         )
@@ -95,30 +92,23 @@ class TestUploadJobConfigsV2(unittest.TestCase):
         example_configs = UploadJobConfigsV2(
             project_name="Behavior Platform",
             platform=Platform.BEHAVIOR,
-            modalities=[
-                Modality.BEHAVIOR_VIDEOS,
-            ],
+            modalities=[Modality.BEHAVIOR_VIDEOS],
             subject_id="123456",
             acq_datetime=datetime(2020, 10, 13, 13, 10, 10),
-            tasks=[
-                Task(
-                    task_id="make_modality_list",
+            tasks={
+                "make_modality_list": Task(
                     dynamic_parameters_settings={
                         "modality": Modality.BEHAVIOR_VIDEOS.abbreviation,
                         "source": (
                             PurePosixPath("dir") / "data_set_1"
                         ).as_posix(),
                     },
-                )
-            ],
+                ),
+            },
         )
         cls.example_configs = example_configs
         cls.base_configs = example_configs.model_dump(
-            exclude={
-                "job_type": True,
-                "s3_bucket": True,
-                "s3_prefix": True,
-            }
+            exclude={"job_type": True, "s3_bucket": True, "s3_prefix": True}
         )
 
     def test_s3_prefix(self):
@@ -139,11 +129,7 @@ class TestUploadJobConfigsV2(unittest.TestCase):
                 job_type="ecephys",
                 **self.base_configs,
             )
-
-        self.assertEqual(
-            "ecephys",
-            round_trip_model.job_type,
-        )
+        self.assertEqual("ecephys", round_trip_model.job_type)
 
     def test_job_type_validation_fail(self):
         """Test job_type is validated against list context provided and
@@ -154,7 +140,6 @@ class TestUploadJobConfigsV2(unittest.TestCase):
                     job_type="random_string",
                     **self.base_configs,
                 )
-
         err_msg = json.loads(err.exception.json())[0]["msg"]
         self.assertEqual(
             (
@@ -171,7 +156,6 @@ class TestUploadJobConfigsV2(unittest.TestCase):
             {"project_names": ["Behavior Platform", "Other Platform"]}
         ):
             round_trip_model = UploadJobConfigsV2(**model)
-
         self.assertEqual(
             "behavior_123456_2020-10-13_13-10-10",
             round_trip_model.s3_prefix,
@@ -184,7 +168,6 @@ class TestUploadJobConfigsV2(unittest.TestCase):
         with self.assertRaises(ValidationError) as err:
             with validation_context({"project_names": ["Other Platform"]}):
                 UploadJobConfigsV2(**model)
-
         err_msg = json.loads(err.exception.json())[0]["msg"]
         self.assertEqual(
             (
@@ -196,14 +179,9 @@ class TestUploadJobConfigsV2(unittest.TestCase):
 
     def test_s3_bucket(self):
         """Test s3_bucket allowed values"""
-        default_configs = UploadJobConfigsV2(
-            **self.base_configs,
-        )
+        default_configs = UploadJobConfigsV2(**self.base_configs)
         base_configs = default_configs.model_dump(
-            exclude={
-                "s3_bucket": True,
-                "s3_prefix": True,
-            }
+            exclude={"s3_bucket": True, "s3_prefix": True}
         )
         open_configs = UploadJobConfigsV2(s3_bucket="open", **base_configs)
         private_configs = UploadJobConfigsV2(
@@ -222,7 +200,8 @@ class TestUploadJobConfigsV2(unittest.TestCase):
     def test_extra_ignore(self):
         """Tests that extra fields can be passed into model."""
         config = UploadJobConfigsV2(
-            **self.base_configs, extra_field_1="an extra field",
+            **self.base_configs,
+            extra_field_1="an extra field",
         )
         config_json = config.model_dump_json()
         self.assertEqual(
@@ -237,56 +216,33 @@ class TestUploadJobConfigsV2(unittest.TestCase):
     def test_check_tasks(self):
         """Tests that tasks can be set correctly"""
         configs = self.base_configs.copy()
-        configs["tasks"] = [
-            Task(
-                task_id="make_modality_list",
-                dynamic_parameters_settings={
-                    "modality": Modality.BEHAVIOR_VIDEOS.abbreviation,
-                    "source": (PurePosixPath("dir") / "data_set_1").as_posix(),
-                    "chunk": "1",
-                },
-            ),
-            Task(
-                task_id="make_modality_list",
-                dynamic_parameters_settings={
-                    "modality": Modality.ECEPHYS.abbreviation,
-                    "source": (PurePosixPath("dir") / "data_set_2").as_posix(),
-                    "chunk": "1",
-                },
-            ),
-            Task(task_id="gather_final_metadata", skip_task=True),
-            Task(task_id="register_data_asset_to_codeocean", skip_task=True),
-        ]
+        configs["tasks"] = {
+            "make_modality_list": [
+                Task(
+                    dynamic_parameters_settings={
+                        "modality": Modality.BEHAVIOR_VIDEOS.abbreviation,
+                        "source": (
+                            PurePosixPath("dir") / "data_set_1"
+                        ).as_posix(),
+                        "chunk": "1",
+                    },
+                ),
+                Task(
+                    dynamic_parameters_settings={
+                        "modality": Modality.ECEPHYS.abbreviation,
+                        "source": (
+                            PurePosixPath("dir") / "data_set_2"
+                        ).as_posix(),
+                        "chunk": "1",
+                    },
+                ),
+            ],
+            "gather_final_metadata": Task(skip_task=True),
+            "register_data_asset_to_codeocean": Task(skip_task=True),
+        }
         job_configs = UploadJobConfigsV2(**configs)
-        self.assertEqual(4, len(job_configs.tasks))
-        # there can only be multiple tasks for ModalityTasks
-        configs["tasks"].append(
-            Task(task_id="gather_final_metadata", skip_task=True)
-        )
-        with self.assertRaises(ValidationError) as e:
-            UploadJobConfigsV2(**configs)
-        errors = e.exception.errors()
-        self.assertEqual(1, len(errors))
-        self.assertEqual(
-            "Value error, Task IDs must be unique! Duplicates: "
-            "{'gather_final_metadata'}",
-            errors[0]["msg"],
-        )
-        # if we do not provide any ModalityTask, an error should be raised
-        configs["tasks"] = [
-            Task(task_id="gather_final_metadata", skip_task=True),
-        ]
-        with self.assertRaises(ValidationError) as e:
-            UploadJobConfigsV2(**configs)
-        errors = e.exception.errors()
-        self.assertEqual(1, len(errors))
-        self.assertEqual(
-            (
-                "Value error, A modality task (task_id: make_modality_list) "
-                "must be provided for each modality!"
-            ),
-            errors[0]["msg"],
-        )
+        self.assertEqual(3, len(job_configs.tasks))
+        self.assertEqual(2, len(job_configs.tasks["make_modality_list"]))
 
 
 class TestSubmitJobRequestV2(unittest.TestCase):
@@ -303,9 +259,8 @@ class TestSubmitJobRequestV2(unittest.TestCase):
             ],
             subject_id="123456",
             acq_datetime=datetime(2020, 10, 13, 13, 10, 10),
-            tasks=[
-                Task(
-                    task_id="make_modality_list",
+            tasks={
+                "make_modality_list": Task(
                     dynamic_parameters_settings={
                         "modality": Modality.BEHAVIOR_VIDEOS.abbreviation,
                         "source": (
@@ -313,7 +268,7 @@ class TestSubmitJobRequestV2(unittest.TestCase):
                         ).as_posix(),
                     },
                 )
-            ],
+            },
         )
         cls.example_upload_config = example_upload_config
 
@@ -333,7 +288,6 @@ class TestSubmitJobRequestV2(unittest.TestCase):
         upload_job = UploadJobConfigsV2(
             **self.example_upload_config.model_dump(round_trip=True)
         )
-
         with self.assertRaises(ValidationError) as e:
             SubmitJobRequestV2(
                 upload_jobs=[upload_job for _ in range(0, 1001)]
@@ -350,7 +304,6 @@ class TestSubmitJobRequestV2(unittest.TestCase):
         upload_job = UploadJobConfigsV2(
             **self.example_upload_config.model_dump(round_trip=True)
         )
-
         job_settings = SubmitJobRequestV2(upload_jobs=[upload_job])
         self.assertIsNone(job_settings.user_email)
         self.assertEqual({"fail"}, job_settings.email_notification_types)
@@ -361,7 +314,6 @@ class TestSubmitJobRequestV2(unittest.TestCase):
         upload_job_configs = self.example_upload_config.model_dump(
             round_trip=True
         )
-
         job_settings = SubmitJobRequestV2(
             user_email="abc@acme.com",
             email_notification_types={"begin", "fail"},
@@ -409,7 +361,6 @@ class TestSubmitJobRequestV2(unittest.TestCase):
                 UploadJobConfigsV2(**example_job_configs),
             ],
         )
-
         self.assertEqual(
             "xyz@acme.org", job_settings.upload_jobs[0].user_email
         )

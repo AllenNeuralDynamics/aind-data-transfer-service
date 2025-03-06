@@ -49,9 +49,6 @@ def validation_context(context: Union[Dict[str, Any], None]) -> None:
 class Task(BaseSettings):
     """Configuration for a task run during a data transfer upload job."""
 
-    task_id: str = Field(
-        ..., description="Task ID (task name)", title="Task ID"
-    )
     skip_task: bool = Field(
         default=False,
         description=(
@@ -176,15 +173,13 @@ class UploadJobConfigsV2(BaseSettings):
         description="Datetime data was acquired",
         title="Acquisition Datetime",
     )
-    tasks: List[Task] = Field(
+    tasks: Dict[str, Union[Task, List[Task]]] = Field(
         ...,
         description=(
-            "List of tasks to run with custom settings. A ModalityTask must "
-            "be provided for each modality. For other tasks, default settings "
-            "for the job_type will be used unless overridden here."
+            "Dictionary of tasks to run with custom settings. The key must be "
+            "the task_id and the value must be the task or list of tasks."
         ),
         title="Tasks",
-        min_length=1,
     )
 
     @computed_field
@@ -218,29 +213,6 @@ class UploadJobConfigsV2(BaseSettings):
             raise ValueError(f"{v} must be one of {valid_list}")
         else:
             return v
-
-    @field_validator("tasks", mode="after")
-    def validate_tasks(cls, tasks: List[Task]) -> List[Task]:
-        """Validates that modality tasks are provided and all other task_ids "
-        are unique."""
-        # check at least 1 modality task is provided
-        if not any(task.task_id == "make_modality_list" for task in tasks):
-            raise ValueError(
-                "A modality task (task_id: make_modality_list) must be "
-                "provided for each modality!"
-            )
-        # check other tasks are unique
-        task_ids = [
-            task.task_id
-            for task in tasks
-            if task.task_id != "make_modality_list"
-        ]
-        duplicates = {t for t in task_ids if task_ids.count(t) > 1}
-        if duplicates:
-            raise ValueError(
-                f"Task IDs must be unique! Duplicates: {duplicates}"
-            )
-        return tasks
 
 
 class SubmitJobRequestV2(BaseSettings):
