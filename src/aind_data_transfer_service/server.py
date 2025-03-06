@@ -843,6 +843,8 @@ async def job_params(request: Request):
                 "project_names_url": os.getenv(
                     "AIND_METADATA_SERVICE_PROJECT_NAMES_URL"
                 ),
+                "versions": ["v1", "v2"],
+                "default_version": "v1",
             }
         ),
     )
