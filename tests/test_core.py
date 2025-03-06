@@ -10,7 +10,6 @@ from aind_data_schema_models.platforms import Platform
 from pydantic import ValidationError
 
 from aind_data_transfer_service.configs.core import (
-    ModalityTask,
     SubmitJobRequestV2,
     Task,
     UploadJobConfigsV2,
@@ -30,30 +29,14 @@ class TestTaskConfigs(unittest.TestCase):
             image_version="1.0.0",
             image_environment={"key": "value"},
             parameters_settings={"param1": "value1", "param2": "value2"},
+            dynamic_parameters_settings={"dynamic_param": "dynamic_value"},
         )
         cls.custom_task = custom_task
         cls.custom_task_configs = custom_task.model_dump()
 
-    def test_skip_task(self):
-        """Tests a skipped Task can be created correctly."""
-        expected_configs = {
-            "task_id": "check_source_folders_exist",
-            "skip_task": True,
-            "image": None,
-            "image_version": None,
-            "image_environment": {},
-            "parameters_settings": {},
-        }
-        task = Task(
-            task_id="check_source_folders_exist",
-            skip_task=True,
-        )
-        self.assertDictEqual(
-            expected_configs, json.loads(task.model_dump_json())
-        )
-
-    def test_custom_task(self):
-        """Tests that a custom Task can be created correctly."""
+    def test_contructor(self):
+        """Tests that Tasks can be created correctly."""
+        # custom task
         self.assertDictEqual(
             {
                 "task_id": "check_source_folders_exist",
@@ -65,13 +48,34 @@ class TestTaskConfigs(unittest.TestCase):
                     "param1": "value1",
                     "param2": "value2",
                 },
+                "dynamic_parameters_settings": {
+                    "dynamic_param": "dynamic_value"
+                },
             },
             json.loads(self.custom_task.model_dump_json()),
         )
+        # skippable task
+        expected_configs = {
+            "task_id": "check_source_folders_exist",
+            "skip_task": True,
+            "image": None,
+            "image_version": None,
+            "image_environment": {},
+            "parameters_settings": {},
+            "dynamic_parameters_settings": {},
+        }
+        task = Task(task_id="check_source_folders_exist", skip_task=True)
+        self.assertDictEqual(
+            expected_configs, json.loads(task.model_dump_json())
+        )
 
-    def test_custom_task_error(self):
+    def test_json_serializable(self):
         """Tests that an error is raised if dicts are not json serializable"""
-        for field in ["image_environment", "parameters_settings"]:
+        for field in [
+            "image_environment",
+            "parameters_settings",
+            "dynamic_parameters_settings",
+        ]:
             expected_error = f"Value error, {field} must be json serializable!"
             invalid_configs = self.custom_task_configs.copy()
             invalid_configs[field] = {"param1": list}
@@ -80,30 +84,6 @@ class TestTaskConfigs(unittest.TestCase):
             errors = e.exception.errors()
             self.assertEqual(1, len(errors))
             self.assertIn(expected_error, errors[0]["msg"])
-
-    def test_modality_task(self):
-        """Tests that a ModalityTask can be created correctly."""
-        expected_configs = {
-            "task_id": "make_modality_list",
-            "skip_task": False,
-            "image": None,
-            "image_version": None,
-            "image_environment": {},
-            "parameters_settings": {},
-            "modality": {
-                "abbreviation": "behavior-videos",
-                "name": "Behavior videos",
-            },
-            "source": "dir/data_set_1",
-            "chunk": None,
-        }
-        task = ModalityTask(
-            modality=Modality.BEHAVIOR_VIDEOS,
-            source=(PurePosixPath("dir") / "data_set_1"),
-        )
-        self.assertDictEqual(
-            expected_configs, json.loads(task.model_dump_json())
-        )
 
 
 class TestUploadJobConfigsV2(unittest.TestCase):
@@ -121,9 +101,14 @@ class TestUploadJobConfigsV2(unittest.TestCase):
             subject_id="123456",
             acq_datetime=datetime(2020, 10, 13, 13, 10, 10),
             tasks=[
-                ModalityTask(
-                    modality=Modality.BEHAVIOR_VIDEOS,
-                    source=(PurePosixPath("dir") / "data_set_1"),
+                Task(
+                    task_id="make_modality_list",
+                    dynamic_parameters_settings={
+                        "modality": Modality.BEHAVIOR_VIDEOS.abbreviation,
+                        "source": (
+                            PurePosixPath("dir") / "data_set_1"
+                        ).as_posix(),
+                    },
                 )
             ],
         )
@@ -268,15 +253,21 @@ class TestUploadJobConfigsV2(unittest.TestCase):
         """Tests that tasks can be set correctly"""
         configs = self.base_configs.copy()
         configs["tasks"] = [
-            ModalityTask(
-                modality=Modality.BEHAVIOR_VIDEOS,
-                source=(PurePosixPath("dir") / "data_set_1"),
-                chunk="1",
+            Task(
+                task_id="make_modality_list",
+                dynamic_parameters_settings={
+                    "modality": Modality.BEHAVIOR_VIDEOS.abbreviation,
+                    "source": (PurePosixPath("dir") / "data_set_1").as_posix(),
+                    "chunk": "1",
+                },
             ),
-            ModalityTask(
-                modality=Modality.ECEPHYS,
-                source=(PurePosixPath("dir") / "data_set_2"),
-                chunk="1",
+            Task(
+                task_id="make_modality_list",
+                dynamic_parameters_settings={
+                    "modality": Modality.ECEPHYS.abbreviation,
+                    "source": (PurePosixPath("dir") / "data_set_2").as_posix(),
+                    "chunk": "1",
+                },
             ),
             Task(task_id="gather_final_metadata", skip_task=True),
             Task(task_id="register_data_asset_to_codeocean", skip_task=True),
@@ -305,7 +296,10 @@ class TestUploadJobConfigsV2(unittest.TestCase):
         errors = e.exception.errors()
         self.assertEqual(1, len(errors))
         self.assertEqual(
-            "Value error, A ModalityTask must be provided for each modality!",
+            (
+                "Value error, A modality task (task_id: make_modality_list) "
+                "must be provided for each modality!"
+            ),
             errors[0]["msg"],
         )
 
@@ -325,9 +319,14 @@ class TestSubmitJobRequestV2(unittest.TestCase):
             subject_id="123456",
             acq_datetime=datetime(2020, 10, 13, 13, 10, 10),
             tasks=[
-                ModalityTask(
-                    modality=Modality.BEHAVIOR_VIDEOS,
-                    source=(PurePosixPath("dir") / "data_set_1"),
+                Task(
+                    task_id="make_modality_list",
+                    dynamic_parameters_settings={
+                        "modality": Modality.BEHAVIOR_VIDEOS.abbreviation,
+                        "source": (
+                            PurePosixPath("dir") / "data_set_1"
+                        ).as_posix(),
+                    },
                 )
             ],
         )
@@ -449,9 +448,14 @@ class TestSubmitJobRequestV2(unittest.TestCase):
             subject_id="123456",
             acq_datetime=datetime(2020, 1, 2, 3, 4, 5),
             tasks=[
-                ModalityTask(
-                    modality=Modality.ECEPHYS,
-                    source=(PurePosixPath("dir") / "data_set_1"),
+                Task(
+                    task_id="make_modality_list",
+                    dynamic_parameters_settings={
+                        "modality": Modality.BEHAVIOR_VIDEOS.abbreviation,
+                        "source": (
+                            PurePosixPath("dir") / "data_set_1"
+                        ).as_posix(),
+                    },
                 )
             ],
             extra_field_1="an extra field",

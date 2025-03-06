@@ -4,7 +4,6 @@ import json
 from contextlib import contextmanager
 from contextvars import ContextVar
 from datetime import datetime
-from pathlib import PurePosixPath
 from typing import Any, Dict, List, Literal, Optional, Set, Union
 
 from aind_data_schema_models.data_name_patterns import build_data_name
@@ -82,8 +81,21 @@ class Task(BaseSettings):
         description="Settings for the task. Must be json serializable.",
         title="Parameters Settings",
     )
+    dynamic_parameters_settings: Optional[Dict[str, Any]] = Field(
+        default={},
+        description=(
+            "Dynamic settings for the task (e.g. modality, source, chunk). "
+            "Must be json serializable."
+        ),
+        title="Dynamic Parameters Settings",
+    )
 
-    @field_validator("image_environment", "parameters_settings", mode="after")
+    @field_validator(
+        "image_environment",
+        "parameters_settings",
+        "dynamic_parameters_settings",
+        mode="after",
+    )
     def validate_json_serializable(
         cls, v: Optional[Dict[str, Any]], info: ValidationInfo
     ) -> Optional[Dict[str, Any]]:
@@ -98,28 +110,6 @@ class Task(BaseSettings):
                     f'model.model_dump(mode="json"). {e}'
                 )
         return v
-
-
-class ModalityTask(Task):
-    """Configuration for the modality tranformation task."""
-
-    task_id: Literal["make_modality_list"] = "make_modality_list"
-    skip_task: Literal[False] = False
-
-    modality: Modality.ONE_OF = Field(
-        ..., description="Data collection modality", title="Modality"
-    )
-    source: PurePosixPath = Field(
-        ...,
-        description="Location of raw data to be uploaded",
-        title="Data Source",
-    )
-    chunk: Optional[str] = Field(
-        default=None,
-        description="Chunk of data to be uploaded. If set, will only upload "
-        "this chunk.",
-        title="Chunk",
-    )
 
 
 class UploadJobConfigsV2(BaseSettings):
@@ -186,7 +176,7 @@ class UploadJobConfigsV2(BaseSettings):
         description="Datetime data was acquired",
         title="Acquisition Datetime",
     )
-    tasks: List[Union[Task, ModalityTask]] = Field(
+    tasks: List[Task] = Field(
         ...,
         description=(
             "List of tasks to run with custom settings. A ModalityTask must "
@@ -254,26 +244,27 @@ class UploadJobConfigsV2(BaseSettings):
             return v
 
     @field_validator("tasks", mode="after")
-    def validate_tasks(
-        cls, v: List[Union[Task, ModalityTask]]
-    ) -> List[Union[Task, ModalityTask]]:
-        """Validates that ModalityTasks are provided and all other task_ids "
+    def validate_tasks(cls, tasks: List[Task]) -> List[Task]:
+        """Validates that modality tasks are provided and all other task_ids "
         are unique."""
-        # check at least 1 ModalityTask is provided
-        if not any(isinstance(task, ModalityTask) for task in v):
+        # check at least 1 modality task is provided
+        if not any(task.task_id == "make_modality_list" for task in tasks):
             raise ValueError(
-                "A ModalityTask must be provided for each modality!"
+                "A modality task (task_id: make_modality_list) must be "
+                "provided for each modality!"
             )
         # check other tasks are unique
         task_ids = [
-            task.task_id for task in v if not isinstance(task, ModalityTask)
+            task.task_id
+            for task in tasks
+            if task.task_id != "make_modality_list"
         ]
         duplicates = {t for t in task_ids if task_ids.count(t) > 1}
         if duplicates:
             raise ValueError(
                 f"Task IDs must be unique! Duplicates: {duplicates}"
             )
-        return v
+        return tasks
 
 
 class SubmitJobRequestV2(BaseSettings):
