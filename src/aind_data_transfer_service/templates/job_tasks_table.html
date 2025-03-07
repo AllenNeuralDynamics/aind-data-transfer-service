@@ -15,6 +15,7 @@
     <tr>
       <th>Task ID</th>
       <th>Try Number</th>
+      <th>Map Index</th>
       <th>Status</th>
       <th>Submit Time</th>
       <th>Start Time</th>
@@ -26,6 +27,13 @@
     <tr>
       <td>{{job_task.task_id}}</td>
       <td>{{job_task.try_number}}</td>
+      <td>
+        {% if job_task.map_index > -1 %}
+          <span>{{job_task.map_index}}</span>
+        {% else %}
+          <span></span>
+        {% endif %}
+      </td>
       <td class="{% if job_task.task_state == 'success' %}table-success
                 {% elif job_task.task_state == 'failed' %}table-danger
                 {% elif job_task.task_state == 'running' %}table-info
@@ -42,6 +50,7 @@
             data-task-id="{{ job_task.task_id }}"
             data-task-state="{{ job_task.task_state }}"
             data-task-try-number="{{ job_task.try_number }}"
+            data-task-map-index="{{ job_task.map_index }}"
           ><i class="bi bi-box-arrow-up-right" title="View logs"></i>
           </button>
         {% endif %}
@@ -93,16 +102,17 @@
       var logsModal = document.getElementById('logs-modal');
       logsModal.addEventListener('show.bs.modal', function (event) {
         var sourceData = event.relatedTarget?.dataset;
-        updateTaskLogsModal(sourceData?.jobId, sourceData?.taskId, sourceData?.taskState, sourceData?.taskTryNumber);
+        updateTaskLogsModal(sourceData?.jobId, sourceData?.taskId, sourceData?.taskState, sourceData?.taskTryNumber, sourceData?.taskMapIndex);
       })
       logsModal.addEventListener('hidden.bs.modal', function (event) {
-        updateTaskLogsModal(null, null, null, null);
+        updateTaskLogsModal(null, null, null, null, null);
       })
     }
-    function updateTaskLogsModal(jobId, taskId, taskState, taskTryNumber) {
-      console.log('updateTaskLogsModal', jobId, taskId, taskState, taskTryNumber);
-      // Update the modal header with the task id, try number, and state
-      document.getElementById('modal-title-task').textContent = `${taskId} (try ${taskTryNumber})`;
+    function updateTaskLogsModal(jobId, taskId, taskState, taskTryNumber, taskMapIndex) {
+      console.log('updateTaskLogsModal', jobId, taskId, taskState, taskTryNumber, taskMapIndex);
+      // Update the modal header with the task id, try number, map index, and state
+      var tryMapLabel = taskMapIndex > -1 ? `${taskId} (try ${taskTryNumber}, map_index ${taskMapIndex})` :  `${taskId} (try ${taskTryNumber})`;
+      document.getElementById('modal-title-task').textContent = tryMapLabel;
       var modalTitleTaskState = document.getElementById('modal-title-task-state');
       modalTitleTaskState.textContent = taskState;
       if (taskState) {
@@ -122,6 +132,7 @@
         url.searchParams.append('dag_run_id', jobId);
         url.searchParams.append('task_id', taskId);
         url.searchParams.append('try_number', taskTryNumber);
+        url.searchParams.append('map_index', taskMapIndex);
         logsIframe.src = url;
       } else {
         logsIframe.src = "";
