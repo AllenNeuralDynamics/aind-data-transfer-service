@@ -9,7 +9,7 @@ from aind_data_schema_models.modalities import Modality
 from aind_data_schema_models.platforms import Platform
 from pydantic import ValidationError
 
-from aind_data_transfer_service.configs.core import (
+from aind_data_transfer_service.models.core import (
     SubmitJobRequestV2,
     Task,
     UploadJobConfigsV2,
@@ -289,9 +289,7 @@ class TestSubmitJobRequestV2(unittest.TestCase):
             **self.example_upload_config.model_dump(round_trip=True)
         )
         with self.assertRaises(ValidationError) as e:
-            SubmitJobRequestV2(
-                upload_jobs=[upload_job for _ in range(0, 51)]
-            )
+            SubmitJobRequestV2(upload_jobs=[upload_job for _ in range(0, 51)])
         expected_message = (
             "List should have at most 50 items after validation, not 51"
         )

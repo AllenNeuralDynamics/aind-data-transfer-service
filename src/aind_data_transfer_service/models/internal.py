@@ -1,4 +1,4 @@
-"""Module for data models used in application"""
+"""Module for internal data models used in application"""
 
 import ast
 import os

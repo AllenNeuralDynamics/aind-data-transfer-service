@@ -6,7 +6,10 @@ import unittest
 from datetime import datetime, timezone
 from pathlib import Path
 
-from aind_data_transfer_service.models import AirflowDagRunsResponse, JobStatus
+from aind_data_transfer_service.models.internal import (
+    AirflowDagRunsResponse,
+    JobStatus,
+)
 
 TEST_DIRECTORY = Path(os.path.dirname(os.path.realpath(__file__)))
 DAG_RUN_RESPONSE = (
