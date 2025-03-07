@@ -28,10 +28,23 @@ from fastapi.testclient import TestClient
 from pydantic import SecretStr
 from requests import Response
 
+from aind_data_transfer_service import (
+    __version__ as aind_data_transfer_service_version,
+)
+from aind_data_transfer_service.configs.core import (
+    SubmitJobRequestV2,
+    Task,
+    UploadJobConfigsV2,
+)
 from aind_data_transfer_service.configs.job_upload_template import (
     JobUploadTemplate,
 )
-from aind_data_transfer_service.server import app, get_project_names
+from aind_data_transfer_service.models import JobParamInfo
+from aind_data_transfer_service.server import (
+    app,
+    get_job_types,
+    get_project_names,
+)
 from tests.test_configs import TestJobConfigs
 
 TEST_DIRECTORY = Path(os.path.dirname(os.path.realpath(__file__)))
@@ -568,6 +581,23 @@ class TestServer(unittest.TestCase):
         mock_get.return_value = mock_response
         project_names = get_project_names()
         self.assertEqual(["project_name_0", "project_name_1"], project_names)
+
+    @patch("aind_data_transfer_service.server.get_parameter_infos")
+    def test_get_job_types(self, mock_get_parameter_infos: MagicMock):
+        """Tests get_job_types method"""
+        tasks = [("job1", "task1"), ("job1", "task2"), ("job2", "task1")]
+        mock_get_parameter_infos.return_value = [
+            JobParamInfo(
+                name=f"/param_prefix/v2/{t[0]}/tasks/{t[1]}",
+                job_type=t[0],
+                task_id=t[1],
+                last_modified=None,
+            )
+            for t in tasks
+        ]
+        job_types = get_job_types("v2")
+        mock_get_parameter_infos.assert_called_once_with("v2")
+        self.assertCountEqual(["job1", "job2"], job_types)
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch("httpx.AsyncClient.get")
@@ -1938,26 +1968,31 @@ class TestServer(unittest.TestCase):
             )
         self.assertEqual(200, submit_job_response.status_code)
 
+    @patch("aind_data_transfer_service.server.get_job_types")
     @patch("aind_data_transfer_service.server.get_project_names")
-    def test_validate_json(self, mock_get_project_names: MagicMock):
+    def test_validate_json(
+        self,
+        mock_get_project_names: MagicMock,
+        mock_get_job_types: MagicMock,
+    ):
         """Tests validate_json when json is valid."""
 
         mock_get_project_names.return_value = ["Ephys Platform"]
+        mock_get_job_types.return_value = ["ecephys"]
 
+        # shared
         ephys_source_dir = PurePosixPath("shared_drive/ephys_data/690165")
-
         s3_bucket = "private"
         subject_id = "690165"
         acq_datetime = datetime(2024, 2, 19, 11, 25, 17)
         platform = Platform.ECEPHYS
-
+        project_name = "Ephys Platform"
+        # v1
         ephys_config = ModalityConfigs(
             modality=Modality.ECEPHYS,
             source=ephys_source_dir,
         )
-        project_name = "Ephys Platform"
-
-        upload_job_configs = BasicUploadJobConfigs(
+        upload_job = BasicUploadJobConfigs(
             project_name=project_name,
             s3_bucket=s3_bucket,
             platform=platform,
@@ -1965,79 +2000,135 @@ class TestServer(unittest.TestCase):
             acq_datetime=acq_datetime,
             modalities=[ephys_config],
         )
-        submit_job_request = SubmitJobRequest(upload_jobs=[upload_job_configs])
-        post_request_content = json.loads(submit_job_request.model_dump_json())
-        with TestClient(app) as client:
-            response = client.post(
-                "/api/v1/validate_json",
-                json=post_request_content,
+        submit_job_request_v1 = SubmitJobRequest(upload_jobs=[upload_job])
+        # v2
+        job_type = "ecephys"
+        ephys_config = Task(
+            dynamic_parameters_settings={
+                "modality": Modality.ECEPHYS.abbreviation,
+                "source": ephys_source_dir.as_posix(),
+            }
+        )
+        upload_job = UploadJobConfigsV2(
+            job_type=job_type,
+            project_name=project_name,
+            s3_bucket=s3_bucket,
+            platform=platform,
+            subject_id=subject_id,
+            acq_datetime=acq_datetime,
+            modalities=[Modality.ECEPHYS],
+            tasks={"make_modality_list": ephys_config},
+        )
+        submit_job_request_v2 = SubmitJobRequestV2(upload_jobs=[upload_job])
+
+        expected_jobs = {
+            "v1": {
+                "request": submit_job_request_v1,
+                "version": aind_data_transfer_models_version,
+            },
+            "v2": {
+                "request": submit_job_request_v2,
+                "version": aind_data_transfer_service_version,
+            },
+        }
+        for version, job in expected_jobs.items():
+            post_request_content = json.loads(job["request"].model_dump_json())
+            with TestClient(app) as client:
+                response = client.post(
+                    f"/api/{version}/validate_json",
+                    json=post_request_content,
+                )
+                response_json = response.json()
+            self.assertEqual(200, response.status_code)
+            self.assertEqual("Valid model", response_json["message"])
+            self.assertEqual(
+                post_request_content, response_json["data"]["model_json"]
             )
-            response_json = response.json()
-        self.assertEqual(200, response.status_code)
-        self.assertEqual("Valid model", response_json["message"])
-        self.assertEqual(
-            post_request_content, response_json["data"]["model_json"]
-        )
-        self.assertEqual(
-            aind_data_transfer_models_version, response_json["data"]["version"]
-        )
+            self.assertEqual(job["version"], response_json["data"]["version"])
+        self.assertEqual(2, mock_get_project_names.call_count)
+        self.assertEqual(1, mock_get_job_types.call_count)
 
     @patch("logging.Logger.warning")
+    @patch("aind_data_transfer_service.server.get_job_types")
     @patch("aind_data_transfer_service.server.get_project_names")
     def test_validate_json_invalid(
-        self, mock_get_project_names: MagicMock, mock_log_warning: MagicMock
+        self,
+        mock_get_project_names: MagicMock,
+        mock_get_job_types: MagicMock,
+        mock_log_warning: MagicMock,
     ):
         """Tests validate_json when json is invalid."""
         mock_get_project_names.return_value = ["Ephys Platform"]
+        mock_get_job_types.return_value = ["ecephys"]
         content = {"foo": "bar"}
-        with TestClient(app) as client:
-            response = client.post(
-                "/api/v1/validate_json",
-                json=content,
+        versions = {
+            "v1": aind_data_transfer_models_version,
+            "v2": aind_data_transfer_service_version,
+        }
+        for version, response_version in versions.items():
+            with TestClient(app) as client:
+                response = client.post(
+                    f"/api/{version}/validate_json", json=content
+                )
+            response_json = response.json()
+            self.assertEqual(406, response.status_code)
+            self.assertEqual(
+                "There were validation errors", response_json["message"]
             )
-        response_json = response.json()
-        self.assertEqual(406, response.status_code)
-        self.assertEqual(
-            "There were validation errors", response_json["message"]
-        )
-        self.assertEqual(content, response_json["data"]["model_json"])
-        self.assertEqual(
-            aind_data_transfer_models_version, response_json["data"]["version"]
-        )
-        mock_log_warning.assert_called_once_with(
-            f"There were validation errors processing {content}"
-        )
+            self.assertEqual(content, response_json["data"]["model_json"])
+            self.assertEqual(
+                response_version, response_json["data"]["version"]
+            )
+            mock_log_warning.assert_called_with(
+                f"There were validation errors processing {content}"
+            )
+        self.assertEqual(2, mock_get_project_names.call_count)
+        self.assertEqual(1, mock_get_job_types.call_count)
 
     @patch("logging.Logger.exception")
     @patch("pydantic.BaseModel.model_validate_json")
+    @patch("aind_data_transfer_service.server.get_job_types")
     @patch("aind_data_transfer_service.server.get_project_names")
     def test_validate_json_error(
         self,
         mock_get_project_names: MagicMock,
+        mock_get_job_types: MagicMock,
         mock_model_validate_json: MagicMock,
         mock_log_error: MagicMock,
     ):
         """Tests validate_json when there is an unknown error."""
 
         mock_get_project_names.return_value = ["Ephys Platform"]
+        mock_get_job_types.return_value = ["ecephys"]
         mock_model_validate_json.side_effect = Exception("Unknown error")
-        with TestClient(app) as client:
-            response = client.post(
-                "/api/v1/validate_json",
-                json={"foo": "bar"},
+        versions = {
+            "v1": aind_data_transfer_models_version,
+            "v2": aind_data_transfer_service_version,
+        }
+        for version, response_version in versions.items():
+            with TestClient(app) as client:
+                response = client.post(
+                    f"/api/{version}/validate_json",
+                    json={"foo": "bar"},
+                )
+            response_json = response.json()
+            self.assertEqual(500, response.status_code)
+            self.assertEqual(
+                "There was an internal server error", response_json["message"]
             )
-        response_json = response.json()
-        self.assertEqual(500, response.status_code)
-        self.assertEqual(
-            "There was an internal server error", response_json["message"]
-        )
-        self.assertEqual({"foo": "bar"}, response_json["data"]["model_json"])
-        self.assertEqual("('Unknown error',)", response_json["data"]["errors"])
-        self.assertEqual(
-            aind_data_transfer_models_version, response_json["data"]["version"]
-        )
-        mock_model_validate_json.assert_called_once()
-        mock_log_error.assert_called_once_with("Internal Server Error.")
+            self.assertEqual(
+                {"foo": "bar"}, response_json["data"]["model_json"]
+            )
+            self.assertEqual(
+                "('Unknown error',)", response_json["data"]["errors"]
+            )
+            self.assertEqual(
+                response_version, response_json["data"]["version"]
+            )
+            mock_model_validate_json.assert_called()
+            mock_log_error.assert_called_with("Internal Server Error.")
+        self.assertEqual(2, mock_get_project_names.call_count)
+        self.assertEqual(1, mock_get_job_types.call_count)
 
 
 if __name__ == "__main__":

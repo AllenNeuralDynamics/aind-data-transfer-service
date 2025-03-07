@@ -26,6 +26,13 @@ from starlette.applications import Starlette
 from starlette.routing import Route
 
 from aind_data_transfer_service import OPEN_DATA_BUCKET_NAME
+from aind_data_transfer_service import (
+    __version__ as aind_data_transfer_service_version,
+)
+from aind_data_transfer_service.configs.core import SubmitJobRequestV2
+from aind_data_transfer_service.configs.core import (
+    validation_context as validation_context_v2,
+)
 from aind_data_transfer_service.configs.csv_handler import map_csv_row_to_job
 from aind_data_transfer_service.configs.job_configs import (
     BasicUploadJobConfigs as LegacyBasicUploadJobConfigs,
@@ -86,6 +93,13 @@ def get_project_names() -> List[str]:
     response.raise_for_status()
     project_names = response.json()["data"]
     return project_names
+
+
+def get_job_types(version: Optional[str] = None) -> List[str]:
+    """Get a list of job_types"""
+    params = get_parameter_infos(version)
+    job_types = list(set([p.job_type for p in params]))
+    return job_types
 
 
 def get_parameter_infos(version: Optional[str] = None) -> List[JobParamInfo]:
@@ -228,6 +242,63 @@ async def validate_csv_legacy(request: Request):
         return JSONResponse(
             content=content,
             status_code=status_code,
+        )
+
+
+async def validate_json_v2(request: Request):
+    """Validate raw json against data transfer models. Returns validated
+    json or errors if request is invalid."""
+    logger.info("Received request to validate json v2")
+    content = await request.json()
+    try:
+        context = {
+            "project_names": get_project_names(),
+            "job_types": get_job_types("v2"),
+        }
+        with validation_context_v2(context):
+            validated_model = SubmitJobRequestV2.model_validate_json(
+                json.dumps(content)
+            )
+        validated_content = json.loads(
+            validated_model.model_dump_json(warnings=False, exclude_none=True)
+        )
+        logger.info("Valid model detected")
+        return JSONResponse(
+            status_code=200,
+            content={
+                "message": "Valid model",
+                "data": {
+                    "version": aind_data_transfer_service_version,
+                    "model_json": content,
+                    "validated_model_json": validated_content,
+                },
+            },
+        )
+    except ValidationError as e:
+        logger.warning(f"There were validation errors processing {content}")
+        return JSONResponse(
+            status_code=406,
+            content={
+                "message": "There were validation errors",
+                "data": {
+                    "version": aind_data_transfer_service_version,
+                    "model_json": content,
+                    "errors": e.json(),
+                },
+            },
+        )
+    except Exception as e:
+        logger.exception("Internal Server Error.")
+        return JSONResponse(
+            status_code=500,
+            content={
+                "message": "There was an internal server error",
+                "data": {
+                    "version": aind_data_transfer_service_version,
+                    "model_json": content,
+                    "errors": str(e.args),
+                },
+            },
         )
 
 
@@ -978,6 +1049,9 @@ routes = [
         "/api/v1/parameters/job_types/{job_type:str}/tasks/{task_id:str}",
         endpoint=get_parameter,
         methods=["GET"],
+    ),
+    Route(
+        "/api/v2/validate_json", endpoint=validate_json_v2, methods=["POST"]
     ),
     Route("/api/v2/parameters", endpoint=list_parameters_v2, methods=["GET"]),
     Route(
