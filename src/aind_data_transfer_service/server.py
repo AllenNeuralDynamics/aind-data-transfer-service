@@ -356,6 +356,66 @@ async def validate_json(request: Request):
         )
 
 
+async def submit_jobs_v2(request: Request):
+    """Post SubmitJobRequestV2 raw json to hpc server to process."""
+    logger.info("Received request to submit jobs v2")
+    content = await request.json()
+    try:
+        context = {
+            "project_names": get_project_names(),
+            "job_types": get_job_types("v2"),
+        }
+        with validation_context_v2(context):
+            model = SubmitJobRequestV2.model_validate_json(json.dumps(content))
+        full_content = json.loads(
+            model.model_dump_json(warnings=False, exclude_none=True)
+        )
+        # TODO: Replace with httpx async client
+        logger.info(
+            f"Valid request detected. Sending list of jobs. "
+            f"dag_id: {model.dag_id}"
+        )
+        total_jobs = len(model.upload_jobs)
+        for job_index, job in enumerate(model.upload_jobs, 1):
+            logger.info(
+                f"{job.job_type}, {job.s3_prefix} sending to airflow. "
+                f"{job_index} of {total_jobs}."
+            )
+
+        response = requests.post(
+            url=os.getenv("AIND_AIRFLOW_SERVICE_URL"),
+            auth=(
+                os.getenv("AIND_AIRFLOW_SERVICE_USER"),
+                os.getenv("AIND_AIRFLOW_SERVICE_PASSWORD"),
+            ),
+            json={"conf": full_content},
+        )
+        return JSONResponse(
+            status_code=response.status_code,
+            content={
+                "message": "Submitted request to airflow",
+                "data": {"responses": [response.json()], "errors": []},
+            },
+        )
+    except ValidationError as e:
+        logger.warning(f"There were validation errors processing {content}")
+        return JSONResponse(
+            status_code=406,
+            content={
+                "message": "There were validation errors",
+                "data": {"responses": [], "errors": e.json()},
+            },
+        )
+    except Exception as e:
+        logger.exception("Internal Server Error.")
+        return JSONResponse(
+            status_code=500,
+            content={
+                "message": "There was an internal server error",
+                "data": {"responses": [], "errors": str(e.args)},
+            },
+        )
+
 async def submit_jobs(request: Request):
     """Post BasicJobConfigs raw json to hpc server to process."""
     logger.info("Received request to submit jobs")
@@ -1053,6 +1113,7 @@ routes = [
     Route(
         "/api/v2/validate_json", endpoint=validate_json_v2, methods=["POST"]
     ),
+    Route("/api/v2/submit_jobs", endpoint=submit_jobs_v2, methods=["POST"]),
     Route("/api/v2/parameters", endpoint=list_parameters_v2, methods=["GET"]),
     Route(
         "/api/v2/parameters/job_types/{job_type:str}/tasks/{task_id:str}",
