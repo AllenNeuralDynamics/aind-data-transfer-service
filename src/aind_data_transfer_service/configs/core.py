@@ -238,9 +238,9 @@ class SubmitJobRequestV2(BaseSettings):
     )
     upload_jobs: List[UploadJobConfigsV2] = Field(
         ...,
-        description="List of upload jobs to process. Max of 1000 at a time.",
+        description="List of upload jobs to process. Max of 50 at a time.",
         min_length=1,
-        max_length=1000,
+        max_length=50,
     )
 
     @model_validator(mode="after")

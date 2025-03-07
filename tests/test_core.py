@@ -290,10 +290,10 @@ class TestSubmitJobRequestV2(unittest.TestCase):
         )
         with self.assertRaises(ValidationError) as e:
             SubmitJobRequestV2(
-                upload_jobs=[upload_job for _ in range(0, 1001)]
+                upload_jobs=[upload_job for _ in range(0, 51)]
             )
         expected_message = (
-            "List should have at most 1000 items after validation, not 1001"
+            "List should have at most 50 items after validation, not 51"
         )
         actual_message = json.loads(e.exception.json())[0]["msg"]
         self.assertEqual(1, len(json.loads(e.exception.json())))
