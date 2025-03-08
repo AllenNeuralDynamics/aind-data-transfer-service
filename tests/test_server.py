@@ -131,6 +131,33 @@ class TestServer(unittest.TestCase):
     for config in expected_job_configs:
         config.aws_param_store_name = None
 
+    @classmethod
+    def setUpClass(cls) -> None:
+        """Set up test class"""
+        # create example UploadJobConfigsV2
+        job_type = "ecephys"
+        project_name = "Ephys Platform"
+        platform = Platform.ECEPHYS
+        subject_id = "690165"
+        acq_datetime = datetime(2024, 2, 19, 11, 25, 17)
+        ephys_source_dir = PurePosixPath("shared_drive/ephys_data/690165")
+        ephys_config = Task(
+            dynamic_parameters_settings={
+                "modality": Modality.ECEPHYS.abbreviation,
+                "source": ephys_source_dir.as_posix(),
+            }
+        )
+        example_configs_v2 = UploadJobConfigsV2(
+            job_type=job_type,
+            project_name=project_name,
+            platform=platform,
+            subject_id=subject_id,
+            acq_datetime=acq_datetime,
+            modalities=[Modality.ECEPHYS],
+            tasks={"make_modality_list": ephys_config},
+        )
+        cls.example_configs_v2 = example_configs_v2
+
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     def test_validate_csv(self):
         """Tests that valid csv file is returned."""
@@ -1610,41 +1637,50 @@ class TestServer(unittest.TestCase):
     @patch("logging.Logger.warning")
     @patch("requests.post")
     @patch("aind_data_transfer_service.server.get_project_names")
-    def test_submit_v1_jobs_406(
+    @patch("aind_data_transfer_service.server.get_job_types")
+    def test_submit_v1_v2_jobs_406(
         self,
+        mock_get_job_types: MagicMock,
         mock_get_project_names: MagicMock,
         mock_post: MagicMock,
         mock_log_warning: MagicMock,
     ):
         """Tests submit jobs 406 response."""
+        mock_get_job_types.return_value = ["ecephys"]
         mock_get_project_names.return_value = ["Ephys Platform"]
-        with TestClient(app) as client:
-            submit_job_response = client.post(
-                url="/api/v1/submit_jobs", json={}
+        for version in ["v1", "v2"]:
+            with TestClient(app) as client:
+                submit_job_response = client.post(
+                    url=f"/api/{version}/submit_jobs", json={}
+                )
+            self.assertEqual(406, submit_job_response.status_code)
+            mock_post.assert_not_called()
+            mock_log_warning.assert_called_with(
+                "There were validation errors processing {}"
             )
-        self.assertEqual(406, submit_job_response.status_code)
-        mock_post.assert_not_called()
-        mock_log_warning.assert_called_once_with(
-            "There were validation errors processing {}"
-        )
+        mock_get_job_types.assert_called_once_with("v2")
+        self.assertEqual(2, mock_get_project_names.call_count)
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch("requests.post")
     @patch("aind_data_transfer_service.server.get_project_names")
-    def test_submit_v1_jobs_200(
+    @patch("aind_data_transfer_service.server.get_job_types")
+    def test_submit_v1_v2_jobs_200(
         self,
+        mock_get_job_types: MagicMock,
         mock_get_project_names: MagicMock,
         mock_post: MagicMock,
     ):
         """Tests submit jobs success."""
         mock_get_project_names.return_value = ["Ephys Platform"]
+        mock_get_job_types.return_value = ["ecephys"]
         mock_response = Response()
         mock_response.status_code = 200
         mock_response._content = json.dumps({"message": "sent"}).encode(
             "utf-8"
         )
         mock_post.return_value = mock_response
-        request_json = {
+        request_json_v1 = {
             "user_email": None,
             "email_notification_types": ["fail"],
             "upload_jobs": [
@@ -1676,26 +1712,40 @@ class TestServer(unittest.TestCase):
                 },
             ],
         }
-        with TestClient(app) as client:
-            submit_job_response = client.post(
-                url="/api/v1/submit_jobs", json=request_json
-            )
-        self.assertEqual(200, submit_job_response.status_code)
+        job_request_v2 = SubmitJobRequestV2(
+            upload_jobs=[self.example_configs_v2]
+        )
+        request_json_v2 = job_request_v2.model_dump(mode="json")
+        jobs = {
+            "v1": request_json_v1,
+            "v2": request_json_v2,
+        }
+        for version, request_json in jobs.items():
+            with TestClient(app) as client:
+                submit_job_response = client.post(
+                    url=f"/api/{version}/submit_jobs", json=request_json
+                )
+            self.assertEqual(200, submit_job_response.status_code)
+        mock_get_job_types.assert_called_once_with("v2")
+        self.assertEqual(2, mock_get_project_names.call_count)
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch("requests.post")
     @patch("logging.Logger.exception")
     @patch("aind_data_transfer_service.server.get_project_names")
-    def test_submit_v1_jobs_500(
+    @patch("aind_data_transfer_service.server.get_job_types")
+    def test_submit_v1_v2_jobs_500(
         self,
+        mock_get_job_types: MagicMock,
         mock_get_project_names: MagicMock,
         mock_log_exception: MagicMock,
         mock_post: MagicMock,
     ):
         """Tests submit jobs 500 response."""
+        mock_get_job_types.return_value = ["ecephys"]
         mock_get_project_names.return_value = ["Ephys Platform"]
         mock_post.side_effect = Exception("Something went wrong")
-        request_json = {
+        request_json_v1 = {
             "user_email": None,
             "email_notification_types": ["fail"],
             "upload_jobs": [
@@ -1727,12 +1777,50 @@ class TestServer(unittest.TestCase):
                 },
             ],
         }
-        with TestClient(app) as client:
-            submit_job_response = client.post(
-                url="/api/v1/submit_jobs", json=request_json
-            )
-        self.assertEqual(500, submit_job_response.status_code)
-        mock_log_exception.assert_called()
+        request_json_v2 = {
+            "user_email": None,
+            "email_notification_types": ["fail"],
+            "upload_jobs": [
+                {
+                    "job_type": "ecephys",
+                    "project_name": "Ephys Platform",
+                    "platform": {
+                        "name": "Electrophysiology platform",
+                        "abbreviation": "ecephys",
+                    },
+                    "modalities": [
+                        {
+                            "name": "Extracellular electrophysiology",
+                            "abbreviation": "ecephys",
+                        }
+                    ],
+                    "subject_id": "655019",
+                    "acq_datetime": "2000-01-01T01:40:04",
+                    "tasks": {
+                        "make_modality_list": {
+                            "dynamic_parameters_settings": {
+                                "modality": "ecephys",
+                                "source": "dir/source1",
+                            },
+                        }
+                    },
+                },
+            ],
+        }
+        jobs = {
+            "v1": request_json_v1,
+            "v2": request_json_v2,
+        }
+        for version, request_json in jobs.items():
+            with TestClient(app) as client:
+                submit_job_response = client.post(
+                    url=f"/api/{version}/submit_jobs", json=request_json
+                )
+            print(submit_job_response.json())
+            self.assertEqual(500, submit_job_response.status_code)
+            mock_log_exception.assert_called()
+        mock_get_job_types.assert_called_once_with("v2")
+        self.assertEqual(2, mock_get_project_names.call_count)
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch("requests.post")
@@ -1920,14 +2008,17 @@ class TestServer(unittest.TestCase):
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch("requests.post")
     @patch("aind_data_transfer_service.server.get_project_names")
-    def test_submit_v1_jobs_200_basic_serialization(
+    @patch("aind_data_transfer_service.server.get_job_types")
+    def test_submit_v2_jobs_200_basic_serialization(
         self,
+        mock_get_job_types: MagicMock,
         mock_get_project_names: MagicMock,
         mock_post: MagicMock,
     ):
         """Tests submission when user posts standard pydantic json"""
 
         mock_get_project_names.return_value = ["Ephys Platform"]
+        mock_get_job_types.return_value = ["ecephys"]
 
         mock_response = Response()
         mock_response.status_code = 200
@@ -1960,13 +2051,24 @@ class TestServer(unittest.TestCase):
         upload_jobs = [upload_job_configs]
         submit_request = SubmitJobRequest(upload_jobs=upload_jobs)
 
-        post_request_content = json.loads(submit_request.model_dump_json())
+        post_request_content_v1 = json.loads(submit_request.model_dump_json())
+        job_request_v2 = SubmitJobRequestV2(
+            upload_jobs=[self.example_configs_v2]
+        )
+        post_request_content_v2 = job_request_v2.model_dump(mode="json")
+        jobs = {
+            "v1": post_request_content_v1,
+            "v2": post_request_content_v2,
+        }
 
-        with TestClient(app) as client:
-            submit_job_response = client.post(
-                url="/api/v1/submit_jobs", json=post_request_content
-            )
-        self.assertEqual(200, submit_job_response.status_code)
+        for version, request_json in jobs.items():
+            with TestClient(app) as client:
+                submit_job_response = client.post(
+                    url=f"/api/{version}/submit_jobs", json=request_json
+                )
+            self.assertEqual(200, submit_job_response.status_code)
+        mock_get_job_types.assert_called_once_with("v2")
+        self.assertEqual(2, mock_get_project_names.call_count)
 
     @patch("aind_data_transfer_service.server.get_job_types")
     @patch("aind_data_transfer_service.server.get_project_names")
@@ -2002,23 +2104,7 @@ class TestServer(unittest.TestCase):
         )
         submit_job_request_v1 = SubmitJobRequest(upload_jobs=[upload_job])
         # v2
-        job_type = "ecephys"
-        ephys_config = Task(
-            dynamic_parameters_settings={
-                "modality": Modality.ECEPHYS.abbreviation,
-                "source": ephys_source_dir.as_posix(),
-            }
-        )
-        upload_job = UploadJobConfigsV2(
-            job_type=job_type,
-            project_name=project_name,
-            s3_bucket=s3_bucket,
-            platform=platform,
-            subject_id=subject_id,
-            acq_datetime=acq_datetime,
-            modalities=[Modality.ECEPHYS],
-            tasks={"make_modality_list": ephys_config},
-        )
+        upload_job = self.example_configs_v2
         submit_job_request_v2 = SubmitJobRequestV2(upload_jobs=[upload_job])
 
         expected_jobs = {
@@ -2045,21 +2131,21 @@ class TestServer(unittest.TestCase):
                 post_request_content, response_json["data"]["model_json"]
             )
             self.assertEqual(job["version"], response_json["data"]["version"])
+        mock_get_job_types.assert_called_once_with("v2")
         self.assertEqual(2, mock_get_project_names.call_count)
-        self.assertEqual(1, mock_get_job_types.call_count)
 
     @patch("logging.Logger.warning")
-    @patch("aind_data_transfer_service.server.get_job_types")
     @patch("aind_data_transfer_service.server.get_project_names")
+    @patch("aind_data_transfer_service.server.get_job_types")
     def test_validate_json_invalid(
         self,
-        mock_get_project_names: MagicMock,
         mock_get_job_types: MagicMock,
+        mock_get_project_names: MagicMock,
         mock_log_warning: MagicMock,
     ):
         """Tests validate_json when json is invalid."""
-        mock_get_project_names.return_value = ["Ephys Platform"]
         mock_get_job_types.return_value = ["ecephys"]
+        mock_get_project_names.return_value = ["Ephys Platform"]
         content = {"foo": "bar"}
         versions = {
             "v1": aind_data_transfer_models_version,
@@ -2082,24 +2168,24 @@ class TestServer(unittest.TestCase):
             mock_log_warning.assert_called_with(
                 f"There were validation errors processing {content}"
             )
+        mock_get_job_types.assert_called_once_with("v2")
         self.assertEqual(2, mock_get_project_names.call_count)
-        self.assertEqual(1, mock_get_job_types.call_count)
 
     @patch("logging.Logger.exception")
     @patch("pydantic.BaseModel.model_validate_json")
-    @patch("aind_data_transfer_service.server.get_job_types")
     @patch("aind_data_transfer_service.server.get_project_names")
+    @patch("aind_data_transfer_service.server.get_job_types")
     def test_validate_json_error(
         self,
-        mock_get_project_names: MagicMock,
         mock_get_job_types: MagicMock,
+        mock_get_project_names: MagicMock,
         mock_model_validate_json: MagicMock,
         mock_log_error: MagicMock,
     ):
         """Tests validate_json when there is an unknown error."""
 
-        mock_get_project_names.return_value = ["Ephys Platform"]
         mock_get_job_types.return_value = ["ecephys"]
+        mock_get_project_names.return_value = ["Ephys Platform"]
         mock_model_validate_json.side_effect = Exception("Unknown error")
         versions = {
             "v1": aind_data_transfer_models_version,
@@ -2127,8 +2213,8 @@ class TestServer(unittest.TestCase):
             )
             mock_model_validate_json.assert_called()
             mock_log_error.assert_called_with("Internal Server Error.")
+        mock_get_job_types.assert_called_once_with("v2")
         self.assertEqual(2, mock_get_project_names.call_count)
-        self.assertEqual(1, mock_get_job_types.call_count)
 
 
 if __name__ == "__main__":

@@ -252,8 +252,8 @@ async def validate_json_v2(request: Request):
     content = await request.json()
     try:
         context = {
-            "project_names": get_project_names(),
             "job_types": get_job_types("v2"),
+            "project_names": get_project_names(),
         }
         with validation_context_v2(context):
             validated_model = SubmitJobRequestV2.model_validate_json(
@@ -362,8 +362,8 @@ async def submit_jobs_v2(request: Request):
     content = await request.json()
     try:
         context = {
-            "project_names": get_project_names(),
             "job_types": get_job_types("v2"),
+            "project_names": get_project_names(),
         }
         with validation_context_v2(context):
             model = SubmitJobRequestV2.model_validate_json(json.dumps(content))
@@ -415,6 +415,7 @@ async def submit_jobs_v2(request: Request):
                 "data": {"responses": [], "errors": str(e.args)},
             },
         )
+
 
 async def submit_jobs(request: Request):
     """Post BasicJobConfigs raw json to hpc server to process."""
