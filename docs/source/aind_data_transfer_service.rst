@@ -9,14 +9,15 @@ Subpackages
 
    aind_data_transfer_service.configs
    aind_data_transfer_service.hpc
+   aind_data_transfer_service.models
 
 Submodules
 ----------
 
-aind\_data\_transfer\_service.models module
--------------------------------------------
+aind\_data\_transfer\_service.log\_handler module
+-------------------------------------------------
 
-.. automodule:: aind_data_transfer_service.models
+.. automodule:: aind_data_transfer_service.log_handler
    :members:
    :undoc-members:
    :show-inheritance:
