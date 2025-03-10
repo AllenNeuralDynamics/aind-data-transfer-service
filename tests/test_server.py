@@ -31,15 +31,15 @@ from requests import Response
 from aind_data_transfer_service import (
     __version__ as aind_data_transfer_service_version,
 )
-from aind_data_transfer_service.configs.core import (
+from aind_data_transfer_service.configs.job_upload_template import (
+    JobUploadTemplate,
+)
+from aind_data_transfer_service.models.core import (
     SubmitJobRequestV2,
     Task,
     UploadJobConfigsV2,
 )
-from aind_data_transfer_service.configs.job_upload_template import (
-    JobUploadTemplate,
-)
-from aind_data_transfer_service.models import JobParamInfo
+from aind_data_transfer_service.models.internal import JobParamInfo
 from aind_data_transfer_service.server import (
     app,
     get_job_types,

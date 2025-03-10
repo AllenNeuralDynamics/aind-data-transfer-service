@@ -29,10 +29,6 @@ from aind_data_transfer_service import OPEN_DATA_BUCKET_NAME
 from aind_data_transfer_service import (
     __version__ as aind_data_transfer_service_version,
 )
-from aind_data_transfer_service.configs.core import SubmitJobRequestV2
-from aind_data_transfer_service.configs.core import (
-    validation_context as validation_context_v2,
-)
 from aind_data_transfer_service.configs.csv_handler import map_csv_row_to_job
 from aind_data_transfer_service.configs.job_configs import (
     BasicUploadJobConfigs as LegacyBasicUploadJobConfigs,
@@ -44,6 +40,10 @@ from aind_data_transfer_service.configs.job_upload_template import (
 from aind_data_transfer_service.hpc.client import HpcClient, HpcClientConfigs
 from aind_data_transfer_service.hpc.models import HpcJobSubmitSettings
 from aind_data_transfer_service.log_handler import LoggingConfigs, get_logger
+from aind_data_transfer_service.models.core import SubmitJobRequestV2
+from aind_data_transfer_service.models.core import (
+    validation_context as validation_context_v2,
+)
 from aind_data_transfer_service.models.internal import (
     AirflowDagRunsRequestParameters,
     AirflowDagRunsResponse,
