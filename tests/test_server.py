@@ -1071,6 +1071,7 @@ class TestServer(unittest.TestCase):
             "dag_run_id": "mock_dag_run_id",
             "task_id": "mock_task_id",
             "try_number": 1,
+            "map_index": -1,
             "full_content": True,
         }
         with TestClient(app) as client:
@@ -1080,6 +1081,7 @@ class TestServer(unittest.TestCase):
                     "dag_run_id": "mock_dag_run_id",
                     "task_id": "mock_task_id",
                     "try_number": 1,
+                    "map_index": -1,
                 },
             )
         response_content = response.json()
@@ -1139,6 +1141,7 @@ class TestServer(unittest.TestCase):
                     "dag_run_id": "mock_dag_run_id",
                     "task_id": "mock_task_id",
                     "try_number": 1,
+                    "map_index": -1,
                 },
             )
         response_content = response.json()
@@ -1369,6 +1372,7 @@ class TestServer(unittest.TestCase):
                     "dag_run_id": "dag_run_id",
                     "task_id": "task_id",
                     "try_number": 1,
+                    "map_index": -1,
                 },
             )
         self.assertEqual(response.status_code, 200)
@@ -1391,6 +1395,7 @@ class TestServer(unittest.TestCase):
                     "dag_run_id": "dag_run_id",
                     "task_id": "task_id",
                     "try_number": 1,
+                    "map_index": -1,
                 },
             )
         self.assertEqual(response.status_code, 200)
