@@ -44,7 +44,7 @@ from aind_data_transfer_service.configs.job_upload_template import (
 from aind_data_transfer_service.hpc.client import HpcClient, HpcClientConfigs
 from aind_data_transfer_service.hpc.models import HpcJobSubmitSettings
 from aind_data_transfer_service.log_handler import LoggingConfigs, get_logger
-from aind_data_transfer_service.models import (
+from aind_data_transfer_service.models.internal import (
     AirflowDagRunsRequestParameters,
     AirflowDagRunsResponse,
     AirflowTaskInstanceLogsRequestParameters,
