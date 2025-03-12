@@ -24,6 +24,17 @@
             "DataType": "text"
          },
          {
+            "Name": "/param_prefix/v2/job1/tasks/task1",
+            "ARN": "ARN",
+            "Type": "String",
+            "LastModifiedDate": "2025-01-23 11:50:04.605000-08:00",
+            "LastModifiedUser": "LastModifiedUser",
+            "Version": 1,
+            "Tier": "Standard",
+            "Policies": [],
+            "DataType": "text"
+         },
+         {
             "Name": "/param_prefix/unexpected_param",
             "ARN": "ARN",
             "Type": "String",
