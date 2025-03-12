@@ -977,6 +977,8 @@ async def jobs(request: Request):
     default_state = AirflowDagRunsRequestParameters.model_fields[
         "state"
     ].default
+    versions = ["v1", "v2"]
+    default_version = "v1"
     return templates.TemplateResponse(
         name="job_status.html",
         context=(
@@ -984,6 +986,8 @@ async def jobs(request: Request):
                 "request": request,
                 "default_state": default_state,
                 "project_names_url": project_names_url,
+                "versions": versions,
+                "default_version": default_version,
             }
         ),
     )
