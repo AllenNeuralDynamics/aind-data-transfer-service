@@ -37,7 +37,7 @@
         <a title="For more information click here" href="https://aind-data-transfer-service.readthedocs.io"  target="_blank" >Help</a>
     </nav>
     <div class="content">
-        <h4 class="mb-2">Job Parameters
+        <h4 class="mb-2">
             <!-- dropdown to switch version -->
             <div id="version-dropdown" class="btn-group mb-2">
                 <button id="version-button" type="button" class="btn btn-primary dropdown-toggle" data-bs-toggle="dropdown">
@@ -49,6 +49,7 @@
                     {% endfor %}
                 </ul>
             </div>
+            <span>Job Parameters</span>
         </h4>
         <!-- job params table -->
         <div>
@@ -91,9 +92,9 @@
                 var modal = $(this);
                 modal.find('#param-modal-label').text(paramName);
                 var version = $('#version-button').text().trim();
-                var get_parameter_url = `/api/${version}/parameters/job_types/${jobType}/tasks/${taskId}`;
+                var getParameterUrl = `/api/${version}/parameters/job_types/${jobType}/tasks/${taskId}`;
                 $.ajax({
-                    url: get_parameter_url,
+                    url: getParameterUrl,
                     type: 'GET',
                     success: function(response) {
                         jsonStr = JSON.stringify(response.data, null, 3);
@@ -111,8 +112,10 @@
             // Event listener for version dropdown
             $('#version-dropdown .dropdown-item').on('click', function() {
                 var version = $(this).text();
-                $('#version-button').text(version);
-                $('#job-params-table').DataTable().ajax.url(`/api/${version}/parameters`).load();
+                if (version != $('#version-button').text().trim()) {
+                    $('#version-button').text(version);
+                    $('#job-params-table').DataTable().ajax.url(`/api/${version}/parameters`).load();
+                }
             });
         });
         // Create DataTable for job params table
