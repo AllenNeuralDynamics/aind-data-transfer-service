@@ -667,7 +667,7 @@ async def submit_hpc_jobs(request: Request):  # noqa: C901
 
 
 async def get_job_status_list(request: Request):
-    """Get status of jobs with default pagination of limit=25 and offset=0."""
+    """Get status of jobs using input query params."""
 
     # TODO: resolved "shadows name from outer scope warnings"
     async def fetch_jobs(
@@ -680,7 +680,6 @@ async def get_job_status_list(request: Request):
 
     try:
         url = os.getenv("AIND_AIRFLOW_SERVICE_JOBS_URL", "").strip("/")
-        get_all_jobs = request.query_params.get("get_all_jobs") is not None
         params = AirflowDagRunsRequestParameters.from_query_params(
             request.query_params
         )
@@ -705,27 +704,26 @@ async def get_job_status_list(request: Request):
                 JobStatus.from_airflow_dag_run(d) for d in dag_runs.dag_runs
             ]
             total_entries = dag_runs.total_entries
-            if get_all_jobs:
-                # Fetch remaining jobs concurrently
-                tasks = []
-                offset = params_dict["offset"] + params_dict["limit"]
-                while offset < total_entries:
-                    params = {**params_dict, "limit": 100, "offset": offset}
-                    tasks.append(
-                        fetch_jobs(client=client, url=url, params=params)
-                    )
-                    offset += 100
-                batches = await gather(*tasks)
-                for batch in batches:
-                    dag_runs = AirflowDagRunsResponse.model_validate_json(
-                        json.dumps(batch)
-                    )
-                    job_status_list.extend(
-                        [
-                            JobStatus.from_airflow_dag_run(d)
-                            for d in dag_runs.dag_runs
-                        ]
-                    )
+            # Fetch remaining jobs concurrently
+            tasks = []
+            offset = params_dict["offset"] + params_dict["limit"]
+            while offset < total_entries:
+                params = {**params_dict, "offset": offset}
+                tasks.append(
+                    fetch_jobs(client=client, url=url, params=params)
+                )
+                offset += params_dict["limit"]
+            batches = await gather(*tasks)
+            for batch in batches:
+                dag_runs = AirflowDagRunsResponse.model_validate_json(
+                    json.dumps(batch)
+                )
+                job_status_list.extend(
+                    [
+                        JobStatus.from_airflow_dag_run(d)
+                        for d in dag_runs.dag_runs
+                    ]
+                )
         status_code = 200
         message = "Retrieved job status list from airflow"
         data = {
@@ -942,12 +940,6 @@ async def task_logs(request: Request):
 
 async def jobs(request: Request):
     """Get Job Status page with pagination"""
-    default_limit = AirflowDagRunsRequestParameters.model_fields[
-        "limit"
-    ].default
-    default_offset = AirflowDagRunsRequestParameters.model_fields[
-        "offset"
-    ].default
     default_state = AirflowDagRunsRequestParameters.model_fields[
         "state"
     ].default
@@ -956,8 +948,6 @@ async def jobs(request: Request):
         context=(
             {
                 "request": request,
-                "default_limit": default_limit,
-                "default_offset": default_offset,
                 "default_state": default_state,
                 "project_names_url": project_names_url,
             }

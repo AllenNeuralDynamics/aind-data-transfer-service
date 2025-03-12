@@ -39,7 +39,7 @@ class AirflowDagRunsResponse(BaseModel):
 class AirflowDagRunsRequestParameters(BaseModel):
     """Model for parameters when requesting info from dag_runs endpoint"""
 
-    limit: int = 25
+    limit: int = 100
     offset: int = 0
     state: Optional[list[str]] = []
     execution_date_gte: Optional[str] = (

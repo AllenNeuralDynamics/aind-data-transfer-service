@@ -642,7 +642,7 @@ class TestServer(unittest.TestCase):
         mock_get.return_value = mock_dag_runs_response
         expected_message = "Retrieved job status list from airflow"
         expected_default_params = {
-            "limit": 25,
+            "limit": 100,
             "offset": 0,
             "state": [],
             "execution_date_gte": "mock_execution_date_gte",
@@ -789,7 +789,7 @@ class TestServer(unittest.TestCase):
         self,
         mock_get,
     ):
-        """Tests get_job_status_list when get_all_jobs is True."""
+        """Tests get_job_status_list when there are many jobs."""
 
         def mock_airflow_dags(url, params):
             """Mocks the response from airflow."""
@@ -798,7 +798,7 @@ class TestServer(unittest.TestCase):
             mock_dag_runs_response.status_code = 200
             mock_dag_runs_response._content = json.dumps(
                 {
-                    "total_entries": 325,
+                    "total_entries": 300,
                     "dag_runs": [
                         self.get_dag_run_response for _ in range(limit)
                     ],
@@ -809,14 +809,12 @@ class TestServer(unittest.TestCase):
         mock_get.side_effect = mock_airflow_dags
         expected_message = "Retrieved job status list from airflow"
         with TestClient(app) as client:
-            response = client.get(
-                "/api/v1/get_job_status_list", params={"get_all_jobs": True}
-            )
+            response = client.get("/api/v1/get_job_status_list")
         response_content = response.json()
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response_content["message"], expected_message)
-        self.assertEqual(response_content["data"]["total_entries"], 325)
-        self.assertEqual(len(response_content["data"]["job_status_list"]), 325)
+        self.assertEqual(response_content["data"]["total_entries"], 300)
+        self.assertEqual(len(response_content["data"]["job_status_list"]), 300)
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch("logging.Logger.exception")
@@ -1816,7 +1814,6 @@ class TestServer(unittest.TestCase):
                 submit_job_response = client.post(
                     url=f"/api/{version}/submit_jobs", json=request_json
                 )
-            print(submit_job_response.json())
             self.assertEqual(500, submit_job_response.status_code)
             mock_log_exception.assert_called()
         mock_get_job_types.assert_called_once_with("v2")
