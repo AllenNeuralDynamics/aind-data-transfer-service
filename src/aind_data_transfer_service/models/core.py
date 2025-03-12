@@ -67,19 +67,19 @@ class Task(BaseSettings):
         title="Image Version",
     )
     image_environment: Optional[Dict[str, Any]] = Field(
-        default={},
+        default=None,
         description=(
             "Environment for the docker image. Must be json serializable."
         ),
         title="Image Environment",
     )
     parameters_settings: Optional[Dict[str, Any]] = Field(
-        default={},
+        default=None,
         description="Settings for the task. Must be json serializable.",
         title="Parameters Settings",
     )
     dynamic_parameters_settings: Optional[Dict[str, Any]] = Field(
-        default={},
+        default=None,
         description=(
             "Dynamic settings for the task (e.g. modality, source, chunk). "
             "Must be json serializable."

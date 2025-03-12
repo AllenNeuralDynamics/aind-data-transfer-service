@@ -143,7 +143,7 @@ class TestServer(unittest.TestCase):
         ephys_source_dir = PurePosixPath("shared_drive/ephys_data/690165")
         ephys_config = Task(
             dynamic_parameters_settings={
-                "modality": Modality.ECEPHYS.abbreviation,
+                "modality": Modality.ECEPHYS.model_dump(mode="json"),
                 "source": ephys_source_dir.as_posix(),
             }
         )
