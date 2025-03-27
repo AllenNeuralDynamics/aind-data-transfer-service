@@ -57,9 +57,9 @@ class TestTask(unittest.TestCase):
             "skip_task": True,
             "image": None,
             "image_version": None,
-            "image_environment": {},
-            "parameters_settings": {},
-            "dynamic_parameters_settings": {},
+            "image_environment": None,
+            "parameters_settings": None,
+            "dynamic_parameters_settings": None,
         }
         task = Task(skip_task=True)
         self.assertDictEqual(
@@ -98,7 +98,9 @@ class TestUploadJobConfigsV2(unittest.TestCase):
             tasks={
                 "make_modality_list": Task(
                     dynamic_parameters_settings={
-                        "modality": Modality.BEHAVIOR_VIDEOS.abbreviation,
+                        "modality": Modality.BEHAVIOR_VIDEOS.model_dump(
+                            mode="json"
+                        ),
                         "source": (
                             PurePosixPath("dir") / "data_set_1"
                         ).as_posix(),
@@ -220,7 +222,9 @@ class TestUploadJobConfigsV2(unittest.TestCase):
             "make_modality_list": [
                 Task(
                     dynamic_parameters_settings={
-                        "modality": Modality.BEHAVIOR_VIDEOS.abbreviation,
+                        "modality": Modality.BEHAVIOR_VIDEOS.model_dump(
+                            mode="json"
+                        ),
                         "source": (
                             PurePosixPath("dir") / "data_set_1"
                         ).as_posix(),
@@ -229,7 +233,7 @@ class TestUploadJobConfigsV2(unittest.TestCase):
                 ),
                 Task(
                     dynamic_parameters_settings={
-                        "modality": Modality.ECEPHYS.abbreviation,
+                        "modality": Modality.ECEPHYS.model_dump(mode="json"),
                         "source": (
                             PurePosixPath("dir") / "data_set_2"
                         ).as_posix(),
@@ -262,7 +266,9 @@ class TestSubmitJobRequestV2(unittest.TestCase):
             tasks={
                 "make_modality_list": Task(
                     dynamic_parameters_settings={
-                        "modality": Modality.BEHAVIOR_VIDEOS.abbreviation,
+                        "modality": Modality.BEHAVIOR_VIDEOS.model_dump(
+                            mode="json"
+                        ),
                         "source": (
                             PurePosixPath("dir") / "data_set_1"
                         ).as_posix(),

@@ -26,6 +26,9 @@ from starlette.applications import Starlette
 from starlette.routing import Route
 
 from aind_data_transfer_service import OPEN_DATA_BUCKET_NAME
+from aind_data_transfer_service import (
+    __version__ as aind_data_transfer_service_version,
+)
 from aind_data_transfer_service.configs.csv_handler import map_csv_row_to_job
 from aind_data_transfer_service.configs.job_configs import (
     BasicUploadJobConfigs as LegacyBasicUploadJobConfigs,
@@ -37,6 +40,10 @@ from aind_data_transfer_service.configs.job_upload_template import (
 from aind_data_transfer_service.hpc.client import HpcClient, HpcClientConfigs
 from aind_data_transfer_service.hpc.models import HpcJobSubmitSettings
 from aind_data_transfer_service.log_handler import LoggingConfigs, get_logger
+from aind_data_transfer_service.models.core import SubmitJobRequestV2
+from aind_data_transfer_service.models.core import (
+    validation_context as validation_context_v2,
+)
 from aind_data_transfer_service.models.internal import (
     AirflowDagRunsRequestParameters,
     AirflowDagRunsResponse,
@@ -86,6 +93,52 @@ def get_project_names() -> List[str]:
     response.raise_for_status()
     project_names = response.json()["data"]
     return project_names
+
+
+def get_job_types(version: Optional[str] = None) -> List[str]:
+    """Get a list of job_types"""
+    params = get_parameter_infos(version)
+    job_types = list(set([p.job_type for p in params]))
+    return job_types
+
+
+def get_parameter_infos(version: Optional[str] = None) -> List[JobParamInfo]:
+    """Get a list of job_type parameters"""
+    ssm_client = boto3.client("ssm")
+    paginator = ssm_client.get_paginator("describe_parameters")
+    params_iterator = paginator.paginate(
+        ParameterFilters=[
+            {
+                "Key": "Path",
+                "Option": "Recursive",
+                "Values": [JobParamInfo.get_parameter_prefix(version)],
+            }
+        ]
+    )
+    params = []
+    param_regex = JobParamInfo.get_parameter_regex(version)
+    for page in params_iterator:
+        for param in page["Parameters"]:
+            if match := re.match(param_regex, param.get("Name")):
+                param_info = JobParamInfo.from_aws_describe_parameter(
+                    parameter=param,
+                    job_type=match.group("job_type"),
+                    task_id=match.group("task_id"),
+                )
+                params.append(param_info)
+            else:
+                logger.info(f"Ignoring {param.get('Name')}")
+    return params
+
+
+def get_parameter_value(param_name: str) -> dict:
+    """Get a parameter value from AWS param store based on paramater name"""
+    ssm_client = boto3.client("ssm")
+    param_response = ssm_client.get_parameter(
+        Name=param_name, WithDecryption=True
+    )
+    param_value = json.loads(param_response["Parameter"]["Value"])
+    return param_value
 
 
 async def validate_csv(request: Request):
@@ -192,6 +245,63 @@ async def validate_csv_legacy(request: Request):
         )
 
 
+async def validate_json_v2(request: Request):
+    """Validate raw json against data transfer models. Returns validated
+    json or errors if request is invalid."""
+    logger.info("Received request to validate json v2")
+    content = await request.json()
+    try:
+        context = {
+            "job_types": get_job_types("v2"),
+            "project_names": get_project_names(),
+        }
+        with validation_context_v2(context):
+            validated_model = SubmitJobRequestV2.model_validate_json(
+                json.dumps(content)
+            )
+        validated_content = json.loads(
+            validated_model.model_dump_json(warnings=False, exclude_none=True)
+        )
+        logger.info("Valid model detected")
+        return JSONResponse(
+            status_code=200,
+            content={
+                "message": "Valid model",
+                "data": {
+                    "version": aind_data_transfer_service_version,
+                    "model_json": content,
+                    "validated_model_json": validated_content,
+                },
+            },
+        )
+    except ValidationError as e:
+        logger.warning(f"There were validation errors processing {content}")
+        return JSONResponse(
+            status_code=406,
+            content={
+                "message": "There were validation errors",
+                "data": {
+                    "version": aind_data_transfer_service_version,
+                    "model_json": content,
+                    "errors": e.json(),
+                },
+            },
+        )
+    except Exception as e:
+        logger.exception("Internal Server Error.")
+        return JSONResponse(
+            status_code=500,
+            content={
+                "message": "There was an internal server error",
+                "data": {
+                    "version": aind_data_transfer_service_version,
+                    "model_json": content,
+                    "errors": str(e.args),
+                },
+            },
+        )
+
+
 async def validate_json(request: Request):
     """Validate raw json against aind-data-transfer-models. Returns validated
     json or errors if request is invalid."""
@@ -242,6 +352,67 @@ async def validate_json(request: Request):
                     "model_json": content,
                     "errors": str(e.args),
                 },
+            },
+        )
+
+
+async def submit_jobs_v2(request: Request):
+    """Post SubmitJobRequestV2 raw json to hpc server to process."""
+    logger.info("Received request to submit jobs v2")
+    content = await request.json()
+    try:
+        context = {
+            "job_types": get_job_types("v2"),
+            "project_names": get_project_names(),
+        }
+        with validation_context_v2(context):
+            model = SubmitJobRequestV2.model_validate_json(json.dumps(content))
+        full_content = json.loads(
+            model.model_dump_json(warnings=False, exclude_none=True)
+        )
+        # TODO: Replace with httpx async client
+        logger.info(
+            f"Valid request detected. Sending list of jobs. "
+            f"dag_id: {model.dag_id}"
+        )
+        total_jobs = len(model.upload_jobs)
+        for job_index, job in enumerate(model.upload_jobs, 1):
+            logger.info(
+                f"{job.job_type}, {job.s3_prefix} sending to airflow. "
+                f"{job_index} of {total_jobs}."
+            )
+
+        response = requests.post(
+            url=os.getenv("AIND_AIRFLOW_SERVICE_URL"),
+            auth=(
+                os.getenv("AIND_AIRFLOW_SERVICE_USER"),
+                os.getenv("AIND_AIRFLOW_SERVICE_PASSWORD"),
+            ),
+            json={"conf": full_content},
+        )
+        return JSONResponse(
+            status_code=response.status_code,
+            content={
+                "message": "Submitted request to airflow",
+                "data": {"responses": [response.json()], "errors": []},
+            },
+        )
+    except ValidationError as e:
+        logger.warning(f"There were validation errors processing {content}")
+        return JSONResponse(
+            status_code=406,
+            content={
+                "message": "There were validation errors",
+                "data": {"responses": [], "errors": e.json()},
+            },
+        )
+    except Exception as e:
+        logger.exception("Internal Server Error.")
+        return JSONResponse(
+            status_code=500,
+            content={
+                "message": "There was an internal server error",
+                "data": {"responses": [], "errors": str(e.args)},
             },
         )
 
@@ -804,6 +975,8 @@ async def job_params(request: Request):
                 "project_names_url": os.getenv(
                     "AIND_METADATA_SERVICE_PROJECT_NAMES_URL"
                 ),
+                "versions": ["v1", "v2"],
+                "default_version": "v1",
             }
         ),
     )
@@ -839,39 +1012,54 @@ async def download_job_template(_: Request):
         )
 
 
-def list_parameters(_: Request):
-    """Get all job type parameters"""
-    ssm_client = boto3.client("ssm")
-    paginator = ssm_client.get_paginator("describe_parameters")
-    params_iterator = paginator.paginate(
-        ParameterFilters=[
-            {
-                "Key": "Path",
-                "Option": "Recursive",
-                "Values": [os.getenv("AIND_AIRFLOW_PARAM_PREFIX")],
-            }
-        ]
-    )
-    params = []
-    param_regex = JobParamInfo.get_parameter_regex()
-    for page in params_iterator:
-        for param in page["Parameters"]:
-            if match := re.match(param_regex, param.get("Name")):
-                param_info = JobParamInfo.from_aws_describe_parameter(
-                    parameter=param,
-                    job_type=match.group("job_type"),
-                    task_id=match.group("task_id"),
-                )
-                params.append(json.loads(param_info.model_dump_json()))
-            else:
-                logger.info(f"Ignoring {param.get('Name')}")
+def list_parameters_v2(_: Request):
+    """List v2 job type parameters"""
+    params = get_parameter_infos("v2")
     return JSONResponse(
         content={
             "message": "Retrieved job parameters",
-            "data": params,
+            "data": [p.model_dump(mode="json") for p in params],
         },
         status_code=200,
     )
+
+
+def list_parameters(_: Request):
+    """List v1 job type parameters"""
+    params = get_parameter_infos()
+    return JSONResponse(
+        content={
+            "message": "Retrieved job parameters",
+            "data": [p.model_dump(mode="json") for p in params],
+        },
+        status_code=200,
+    )
+
+
+def get_parameter_v2(request: Request):
+    """Get v2 parameter from AWS param store based on job_type and task_id"""
+    # path params are auto validated
+    job_type = request.path_params.get("job_type")
+    task_id = request.path_params.get("task_id")
+    param_name = JobParamInfo.get_parameter_name(job_type, task_id, "v2")
+    try:
+        param_value = get_parameter_value(param_name)
+        return JSONResponse(
+            content={
+                "message": f"Retrieved parameter for {param_name}",
+                "data": param_value,
+            },
+            status_code=200,
+        )
+    except ClientError as e:
+        logger.exception(f"Error retrieving parameter {param_name}: {e}")
+        return JSONResponse(
+            content={
+                "message": f"Error retrieving parameter {param_name}",
+                "data": {"error": f"{e.__class__.__name__}{e.args}"},
+            },
+            status_code=500,
+        )
 
 
 def get_parameter(request: Request):
@@ -880,12 +1068,8 @@ def get_parameter(request: Request):
     job_type = request.path_params.get("job_type")
     task_id = request.path_params.get("task_id")
     param_name = JobParamInfo.get_parameter_name(job_type, task_id)
-    ssm_client = boto3.client("ssm")
     try:
-        param_response = ssm_client.get_parameter(
-            Name=param_name, WithDecryption=True
-        )
-        param_value = json.loads(param_response["Parameter"]["Value"])
+        param_value = get_parameter_value(param_name)
         return JSONResponse(
             content={
                 "message": f"Retrieved parameter for {param_name}",
@@ -925,6 +1109,16 @@ routes = [
     Route(
         "/api/v1/parameters/job_types/{job_type:str}/tasks/{task_id:str}",
         endpoint=get_parameter,
+        methods=["GET"],
+    ),
+    Route(
+        "/api/v2/validate_json", endpoint=validate_json_v2, methods=["POST"]
+    ),
+    Route("/api/v2/submit_jobs", endpoint=submit_jobs_v2, methods=["POST"]),
+    Route("/api/v2/parameters", endpoint=list_parameters_v2, methods=["GET"]),
+    Route(
+        "/api/v2/parameters/job_types/{job_type:str}/tasks/{task_id:str}",
+        endpoint=get_parameter_v2,
         methods=["GET"],
     ),
     Route("/jobs", endpoint=jobs, methods=["GET"]),
