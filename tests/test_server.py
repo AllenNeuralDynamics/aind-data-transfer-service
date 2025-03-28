@@ -1202,6 +1202,7 @@ class TestServer(unittest.TestCase):
     ):
         """Tests get_task_logs when query_params are invalid."""
         invalid_params = {
+            "dag_id": "mock_dag_id",
             "dag_run_id": "mock_dag_run_id",
             "task_id": "mock_task_id",
             "try_number": "invalid",
@@ -1417,7 +1418,8 @@ class TestServer(unittest.TestCase):
         mock_get.return_value = mock_response
         with TestClient(app) as client:
             response = client.get(
-                "/job_tasks_table", params={"dag_run_id": "dag_run_id"}
+                "/job_tasks_table",
+                params={"dag_id": "dag_id", "dag_run_id": "dag_run_id"},
             )
         self.assertEqual(response.status_code, 200)
         self.assertIn("Task ID", response.text)

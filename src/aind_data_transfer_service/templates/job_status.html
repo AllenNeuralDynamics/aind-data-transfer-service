@@ -36,7 +36,7 @@
     </nav>
     <div class="content">
         <!-- display total entries -->
-        <h4 class="mb-2"><span>Jobs Submitted: <span id="total-entries"></span></span></h4>
+        <h4 class="mb-2">Jobs Submitted: <span id="total-entries"></span></h4>
         <!-- filters for job status results-->
         <div class="card mb-4 small" style="width:400px">
             <div class="card-header py-1" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-filters" aria-expanded="false" aria-controls="collapse-filters">
@@ -55,9 +55,7 @@
                             {"label": "failed", "value": "failed", "class": "text-danger"},
                             {"label": "success", "value": "success", "class": "text-success"},
                         ] %}
-                        {% if s.value==default_state %}<option class="{{ s.class }}" value="{{ s.value }}" selected>{{ s.label }}</option>
-                        {% else %}<option class="{{ s.class }}" value="{{ s.value }}">{{ s.label }}</option>
-                        {% endif %}
+                        <option class="{{ s.class }}" value="{{ s.value }}">{{ s.label }}</option>
                         {% endfor %}
                     </select>
                 </div>
@@ -97,7 +95,7 @@
         </div>
         <!-- job status table -->
         <div>
-            <table id="jobs-table" class="display compact table table-bordered table-sm" style="font-size: small">
+            <table id="searchJobsTable" class="display compact table table-bordered table-sm" style="font-size: small">
                 <thead>
                     <tr>
                         <th>Asset Name</th>
@@ -112,12 +110,12 @@
                     </tr>
                 </thead>
             </table>
-            <!-- modal for displaying tasks per job -->
-            <div class="modal fade" id="tasks-modal" tabindex="-1" aria-labelledby="tasks-modal-label" aria-hidden="true">
+            <!-- modal for displaying tasks per job from full jobs table -->
+            <div class="modal fade" id="tasks-modal-full" tabindex="-1" aria-labelledby="tasks-modal-full-label" aria-hidden="true">
                 <div class="modal-dialog modal-xl">
                 <div class="modal-content">
                     <div class="modal-header p-2">
-                    <div class="modal-title fw-bold" id="tasks-modal-label" style="font-size: small">
+                    <div class="modal-title fw-bold" id="tasks-modal-full-label" style="font-size: small">
                         <span id="modal-title-job-name" class="me-2"></span>
                         <span id="modal-title-job-id" class="me-2"></span>
                         <span id="modal-title-job-state" class="badge"></span>
@@ -134,7 +132,7 @@
     </div>
     <script>
         // User can filter for jobs by status and submit time, and view results.
-        // Jobs table loads all jobs using DataTables library. Enables searching across all jobs.
+        // Full Jobs Table: Loads all jobs using DataTables library. Enables searching across all jobs.
         let tableUrl = new URL("{{ url_for('get_job_status_list') }}");
         $(document).ready(function() {
             const today = moment();
@@ -156,15 +154,14 @@
 
             // initialize job status table with default values
             const initialParams = {
-                state: "{{ default_state }}",
                 // set default submit date range client-side for browser's local time
                 execution_date_gte: twoWeeksAgo.startOf('day').toISOString(),
                 execution_date_lte: today.endOf('day').toISOString(),
             };
             updateJobStatusTable(initialParams);
 
-            // tasks modal for jobs table
-            var tasksModal = document.getElementById('tasks-modal');
+            // tasks modal for full jobs table
+            var tasksModal = document.getElementById('tasks-modal-full');
             tasksModal.addEventListener('show.bs.modal', function (event) {
                 var sourceData = event.relatedTarget?.dataset;
                 updateJobTasksModal(sourceData?.dagId, sourceData?.jobId, sourceData?.jobName, sourceData?.jobState);
@@ -173,7 +170,7 @@
                 updateJobTasksModal(null, null, null, null);
             })
         });
-        // JOBS TABLE -----------------------------------------------
+        // FULL JOBS TABLE -----------------------------------------------
         // Helper functions for custom column rendering
         function renderJobStatus(cell, cellData, rowData, rowIndex, colIndex) {
             let customClass = cellData === 'success' ? 'table-success'
@@ -190,15 +187,15 @@
         }
         function renderTasksButton(data, type, row) {
             if (type == 'display') {
-                return (`<button type="button" class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#tasks-modal" data-dag-id="${row.dag_id}" data-job-id="${data}" data-job-name="${row.name}" data-job-state="${row.job_state}">
+                return (`<button type="button" class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#tasks-modal-full" data-dag-id="${row.dag_id}" data-job-id="${data}" data-job-name="${row.name}" data-job-state="${row.job_state}">
                     <i class="bi bi-box-arrow-up-right" title="View tasks and logs"></i>
                     </button>`);
             }
             return data;
         }
-        // Create DataTable for jobs table
-        function createJobsTable() {
-            $('#jobs-table').DataTable({
+        // Create DataTable for full jobs table
+        function createFullJobsTable() {
+            $('#searchJobsTable').DataTable({
                 ajax: {
                     url: tableUrl,
                     dataSrc: 'data.job_status_list'
@@ -243,7 +240,7 @@
                 },
             });
         }
-        // Modal for tasks per job from jobs table
+        // Modal for tasks per job from full jobs table
         function updateJobTasksModal(dagId, jobId, jobName, jobState) {
             // Update the modal header with the job id and name
             document.getElementById('modal-title-job-id').textContent = `(${jobId})`;
@@ -276,13 +273,13 @@
             Object.entries(newParams).forEach(([key, value]) => {
                 tableUrl.searchParams.set(key, value);
             });
-            if (DataTable.isDataTable('#jobs-table')) {
+            if (DataTable.isDataTable('#searchJobsTable')) {
                 // load the table with new params and update total entries
-                $('#jobs-table').DataTable().ajax.url(tableUrl.toString()).load(
+                $('#searchJobsTable').DataTable().ajax.url(tableUrl.toString()).load(
                     (data) => updateJobsCount(data)
                 );
             } else {
-                createJobsTable();
+                createFullJobsTable();
             }
         }
         function updateJobsCount(data) {
@@ -292,9 +289,11 @@
         // Filters
         function filterJobsByColumn(columnIndex, value) {
             if (columnIndex == 2 || columnIndex == 3) {
-                $('#jobs-table').DataTable().columns(columnIndex).search(value.trim(), true, false).draw();
+                //exact match
+                $('#searchJobsTable').DataTable().columns(columnIndex).search(value.trim(), true, false).draw();
             } else {
-                $('#jobs-table').DataTable().columns(columnIndex).search(value.trim()).draw();
+                // smart match
+                $('#searchJobsTable').DataTable().columns(columnIndex).search(value.trim()).draw();
             }
         }
         function clearFilterJobsByColumn(columnIndex, inputElementId) {

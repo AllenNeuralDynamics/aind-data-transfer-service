@@ -65,8 +65,8 @@ class AirflowDagRunsRequestParameters(BaseModel):
     def from_query_params(cls, query_params: QueryParams):
         """Maps the query parameters to the model"""
         params = dict(query_params)
-        if "state" in params:
-            params["state"] = ast.literal_eval(params["state"])
+        if "states" in params:
+            params["states"] = ast.literal_eval(params["states"])
         return cls.model_validate(params)
 
 

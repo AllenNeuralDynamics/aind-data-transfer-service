@@ -667,7 +667,7 @@ async def submit_hpc_jobs(request: Request):  # noqa: C901
 
 
 async def get_job_status_list(request: Request):
-    """Get status of v1 jobs using input query params."""
+    """Get status of jobs using input query params."""
 
     # TODO: resolved "shadows name from outer scope warnings"
     async def fetch_jobs(
@@ -716,7 +716,7 @@ async def get_job_status_list(request: Request):
                 )
                 offset += params_dict["page_limit"]
             batches = await gather(*tasks)
-            for (_, jobs_batch) in batches:
+            for _, jobs_batch in batches:
                 job_status_list.extend(jobs_batch)
         status_code = 200
         message = "Retrieved job status list from airflow"
@@ -914,16 +914,12 @@ async def task_logs(request: Request):
 
 async def jobs(request: Request):
     """Get Job Status page with pagination"""
-    default_state = AirflowDagRunsRequestParameters.model_fields[
-        "states"
-    ].default
     dag_ids = AirflowDagRunsRequestParameters.model_fields["dag_ids"].default
     return templates.TemplateResponse(
         name="job_status.html",
         context=(
             {
                 "request": request,
-                "default_state": default_state,
                 "project_names_url": project_names_url,
                 "dag_ids": dag_ids,
             }
