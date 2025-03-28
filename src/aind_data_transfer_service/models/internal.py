@@ -39,9 +39,10 @@ class AirflowDagRunsResponse(BaseModel):
 class AirflowDagRunsRequestParameters(BaseModel):
     """Model for parameters when requesting info from dag_runs endpoint"""
 
-    limit: int = 100
-    offset: int = 0
-    state: Optional[list[str]] = []
+    dag_ids: list[str] = ["transform_and_upload"]
+    page_limit: int = 100
+    page_offset: int = 0
+    states: Optional[list[str]] = []
     execution_date_gte: Optional[str] = (
         datetime.now(timezone.utc) - timedelta(weeks=2)
     ).isoformat()

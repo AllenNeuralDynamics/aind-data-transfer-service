@@ -142,10 +142,10 @@ def get_parameter_value(param_name: str) -> dict:
 
 
 async def fetch_airflow_jobs(
-    client: AsyncClient, url: str, params: Optional[dict]
+    client: AsyncClient, url: str, request_body: dict
 ) -> tuple[int, List[JobStatus]]:
     """Helper method to fetch jobs using httpx async client"""
-    response = await client.get(url, params=params)
+    response = await client.post(url, json=request_body)
     response.raise_for_status()
     response_jobs = response.json()
     dag_runs = AirflowDagRunsResponse.model_validate_json(
@@ -687,10 +687,11 @@ async def get_job_status_list_v2(request: Request):
     """Get status of v2 jobs using input query params."""
     try:
         url = os.getenv("AIND_AIRFLOW_SERVICE_JOBS_URL", "").strip("/")
-        url = f"{url}/transform_and_upload_v2/dagRuns"
+        url = f"{url}/~/dagRuns/list"
         params = AirflowDagRunsRequestParameters.from_query_params(
             request.query_params
         )
+        params.dag_ids = ["transform_and_upload_v2"]
         params_dict = json.loads(params.model_dump_json(exclude_none=True))
         # Send request to Airflow to ListDagRuns
         async with AsyncClient(
@@ -703,17 +704,17 @@ async def get_job_status_list_v2(request: Request):
             (total_entries, job_status_list) = await fetch_airflow_jobs(
                 client=client,
                 url=url,
-                params=params_dict,
+                request_body=params_dict,
             )
             # Fetch remaining jobs concurrently
             tasks = []
-            offset = params_dict["offset"] + params_dict["limit"]
+            offset = params_dict["page_offset"] + params_dict["page_limit"]
             while offset < total_entries:
-                params = {**params_dict, "offset": offset}
+                params = {**params_dict, "page_offset": offset}
                 tasks.append(
-                    fetch_airflow_jobs(client=client, url=url, params=params)
+                    fetch_airflow_jobs(client=client, url=url, request_body=params)
                 )
-                offset += params_dict["limit"]
+                offset += params_dict["page_limit"]
             batches = await gather(*tasks)
             for (_, jobs_batch) in batches:
                 job_status_list.extend(jobs_batch)
@@ -751,7 +752,7 @@ async def get_job_status_list(request: Request):
     """Get status of v1 jobs using input query params."""
     try:
         url = os.getenv("AIND_AIRFLOW_SERVICE_JOBS_URL", "").strip("/")
-        url = f"{url}/transform_and_upload/dagRuns"
+        url = f"{url}/~/dagRuns/list"
         params = AirflowDagRunsRequestParameters.from_query_params(
             request.query_params
         )
@@ -767,17 +768,17 @@ async def get_job_status_list(request: Request):
             (total_entries, job_status_list) = await fetch_airflow_jobs(
                 client=client,
                 url=url,
-                params=params_dict,
+                request_body=params_dict,
             )
             # Fetch remaining jobs concurrently
             tasks = []
-            offset = params_dict["offset"] + params_dict["limit"]
+            offset = params_dict["page_offset"] + params_dict["page_limit"]
             while offset < total_entries:
-                params = {**params_dict, "offset": offset}
+                params = {**params_dict, "page_offset": offset}
                 tasks.append(
-                    fetch_airflow_jobs(client=client, url=url, params=params)
+                    fetch_airflow_jobs(client=client, url=url, request_body=params)
                 )
-                offset += params_dict["limit"]
+                offset += params_dict["page_limit"]
             batches = await gather(*tasks)
             for (_, jobs_batch) in batches:
                 job_status_list.extend(jobs_batch)
@@ -978,7 +979,7 @@ async def task_logs(request: Request):
 async def jobs(request: Request):
     """Get Job Status page with pagination"""
     default_state = AirflowDagRunsRequestParameters.model_fields[
-        "state"
+        "states"
     ].default
     versions = ["v1", "v2"]
     default_version = "v1"
