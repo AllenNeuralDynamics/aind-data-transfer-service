@@ -35,21 +35,8 @@
         <a title="For more information click here" href="https://aind-data-transfer-service.readthedocs.io"  target="_blank" >Help</a>
     </nav>
     <div class="content">
-        <h4 class="mb-2">
-            <!-- dropdown to switch version -->
-            <div id="version-dropdown" class="btn-group mb-2">
-                <button id="version-button" type="button" class="btn btn-primary dropdown-toggle" data-bs-toggle="dropdown">
-                    {{default_version}}
-                </button>
-                <ul class="dropdown-menu">
-                    {% for v in versions %}
-                    <button class="dropdown-item" type="button">{{ v }}</button>
-                    {% endfor %}
-                </ul>
-            </div>
-            <!-- display total entries -->
-            <span>Jobs Submitted: <span id="total-entries"></span></span>
-        </h4>
+        <!-- display total entries -->
+        <h4 class="mb-2"><span>Jobs Submitted: <span id="total-entries"></span></span></h4>
         <!-- filters for job status results-->
         <div class="card mb-4 small" style="width:400px">
             <div class="card-header py-1" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-filters" aria-expanded="false" aria-controls="collapse-filters">
@@ -137,7 +124,7 @@
     <script>
         // User can filter for jobs by status and submit time, and view results.
         // Jobs table loads all jobs using DataTables library. Enables searching across all jobs.
-        let tableUrl = new URL("/api/{{default_version}}/get_job_status_list", window.location.origin);
+        let tableUrl = new URL("{{ url_for('get_job_status_list') }}");
         $(document).ready(function() {
             const today = moment();
             const twoWeeksAgo = moment().subtract(13, 'days');
@@ -174,14 +161,6 @@
             tasksModal.addEventListener('hidden.bs.modal', function (event) {
                 updateJobTasksModal(null, null, null, null);
             })
-            // event listener for version dropdown
-            $('#version-dropdown .dropdown-item').on('click', function() {
-                var version = $(this).text();
-                if (version != $('#version-button').text().trim()) {
-                    $('#version-button').text(version);
-                    updateJobStatusTable({}, version);
-                }
-            });
         });
         // JOBS TABLE -----------------------------------------------
         // Helper functions for custom column rendering
@@ -283,10 +262,7 @@
             }
         }
         // EVENT HANDLERS ------------------------------------------------
-        function updateJobStatusTable(newParams, version) {
-            if (version) {
-                tableUrl.pathname = `/api/${version}/get_job_status_list`;
-            }
+        function updateJobStatusTable(newParams) {
             Object.entries(newParams).forEach(([key, value]) => {
                 tableUrl.searchParams.set(key, value);
             });

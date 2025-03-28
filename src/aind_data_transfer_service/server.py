@@ -141,23 +141,6 @@ def get_parameter_value(param_name: str) -> dict:
     return param_value
 
 
-async def fetch_airflow_jobs(
-    client: AsyncClient, url: str, request_body: dict
-) -> tuple[int, List[JobStatus]]:
-    """Helper method to fetch jobs using httpx async client"""
-    response = await client.post(url, json=request_body)
-    response.raise_for_status()
-    response_jobs = response.json()
-    dag_runs = AirflowDagRunsResponse.model_validate_json(
-        json.dumps(response_jobs)
-    )
-    job_status_list = [
-        JobStatus.from_airflow_dag_run(d) for d in dag_runs.dag_runs
-    ]
-    total_entries = dag_runs.total_entries
-    return (total_entries, job_status_list)
-
-
 async def validate_csv(request: Request):
     """Validate a csv or xlsx file. Return parsed contents as json."""
     logger.info("Received request to validate csv")
@@ -683,73 +666,26 @@ async def submit_hpc_jobs(request: Request):  # noqa: C901
     )
 
 
-async def get_job_status_list_v2(request: Request):
-    """Get status of v2 jobs using input query params."""
-    try:
-        url = os.getenv("AIND_AIRFLOW_SERVICE_JOBS_URL", "").strip("/")
-        url = f"{url}/~/dagRuns/list"
-        params = AirflowDagRunsRequestParameters.from_query_params(
-            request.query_params
-        )
-        params.dag_ids = ["transform_and_upload_v2"]
-        params_dict = json.loads(params.model_dump_json(exclude_none=True))
-        # Send request to Airflow to ListDagRuns
-        async with AsyncClient(
-            auth=(
-                os.getenv("AIND_AIRFLOW_SERVICE_USER"),
-                os.getenv("AIND_AIRFLOW_SERVICE_PASSWORD"),
-            )
-        ) as client:
-            # Fetch initial jobs
-            (total_entries, job_status_list) = await fetch_airflow_jobs(
-                client=client,
-                url=url,
-                request_body=params_dict,
-            )
-            # Fetch remaining jobs concurrently
-            tasks = []
-            offset = params_dict["page_offset"] + params_dict["page_limit"]
-            while offset < total_entries:
-                params = {**params_dict, "page_offset": offset}
-                tasks.append(
-                    fetch_airflow_jobs(client=client, url=url, request_body=params)
-                )
-                offset += params_dict["page_limit"]
-            batches = await gather(*tasks)
-            for (_, jobs_batch) in batches:
-                job_status_list.extend(jobs_batch)
-        status_code = 200
-        message = "Retrieved job status list from airflow"
-        data = {
-            "params": params_dict,
-            "total_entries": total_entries,
-            "job_status_list": [
-                json.loads(j.model_dump_json()) for j in job_status_list
-            ],
-        }
-    except ValidationError as e:
-        logger.warning(
-            f"There was a validation error process job_status list: {e}"
-        )
-        status_code = 406
-        message = "Error validating request parameters"
-        data = {"errors": json.loads(e.json())}
-    except Exception as e:
-        logger.exception("Unable to retrieve job status list from airflow")
-        status_code = 500
-        message = "Unable to retrieve job status list from airflow"
-        data = {"errors": [f"{e.__class__.__name__}{e.args}"]}
-    return JSONResponse(
-        status_code=status_code,
-        content={
-            "message": message,
-            "data": data,
-        },
-    )
-
-
 async def get_job_status_list(request: Request):
     """Get status of v1 jobs using input query params."""
+
+    # TODO: resolved "shadows name from outer scope warnings"
+    async def fetch_jobs(
+        client: AsyncClient, url: str, request_body: dict
+    ) -> tuple[int, List[JobStatus]]:
+        """Helper method to fetch jobs using httpx async client"""
+        response = await client.post(url, json=request_body)
+        response.raise_for_status()
+        response_jobs = response.json()
+        dag_runs = AirflowDagRunsResponse.model_validate_json(
+            json.dumps(response_jobs)
+        )
+        job_status_list = [
+            JobStatus.from_airflow_dag_run(d) for d in dag_runs.dag_runs
+        ]
+        total_entries = dag_runs.total_entries
+        return (total_entries, job_status_list)
+
     try:
         url = os.getenv("AIND_AIRFLOW_SERVICE_JOBS_URL", "").strip("/")
         url = f"{url}/~/dagRuns/list"
@@ -765,7 +701,7 @@ async def get_job_status_list(request: Request):
             )
         ) as client:
             # Fetch initial jobs
-            (total_entries, job_status_list) = await fetch_airflow_jobs(
+            (total_entries, job_status_list) = await fetch_jobs(
                 client=client,
                 url=url,
                 request_body=params_dict,
@@ -776,7 +712,7 @@ async def get_job_status_list(request: Request):
             while offset < total_entries:
                 params = {**params_dict, "page_offset": offset}
                 tasks.append(
-                    fetch_airflow_jobs(client=client, url=url, request_body=params)
+                    fetch_jobs(client=client, url=url, request_body=params)
                 )
                 offset += params_dict["page_limit"]
             batches = await gather(*tasks)
@@ -981,8 +917,7 @@ async def jobs(request: Request):
     default_state = AirflowDagRunsRequestParameters.model_fields[
         "states"
     ].default
-    versions = ["v1", "v2"]
-    default_version = "v1"
+    dag_ids = AirflowDagRunsRequestParameters.model_fields["dag_ids"].default
     return templates.TemplateResponse(
         name="job_status.html",
         context=(
@@ -990,8 +925,7 @@ async def jobs(request: Request):
                 "request": request,
                 "default_state": default_state,
                 "project_names_url": project_names_url,
-                "versions": versions,
-                "default_version": default_version,
+                "dag_ids": dag_ids,
             }
         ),
     )
@@ -1147,11 +1081,6 @@ routes = [
         "/api/v2/validate_json", endpoint=validate_json_v2, methods=["POST"]
     ),
     Route("/api/v2/submit_jobs", endpoint=submit_jobs_v2, methods=["POST"]),
-    Route(
-        "/api/v2/get_job_status_list",
-        endpoint=get_job_status_list_v2,
-        methods=["GET"],
-    ),
     Route("/api/v2/parameters", endpoint=list_parameters_v2, methods=["GET"]),
     Route(
         "/api/v2/parameters/job_types/{job_type:str}/tasks/{task_id:str}",
