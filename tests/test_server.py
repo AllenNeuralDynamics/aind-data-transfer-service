@@ -650,6 +650,7 @@ class TestServer(unittest.TestCase):
         }
         expected_job_status_list = [
             {
+                "dag_id": "transform_and_upload",
                 "end_time": "2024-05-18T22:09:28.530534Z",
                 "job_id": "manual__2024-05-18T22:08:52.286765+00:00",
                 "job_state": "failed",
@@ -659,6 +660,7 @@ class TestServer(unittest.TestCase):
                 "submit_time": "2024-05-18T22:08:52.286765Z",
             },
             {
+                "dag_id": "transform_and_upload",
                 "end_time": "2024-05-18T22:09:38.581375Z",
                 "job_id": "manual__2024-05-18T22:08:53.931985+00:00",
                 "job_state": "failed",
@@ -668,6 +670,7 @@ class TestServer(unittest.TestCase):
                 "submit_time": "2024-05-18T22:08:53.931985Z",
             },
             {
+                "dag_id": "transform_and_upload",
                 "end_time": "2024-05-18T22:47:49.080108Z",
                 "job_id": "manual__2024-05-18T22:32:50.569083+00:00",
                 "job_state": "success",
@@ -677,6 +680,7 @@ class TestServer(unittest.TestCase):
                 "submit_time": "2024-05-18T22:32:50.569083Z",
             },
             {
+                "dag_id": "transform_and_upload",
                 "end_time": "2024-05-18T22:47:58.559508Z",
                 "job_id": "manual__2024-05-18T22:32:52.804228+00:00",
                 "job_state": "success",
@@ -686,6 +690,7 @@ class TestServer(unittest.TestCase):
                 "submit_time": "2024-05-18T22:32:52.804228Z",
             },
             {
+                "dag_id": "transform_and_upload",
                 "end_time": "2024-05-18T23:51:17.716003Z",
                 "job_id": "manual__2024-05-18T23:43:19.184853+00:00",
                 "job_state": "failed",
@@ -865,10 +870,12 @@ class TestServer(unittest.TestCase):
         mock_get.return_value = mock_task_instances_response
         expected_message = "Retrieved job tasks list from airflow"
         expected_params = {
+            "dag_id": "transform_and_upload",
             "dag_run_id": "mock_dag_run_id",
         }
         expected_task_list = [
             {
+                "dag_id": "transform_and_upload",
                 "job_id": "manual__2024-08-21T16:16:54.302335+00:00",
                 "task_id": "send_job_start_email",
                 "try_number": 1,
@@ -882,6 +889,7 @@ class TestServer(unittest.TestCase):
                 "comment": None,
             },
             {
+                "dag_id": "transform_and_upload",
                 "job_id": "manual__2024-08-21T16:16:54.302335+00:00",
                 "task_id": "create_default_settings",
                 "try_number": 1,
@@ -895,6 +903,7 @@ class TestServer(unittest.TestCase):
                 "comment": None,
             },
             {
+                "dag_id": "transform_and_upload",
                 "job_id": "manual__2024-08-21T16:16:54.302335+00:00",
                 "task_id": "check_s3_folder_exist",
                 "try_number": 1,
@@ -908,6 +917,7 @@ class TestServer(unittest.TestCase):
                 "comment": None,
             },
             {
+                "dag_id": "transform_and_upload",
                 "job_id": "manual__2024-08-21T16:16:54.302335+00:00",
                 "task_id": "create_default_slurm_environment",
                 "try_number": 1,
@@ -921,6 +931,7 @@ class TestServer(unittest.TestCase):
                 "comment": None,
             },
             {
+                "dag_id": "transform_and_upload",
                 "job_id": "manual__2024-08-21T16:16:54.302335+00:00",
                 "task_id": "check_source_folders_exist",
                 "try_number": 1,
@@ -934,6 +945,7 @@ class TestServer(unittest.TestCase):
                 "comment": None,
             },
             {
+                "dag_id": "transform_and_upload",
                 "job_id": "manual__2024-08-21T16:16:54.302335+00:00",
                 "task_id": "create_folder",
                 "try_number": 1,
@@ -947,6 +959,7 @@ class TestServer(unittest.TestCase):
                 "comment": None,
             },
             {
+                "dag_id": "transform_and_upload",
                 "job_id": "manual__2024-08-21T16:16:54.302335+00:00",
                 "task_id": "make_modality_list",
                 "try_number": 1,
@@ -960,6 +973,7 @@ class TestServer(unittest.TestCase):
                 "comment": None,
             },
             {
+                "dag_id": "transform_and_upload",
                 "job_id": "manual__2024-08-21T16:16:54.302335+00:00",
                 "task_id": "gather_preliminary_metadata",
                 "try_number": 1,
@@ -973,6 +987,7 @@ class TestServer(unittest.TestCase):
                 "comment": None,
             },
             {
+                "dag_id": "transform_and_upload",
                 "job_id": "manual__2024-08-21T16:16:54.302335+00:00",
                 "task_id": "compress_data",
                 "try_number": 1,
@@ -986,6 +1001,7 @@ class TestServer(unittest.TestCase):
                 "comment": None,
             },
             {
+                "dag_id": "transform_and_upload",
                 "job_id": "manual__2024-08-21T16:16:54.302335+00:00",
                 "task_id": "gather_final_metadata",
                 "try_number": 1,
@@ -999,6 +1015,7 @@ class TestServer(unittest.TestCase):
                 "comment": None,
             },
             {
+                "dag_id": "transform_and_upload",
                 "job_id": "manual__2024-08-21T16:16:54.302335+00:00",
                 "task_id": "upload_data_to_s3",
                 "try_number": 1,
@@ -1012,6 +1029,7 @@ class TestServer(unittest.TestCase):
                 "comment": None,
             },
             {
+                "dag_id": "transform_and_upload",
                 "job_id": "manual__2024-08-21T16:16:54.302335+00:00",
                 "task_id": "send_codeocean_request",
                 "try_number": 1,
@@ -1025,6 +1043,7 @@ class TestServer(unittest.TestCase):
                 "comment": None,
             },
             {
+                "dag_id": "transform_and_upload",
                 "job_id": "manual__2024-08-21T16:16:54.302335+00:00",
                 "task_id": "remove_folder",
                 "try_number": 1,
@@ -1038,6 +1057,7 @@ class TestServer(unittest.TestCase):
                 "comment": None,
             },
             {
+                "dag_id": "transform_and_upload",
                 "job_id": "manual__2024-08-21T16:16:54.302335+00:00",
                 "task_id": "send_job_end_email",
                 "try_number": 1,
@@ -1055,6 +1075,7 @@ class TestServer(unittest.TestCase):
             response = client.get(
                 "/api/v1/get_tasks_list",
                 params={
+                    "dag_id": "transform_and_upload",
                     "dag_run_id": "mock_dag_run_id",
                 },
             )
@@ -1113,6 +1134,7 @@ class TestServer(unittest.TestCase):
             response = client.get(
                 "/api/v1/get_tasks_list",
                 params={
+                    "dag_id": "transform_and_upload",
                     "dag_run_id": "mock_dag_run_id",
                 },
             )
@@ -1137,6 +1159,7 @@ class TestServer(unittest.TestCase):
         mock_get.return_value = mock_logs_response
         expected_message = "Retrieved task logs from airflow"
         expected_default_params = {
+            "dag_id": "mock_dag_id",
             "dag_run_id": "mock_dag_run_id",
             "task_id": "mock_task_id",
             "try_number": 1,
@@ -1147,6 +1170,7 @@ class TestServer(unittest.TestCase):
             response = client.get(
                 "/api/v1/get_task_logs",
                 params={
+                    "dag_id": "mock_dag_id",
                     "dag_run_id": "mock_dag_run_id",
                     "task_id": "mock_task_id",
                     "try_number": 1,
@@ -1207,6 +1231,7 @@ class TestServer(unittest.TestCase):
             response = client.get(
                 "/api/v1/get_task_logs",
                 params={
+                    "dag_id": "transform_and_upload",
                     "dag_run_id": "mock_dag_run_id",
                     "task_id": "mock_task_id",
                     "try_number": 1,
@@ -1408,7 +1433,11 @@ class TestServer(unittest.TestCase):
         mock_get.return_value = mock_response
         with TestClient(app) as client:
             response = client.get(
-                "/job_tasks_table", params={"dag_run_id": "dag_run_id"}
+                "/job_tasks_table",
+                params={
+                    "dag_id": "transform_and_upload",
+                    "dag_run_id": "dag_run_id",
+                },
             )
         self.assertEqual(response.status_code, 200)
         self.assertIn("Task ID", response.text)
@@ -1429,6 +1458,7 @@ class TestServer(unittest.TestCase):
             response = client.get(
                 "/task_logs",
                 params={
+                    "dag_id": "transform_and_upload",
                     "dag_run_id": "dag_run_id",
                     "task_id": "task_id",
                     "try_number": 1,
@@ -1452,6 +1482,7 @@ class TestServer(unittest.TestCase):
             response = client.get(
                 "/task_logs",
                 params={
+                    "dag_id": "transform_and_upload",
                     "dag_run_id": "dag_run_id",
                     "task_id": "task_id",
                     "try_number": 1,

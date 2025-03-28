@@ -73,6 +73,7 @@ class AirflowTaskInstancesRequestParameters(BaseModel):
     """Model for parameters when requesting info from task_instances
     endpoint"""
 
+    dag_id: str = Field(..., min_length=1)
     dag_run_id: str = Field(..., min_length=1)
 
     @classmethod
@@ -126,6 +127,7 @@ class AirflowTaskInstanceLogsRequestParameters(BaseModel):
     endpoint"""
 
     # excluded fields are used to build the url
+    dag_id: str = Field(..., min_length=1, exclude=True)
     dag_run_id: str = Field(..., min_length=1, exclude=True)
     task_id: str = Field(..., min_length=1, exclude=True)
     try_number: int = Field(..., ge=0, exclude=True)
@@ -142,6 +144,7 @@ class AirflowTaskInstanceLogsRequestParameters(BaseModel):
 class JobStatus(BaseModel):
     """Model for what we want to render to the user."""
 
+    dag_id: Optional[str] = Field(None)
     end_time: Optional[datetime] = Field(None)
     job_id: Optional[str] = Field(None)
     job_state: Optional[str] = Field(None)
@@ -155,6 +158,7 @@ class JobStatus(BaseModel):
         """Maps the fields from the HpcJobStatusResponse to this model"""
         name = airflow_dag_run.conf.get("s3_prefix", "")
         return cls(
+            dag_id=airflow_dag_run.dag_id,
             end_time=airflow_dag_run.end_date,
             job_id=airflow_dag_run.dag_run_id,
             job_state=airflow_dag_run.state,
@@ -173,6 +177,7 @@ class JobStatus(BaseModel):
 class JobTasks(BaseModel):
     """Model for what is rendered to the user for each task."""
 
+    dag_id: Optional[str] = Field(None)
     job_id: Optional[str] = Field(None)
     task_id: Optional[str] = Field(None)
     try_number: Optional[int] = Field(None)
@@ -191,6 +196,7 @@ class JobTasks(BaseModel):
     ):
         """Maps the fields from the HpcJobStatusResponse to this model"""
         return cls(
+            dag_id=airflow_task_instance.dag_id,
             job_id=airflow_task_instance.dag_run_id,
             task_id=airflow_task_instance.task_id,
             try_number=airflow_task_instance.try_number,

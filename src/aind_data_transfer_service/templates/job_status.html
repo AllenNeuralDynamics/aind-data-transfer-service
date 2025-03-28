@@ -169,10 +169,10 @@
             var tasksModal = document.getElementById('tasks-modal');
             tasksModal.addEventListener('show.bs.modal', function (event) {
                 var sourceData = event.relatedTarget?.dataset;
-                updateJobTasksModal(sourceData?.jobId, sourceData?.jobName, sourceData?.jobState);
+                updateJobTasksModal(sourceData?.dagId, sourceData?.jobId, sourceData?.jobName, sourceData?.jobState);
             })
             tasksModal.addEventListener('hidden.bs.modal', function (event) {
-                updateJobTasksModal(null, null, null);
+                updateJobTasksModal(null, null, null, null);
             })
             // event listener for version dropdown
             $('#version-dropdown .dropdown-item').on('click', function() {
@@ -200,7 +200,7 @@
         }
         function renderTasksButton(data, type, row) {
             if (type == 'display') {
-                return (`<button type="button" class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#tasks-modal" data-job-id="${data}" data-job-name="${row.name}" data-job-state="${row.job_state}">
+                return (`<button type="button" class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#tasks-modal" data-dag-id="${row.dag_id}" data-job-id="${data}" data-job-name="${row.name}" data-job-state="${row.job_state}">
                     <i class="bi bi-box-arrow-up-right" title="View tasks and logs"></i>
                     </button>`);
             }
@@ -223,6 +223,8 @@
                     { data: 'end_time', searchable: false, render: renderDatetime },
                     { data: 'comment', searchable: false, defaultContent: 'None' },
                     { data: 'job_id', searchable: false, render: renderTasksButton },
+                    // hidden
+                    { data: 'dag_id', searchable: false, visible: false },
                 ],
                 initComplete: (settings, json) => updateJobsCount(json),
                 // layout options
@@ -253,7 +255,7 @@
             });
         }
         // Modal for tasks per job from jobs table
-        function updateJobTasksModal(jobId, jobName, jobState) {
+        function updateJobTasksModal(dagId, jobId, jobName, jobState) {
             // Update the modal header with the job id and name
             document.getElementById('modal-title-job-id').textContent = `(${jobId})`;
             document.getElementById('modal-title-job-name').textContent = jobName;
@@ -273,6 +275,7 @@
             var tasksIframe = document.getElementById('tasks-iframe');
             if (jobId) {
                 var url = new URL("{{ url_for('job_tasks_table') }}");
+                url.searchParams.append('dag_id', dagId);
                 url.searchParams.append('dag_run_id', jobId);
                 tasksIframe.src = url;
             } else {

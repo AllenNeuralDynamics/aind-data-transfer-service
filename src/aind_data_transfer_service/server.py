@@ -812,7 +812,7 @@ async def get_job_status_list(request: Request):
 
 
 async def get_tasks_list(request: Request):
-    """Get list of tasks instances given a job id."""
+    """Get list of tasks instances given dag id and job id."""
     try:
         url = os.getenv("AIND_AIRFLOW_SERVICE_JOBS_URL", "").strip("/")
         params = AirflowTaskInstancesRequestParameters.from_query_params(
@@ -820,7 +820,10 @@ async def get_tasks_list(request: Request):
         )
         params_dict = json.loads(params.model_dump_json())
         response_tasks = requests.get(
-            url=f"{url}/transform_and_upload/dagRuns/{params.dag_run_id}/taskInstances",
+            url=(
+                f"{url}/{params.dag_id}/dagRuns/{params.dag_run_id}/"
+                "taskInstances"
+            ),
             auth=(
                 os.getenv("AIND_AIRFLOW_SERVICE_USER"),
                 os.getenv("AIND_AIRFLOW_SERVICE_PASSWORD"),
@@ -872,7 +875,7 @@ async def get_tasks_list(request: Request):
 
 
 async def get_task_logs(request: Request):
-    """Get task logs given a job id, task id, and task try number."""
+    """Get task logs given dag id, job id, task id, and task try number."""
     try:
         url = os.getenv("AIND_AIRFLOW_SERVICE_JOBS_URL", "").strip("/")
         params = AirflowTaskInstanceLogsRequestParameters.from_query_params(
@@ -882,8 +885,8 @@ async def get_task_logs(request: Request):
         params_full = dict(params)
         response_logs = requests.get(
             url=(
-                f"{url}/transform_and_upload/dagRuns/{params.dag_run_id}/taskInstances/{params.task_id}"
-                f"/logs/{params.try_number}"
+                f"{url}/{params.dag_id}/dagRuns/{params.dag_run_id}"
+                f"/taskInstances/{params.task_id}/logs/{params.try_number}"
             ),
             auth=(
                 os.getenv("AIND_AIRFLOW_SERVICE_USER"),
