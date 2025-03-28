@@ -876,29 +876,6 @@ async def index(request: Request):
     )
 
 
-async def job_status_table(request: Request):
-    """Get Job Status table with pagination"""
-    response_jobs = await get_job_status_list(request)
-    response_jobs_json = json.loads(response_jobs.body)
-    data = response_jobs_json.get("data")
-    params = data.get("params")
-    return templates.TemplateResponse(
-        name="job_status_table.html",
-        context=(
-            {
-                "request": request,
-                "status_code": response_jobs.status_code,
-                "message": response_jobs_json.get("message"),
-                "errors": data.get("errors", []),
-                "limit": params.get("limit") if params else None,
-                "offset": params.get("offset") if params else None,
-                "total_entries": data.get("total_entries", 0),
-                "job_status_list": data.get("job_status_list", []),
-            }
-        ),
-    )
-
-
 async def job_tasks_table(request: Request):
     """Get Job Tasks table given a job id"""
     response_tasks = await get_tasks_list(request)
@@ -1112,7 +1089,6 @@ routes = [
         methods=["GET"],
     ),
     Route("/jobs", endpoint=jobs, methods=["GET"]),
-    Route("/job_status_table", endpoint=job_status_table, methods=["GET"]),
     Route("/job_tasks_table", endpoint=job_tasks_table, methods=["GET"]),
     Route("/task_logs", endpoint=task_logs, methods=["GET"]),
     Route("/job_params", endpoint=job_params, methods=["GET"]),

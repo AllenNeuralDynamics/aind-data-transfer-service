@@ -1365,41 +1365,6 @@ class TestServer(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn("Jobs Submitted:", response.text)
 
-    @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
-    @patch("httpx.AsyncClient.get")
-    def test_jobs_table_success(self, mock_get: MagicMock):
-        """Tests that job status table renders as expected."""
-        mock_response = Response()
-        mock_response.status_code = 200
-        mock_response._content = json.dumps(
-            self.list_dag_runs_response
-        ).encode("utf-8")
-        mock_get.return_value = mock_response
-        with TestClient(app) as client:
-            response = client.get("/job_status_table")
-        self.assertEqual(response.status_code, 200)
-        self.assertIn("Asset Name", response.text)
-
-    @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
-    @patch("logging.Logger.error")
-    @patch("httpx.AsyncClient.get")
-    def test_jobs_table_failure(
-        self, mock_get: MagicMock, mock_log_error: MagicMock
-    ):
-        """Tests that job status table renders error message from airflow."""
-        mock_response = Response()
-        mock_response.status_code = 500
-        mock_get.return_value = mock_response
-        with TestClient(app) as client:
-            response = client.get("/job_status_table")
-        self.assertEqual(response.status_code, 200)
-        self.assertIn("Asset Name", response.text)
-        self.assertIn(
-            "Unable to retrieve job status list from airflow", response.text
-        )
-        self.assertIn("500 Server Error", response.text)
-        mock_log_error.assert_called_once()
-
     @patch("requests.get")
     def test_tasks_table_success(self, mock_get: MagicMock):
         """Tests that job tasks table renders as expected."""
