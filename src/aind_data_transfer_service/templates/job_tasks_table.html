@@ -46,6 +46,7 @@
       <td>
         {% if job_task.try_number > 0 %}
         <button type="button" class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#logs-modal"
+            data-dag-id="{{ job_task.dag_id }}"
             data-job-id="{{ job_task.job_id }}"
             data-task-id="{{ job_task.task_id }}"
             data-task-state="{{ job_task.task_state }}"
@@ -102,14 +103,14 @@
       var logsModal = document.getElementById('logs-modal');
       logsModal.addEventListener('show.bs.modal', function (event) {
         var sourceData = event.relatedTarget?.dataset;
-        updateTaskLogsModal(sourceData?.jobId, sourceData?.taskId, sourceData?.taskState, sourceData?.taskTryNumber, sourceData?.taskMapIndex);
+        updateTaskLogsModal(sourceData?.dagId,sourceData?.jobId, sourceData?.taskId, sourceData?.taskState,  sourceData?.taskTryNumber, sourceData?.taskMapIndex);
       })
       logsModal.addEventListener('hidden.bs.modal', function (event) {
-        updateTaskLogsModal(null, null, null, null, null);
+        updateTaskLogsModal(null, null, null, null, null, null);
       })
     }
-    function updateTaskLogsModal(jobId, taskId, taskState, taskTryNumber, taskMapIndex) {
-      console.log('updateTaskLogsModal', jobId, taskId, taskState, taskTryNumber, taskMapIndex);
+    function updateTaskLogsModal(dagId, jobId, taskId, taskState, taskTryNumber, taskMapIndex) {
+      console.log('updateTaskLogsModal', dagId, jobId, taskId, taskState, taskTryNumber, taskMapIndex);
       // Update the modal header with the task id, try number, map index, and state
       var tryMapLabel = taskMapIndex > -1 ? `${taskId} (try ${taskTryNumber}, map_index ${taskMapIndex})` :  `${taskId} (try ${taskTryNumber})`;
       document.getElementById('modal-title-task').textContent = tryMapLabel;
@@ -129,6 +130,7 @@
       var logsIframe = document.getElementById('logs-iframe');
       if (jobId) {
         var url = new URL("{{ url_for('task_logs') }}");
+        url.searchParams.append('dag_id', dagId);
         url.searchParams.append('dag_run_id', jobId);
         url.searchParams.append('task_id', taskId);
         url.searchParams.append('try_number', taskTryNumber);
