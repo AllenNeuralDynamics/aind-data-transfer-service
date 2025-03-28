@@ -695,27 +695,31 @@ class TestServer(unittest.TestCase):
                 "submit_time": "2024-05-18T23:43:19.184853Z",
             },
         ]
-        with TestClient(app) as client:
-            response = client.get("/api/v1/get_job_status_list")
-        response_content = response.json()
-        # small hack to mock the date
-        response_content["data"]["params"][
-            "execution_date_gte"
-        ] = "mock_execution_date_gte"
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(
-            response_content,
-            {
-                "message": expected_message,
-                "data": {
-                    "params": expected_default_params,
-                    "total_entries": self.list_dag_runs_response[
-                        "total_entries"
-                    ],
-                    "job_status_list": expected_job_status_list,
+        for version in ["v1", "v2"]:
+            with TestClient(app) as client:
+                response = client.get(f"/api/{version}/get_job_status_list")
+            response_content = response.json()
+            # small hack to mock the date
+            response_content["data"]["params"][
+                "execution_date_gte"
+            ] = "mock_execution_date_gte"
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(
+                response_content,
+                {
+                    "message": expected_message,
+                    "data": {
+                        "params": expected_default_params,
+                        "total_entries": self.list_dag_runs_response[
+                            "total_entries"
+                        ],
+                        "job_status_list": expected_job_status_list,
+                    },
                 },
-            },
-        )
+            )
+        self.assertEqual(mock_get.call_count, 2)
+        self.assertEqual(mock_get.call_args_list[0][0][0], "airflow_jobs_url/transform_and_upload/dagRuns")
+        self.assertEqual(mock_get.call_args_list[1][0][0], "airflow_jobs_url/transform_and_upload_v2/dagRuns")
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch("httpx.AsyncClient.get")
@@ -732,22 +736,26 @@ class TestServer(unittest.TestCase):
         ).encode("utf-8")
         mock_get.return_value = mock_dag_runs_response
         expected_message = "Retrieved job status list from airflow"
-        with TestClient(app) as client:
-            response = client.get(
-                "/api/v1/get_job_status_list",
-                params={
-                    "limit": 10,
-                    "offset": 5,
-                    "execution_date_gte": (
-                        datetime.now(timezone.utc) - timedelta(days=2)
-                    ).strftime("%Y-%m-%dT%H:%M:%SZ"),
-                },
-            )
-        response_content = response.json()
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response_content["message"], expected_message)
-        self.assertEqual(response_content["data"]["params"]["limit"], 10)
-        self.assertEqual(response_content["data"]["params"]["offset"], 5)
+        for version in ["v1", "v2"]:
+            with TestClient(app) as client:
+                response = client.get(
+                    f"/api/{version}/get_job_status_list",
+                    params={
+                        "limit": 10,
+                        "offset": 5,
+                        "execution_date_gte": (
+                            datetime.now(timezone.utc) - timedelta(days=2)
+                        ).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                    },
+                )
+            response_content = response.json()
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response_content["message"], expected_message)
+            self.assertEqual(response_content["data"]["params"]["limit"], 10)
+            self.assertEqual(response_content["data"]["params"]["offset"], 5)
+        self.assertEqual(mock_get.call_count, 2)
+        self.assertEqual(mock_get.call_args_list[0][0][0], "airflow_jobs_url/transform_and_upload/dagRuns")
+        self.assertEqual(mock_get.call_args_list[1][0][0], "airflow_jobs_url/transform_and_upload_v2/dagRuns")
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch("httpx.AsyncClient.get")
@@ -769,17 +777,18 @@ class TestServer(unittest.TestCase):
                 ).strftime("%Y-%m-%dT%H:%M:%SZ")
             },
         ]
-        for query in invalid_queries:
-            with TestClient(app) as client:
-                response = client.get(
-                    "/api/v1/get_job_status_list", params=query
+        for version in ["v1", "v2"]:
+            for query in invalid_queries:
+                with TestClient(app) as client:
+                    response = client.get(
+                        f"/api/{version}/get_job_status_list", params=query
+                    )
+                response_content = response.json()
+                self.assertEqual(response.status_code, 406)
+                self.assertEqual(
+                    response_content["message"],
+                    "Error validating request parameters",
                 )
-            response_content = response.json()
-            self.assertEqual(response.status_code, 406)
-            self.assertEqual(
-                response_content["message"],
-                "Error validating request parameters",
-            )
         mock_log_warning.assert_called()
         mock_get.assert_not_called()
 
@@ -808,17 +817,18 @@ class TestServer(unittest.TestCase):
 
         mock_get.side_effect = mock_airflow_dags
         expected_message = "Retrieved job status list from airflow"
-        with TestClient(app) as client:
-            response = client.get("/api/v1/get_job_status_list")
-        response_content = response.json()
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response_content["message"], expected_message)
-        self.assertEqual(response_content["data"]["total_entries"], 300)
-        self.assertEqual(len(response_content["data"]["job_status_list"]), 300)
+        for version in ["v1", "v2"]:
+            with TestClient(app) as client:
+                response = client.get(f"/api/{version}/get_job_status_list")
+            response_content = response.json()
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response_content["message"], expected_message)
+            self.assertEqual(response_content["data"]["total_entries"], 300)
+            self.assertEqual(len(response_content["data"]["job_status_list"]), 300)
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch("logging.Logger.exception")
-    @patch("requests.get")
+    @patch("httpx.AsyncClient.get")
     def test_get_job_status_list_error(
         self,
         mock_get: MagicMock,
@@ -826,15 +836,19 @@ class TestServer(unittest.TestCase):
     ):
         """Tests get_job_status_list when there is an error sending request."""
         mock_get.side_effect = Exception("mock error")
-        with TestClient(app) as client:
-            response = client.get("/api/v1/get_job_status_list")
-        response_content = response.json()
-        self.assertEqual(response.status_code, 500)
-        self.assertEqual(
-            response_content["message"],
-            "Unable to retrieve job status list from airflow",
-        )
-        mock_log_error.assert_called_once()
+        for version in ["v1", "v2"]:
+            with TestClient(app) as client:
+                response = client.get(f"/api/{version}/get_job_status_list")
+            response_content = response.json()
+            self.assertEqual(response.status_code, 500)
+            self.assertEqual(
+                response_content["message"],
+                "Unable to retrieve job status list from airflow",
+            )
+        self.assertEqual(mock_log_error.call_count, 2)
+        self.assertEqual(mock_get.call_count, 2)
+        self.assertEqual(mock_get.call_args_list[0][0][0], "airflow_jobs_url/transform_and_upload/dagRuns")
+        self.assertEqual(mock_get.call_args_list[1][0][0], "airflow_jobs_url/transform_and_upload_v2/dagRuns")
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch("requests.get")
