@@ -47,7 +47,7 @@
                 <!-- filter by job status -->
                 <div class="input-group input-group-sm mb-1">
                     <span class="input-group-text" style="width:35%">Status</span>
-                    <select class="form-select" onchange="filterJobsByColumn(2, this.value);this.blur();">
+                    <select class="form-select" onchange="filterJobsByColumn(3, this.value);this.blur();">
                         {% for s in [
                             {"label": "all", "value": "", "class": "text-dark"},
                             {"label": "queued", "value": "queued", "class": "text-secondary"},
@@ -65,6 +65,16 @@
                 <div class="input-group input-group-sm">
                     <span class="input-group-text" style="width:35%">Submit Time</span>
                     <input id="submit-date-range" class="form-select" type="text" />
+                </div>
+                <!-- filter by dag id -->
+                <div class="input-group input-group-sm mb-1">
+                    <span class="input-group-text" style="width:35%">Dag ID</span>
+                    <select class="form-select" onchange="filterJobsByColumn(2, this.value);this.blur();">
+                        <option class="text-dark" value="">all</option>
+                        {% for dag_id in dag_ids %}
+                        <option class="text-secondary" value="^{{ dag_id }}$">{{ dag_id }}</option>
+                        {% endfor %}
+                    </select>
                 </div>
                 <!-- filter by asset name -->
                 <hr class="flex-grow-1 border-secondary">
@@ -92,6 +102,7 @@
                     <tr>
                         <th>Asset Name</th>
                         <th>Job ID</th>
+                        <th>Dag ID</th>
                         <th>Status</th>
                         <th>Submit Time</th>
                         <th>Start Time</th>
@@ -196,14 +207,13 @@
                 columns: [
                     { data: 'name', searchable: true },
                     { data: 'job_id', searchable: true },
+                    { data: 'dag_id', searchable: true },
                     { data: 'job_state', searchable: true, createdCell: renderJobStatus },
                     { data: 'submit_time', searchable: false, render: renderDatetime },
                     { data: 'start_time', searchable: false, render: renderDatetime },
                     { data: 'end_time', searchable: false, render: renderDatetime },
                     { data: 'comment', searchable: false, defaultContent: 'None' },
                     { data: 'job_id', searchable: false, render: renderTasksButton },
-                    // hidden
-                    { data: 'dag_id', searchable: false, visible: false },
                 ],
                 initComplete: (settings, json) => updateJobsCount(json),
                 // layout options
@@ -281,7 +291,11 @@
         }
         // Filters
         function filterJobsByColumn(columnIndex, value) {
-            $('#jobs-table').DataTable().columns(columnIndex).search(value).draw();
+            if (columnIndex == 2 || columnIndex == 3) {
+                $('#jobs-table').DataTable().columns(columnIndex).search(value.trim(), true, false).draw();
+            } else {
+                $('#jobs-table').DataTable().columns(columnIndex).search(value.trim()).draw();
+            }
         }
         function clearFilterJobsByColumn(columnIndex, inputElementId) {
             $(inputElementId).val('');
