@@ -64,16 +64,6 @@
                     <span class="input-group-text" style="width:35%">Submit Time</span>
                     <input id="submit-date-range" class="form-select" type="text" />
                 </div>
-                <!-- filter by dag id -->
-                <div class="input-group input-group-sm mb-1">
-                    <span class="input-group-text" style="width:35%">Dag ID</span>
-                    <select class="form-select" onchange="filterJobsByColumn(3, this.value);this.blur();">
-                        <option class="text-dark" value="">all</option>
-                        {% for dag_id in dag_ids %}
-                        <option class="text-secondary" value="^{{ dag_id }}$">{{ dag_id }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
                 <!-- filter by asset name -->
                 <hr class="flex-grow-1 border-secondary">
                 <div class="input-group input-group-sm mb-1">
@@ -90,6 +80,24 @@
                     <button id="filter-id-clear" class="btn btn-outline-secondary" type="button" title="Clear" onclick="clearFilterJobsByColumn(1, '#filter-id-input')">
                         <i class="bi bi-x-lg"></i>
                     </button>
+                </div>
+                <!-- filter by job type-->
+                <div class="input-group input-group-sm mb-1">
+                    <span class="input-group-text" style="width:35%">Job Type</span>
+                    <input id="filter-job-type-input" type="text" class="form-control" placeholder="job type" oninput="filterJobsByColumn(2, this.value)">
+                    <button id="filter-job-type-clear" class="btn btn-outline-secondary" type="button" title="Clear" onclick="clearFilterJobsByColumn(2, '#filter-job-type-input')">
+                        <i class="bi bi-x-lg"></i>
+                    </button>
+                </div>
+                <!-- filter by dag id -->
+                <div class="input-group input-group-sm mb-1">
+                    <span class="input-group-text" style="width:35%">Dag ID</span>
+                    <select class="form-select" onchange="filterJobsByColumn(3, this.value);this.blur();">
+                        <option class="text-dark" value="">all</option>
+                        {% for dag_id in dag_ids %}
+                        <option class="text-secondary" value="^{{ dag_id }}$">{{ dag_id }}</option>
+                        {% endfor %}
+                    </select>
                 </div>
             </div>
         </div>
@@ -205,7 +213,7 @@
                 columns: [
                     { data: 'name', searchable: true },
                     { data: 'job_id', searchable: true },
-                    { data: 'job_type', searchable: false },
+                    { data: 'job_type', searchable: true },
                     { data: 'dag_id', searchable: true },
                     { data: 'job_state', searchable: true, createdCell: renderJobStatus },
                     { data: 'submit_time', searchable: false, render: renderDatetime },
