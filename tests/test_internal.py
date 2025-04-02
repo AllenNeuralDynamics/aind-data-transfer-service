@@ -46,12 +46,14 @@ class TestJobStatus(unittest.TestCase):
         job_status_0 = JobStatus.from_airflow_dag_run(dag_response.dag_runs[4])
         jinja_dict = job_status_0.jinja_dict
         expected_output = {
+            "dag_id": "transform_and_upload",
             "end_time": datetime(
                 2024, 5, 18, 23, 51, 17, 716003, tzinfo=timezone.utc
             ),
             "job_id": "manual__2024-05-18T23:43:19.184853+00:00",
             "job_state": "failed",
             "name": "ecephys_655019_2000-10-10_01-00-24",
+            "job_type": "",
             "start_time": datetime(
                 2024, 5, 18, 23, 43, 19, 428659, tzinfo=timezone.utc
             ),

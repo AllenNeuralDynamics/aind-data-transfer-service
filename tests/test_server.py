@@ -627,10 +627,10 @@ class TestServer(unittest.TestCase):
         self.assertCountEqual(["job1", "job2"], job_types)
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
-    @patch("httpx.AsyncClient.get")
+    @patch("httpx.AsyncClient.post")
     def test_get_job_status_list_default(
         self,
-        mock_get,
+        mock_post,
     ):
         """Tests get_job_status_list gets paginated dagRuns from airflow using
         default limit and offset."""
@@ -639,57 +639,68 @@ class TestServer(unittest.TestCase):
         mock_dag_runs_response._content = json.dumps(
             self.list_dag_runs_response
         ).encode("utf-8")
-        mock_get.return_value = mock_dag_runs_response
+        mock_post.return_value = mock_dag_runs_response
         expected_message = "Retrieved job status list from airflow"
         expected_default_params = {
-            "limit": 25,
-            "offset": 0,
-            "state": [],
+            "dag_ids": ["transform_and_upload", "transform_and_upload_v2"],
+            "page_limit": 100,
+            "page_offset": 0,
+            "states": [],
             "execution_date_gte": "mock_execution_date_gte",
             "order_by": "-execution_date",
         }
         expected_job_status_list = [
             {
+                "dag_id": "transform_and_upload",
                 "end_time": "2024-05-18T22:09:28.530534Z",
                 "job_id": "manual__2024-05-18T22:08:52.286765+00:00",
                 "job_state": "failed",
                 "name": "",
+                "job_type": "",
                 "comment": None,
                 "start_time": "2024-05-18T22:08:52.637098Z",
                 "submit_time": "2024-05-18T22:08:52.286765Z",
             },
             {
+                "dag_id": "transform_and_upload",
                 "end_time": "2024-05-18T22:09:38.581375Z",
                 "job_id": "manual__2024-05-18T22:08:53.931985+00:00",
                 "job_state": "failed",
                 "name": "",
+                "job_type": "",
                 "comment": None,
                 "start_time": "2024-05-18T22:08:54.712420Z",
                 "submit_time": "2024-05-18T22:08:53.931985Z",
             },
             {
+                "dag_id": "transform_and_upload",
                 "end_time": "2024-05-18T22:47:49.080108Z",
                 "job_id": "manual__2024-05-18T22:32:50.569083+00:00",
                 "job_state": "success",
                 "name": "ecephys_655019_2000-01-01_01-40-03",
+                "job_type": "",
                 "comment": None,
                 "start_time": "2024-05-18T22:32:50.996318Z",
                 "submit_time": "2024-05-18T22:32:50.569083Z",
             },
             {
+                "dag_id": "transform_and_upload",
                 "end_time": "2024-05-18T22:47:58.559508Z",
                 "job_id": "manual__2024-05-18T22:32:52.804228+00:00",
                 "job_state": "success",
                 "name": "ecephys_655019_2000-01-01_01-40-04",
+                "job_type": "",
                 "comment": None,
                 "start_time": "2024-05-18T22:32:53.493901Z",
                 "submit_time": "2024-05-18T22:32:52.804228Z",
             },
             {
+                "dag_id": "transform_and_upload",
                 "end_time": "2024-05-18T23:51:17.716003Z",
                 "job_id": "manual__2024-05-18T23:43:19.184853+00:00",
                 "job_state": "failed",
                 "name": "ecephys_655019_2000-10-10_01-00-24",
+                "job_type": "",
                 "comment": None,
                 "start_time": "2024-05-18T23:43:19.428659Z",
                 "submit_time": "2024-05-18T23:43:19.184853Z",
@@ -716,12 +727,17 @@ class TestServer(unittest.TestCase):
                 },
             },
         )
+        mock_post.assert_called_once()
+        self.assertEqual(
+            mock_post.call_args_list[0][0][0],
+            "airflow_jobs_url/~/dagRuns/list",
+        )
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
-    @patch("httpx.AsyncClient.get")
+    @patch("httpx.AsyncClient.post")
     def test_get_job_status_list_query_params(
         self,
-        mock_get,
+        mock_post,
     ):
         """Tests get_job_status_list gets paginated dagRuns from airflow using
         query_params."""
@@ -730,14 +746,14 @@ class TestServer(unittest.TestCase):
         mock_dag_runs_response._content = json.dumps(
             self.list_dag_runs_response
         ).encode("utf-8")
-        mock_get.return_value = mock_dag_runs_response
+        mock_post.return_value = mock_dag_runs_response
         expected_message = "Retrieved job status list from airflow"
         with TestClient(app) as client:
             response = client.get(
                 "/api/v1/get_job_status_list",
                 params={
-                    "limit": 10,
-                    "offset": 5,
+                    "page_limit": 10,
+                    "page_offset": 5,
                     "execution_date_gte": (
                         datetime.now(timezone.utc) - timedelta(days=2)
                     ).strftime("%Y-%m-%dT%H:%M:%SZ"),
@@ -746,21 +762,26 @@ class TestServer(unittest.TestCase):
         response_content = response.json()
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response_content["message"], expected_message)
-        self.assertEqual(response_content["data"]["params"]["limit"], 10)
-        self.assertEqual(response_content["data"]["params"]["offset"], 5)
+        self.assertEqual(response_content["data"]["params"]["page_limit"], 10)
+        self.assertEqual(response_content["data"]["params"]["page_offset"], 5)
+        mock_post.assert_called_once()
+        self.assertEqual(
+            mock_post.call_args_list[0][0][0],
+            "airflow_jobs_url/~/dagRuns/list",
+        )
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
-    @patch("httpx.AsyncClient.get")
+    @patch("httpx.AsyncClient.post")
     @patch("logging.Logger.warning")
     def test_get_job_status_list_validation_error(
         self,
         mock_log_warning: MagicMock,
-        mock_get,
+        mock_post,
     ):
         """Tests get_job_status_list when query_params are invalid."""
         invalid_queries = [
-            {"limit": "invalid", "offset": 5},
-            {"limit": 5, "offset": "invalid"},
+            {"page_limit": "invalid", "page_offset": 5},
+            {"page_limit": 5, "page_offset": "invalid"},
             {
                 "execution_date_gte": (
                     datetime.now(timezone.utc)
@@ -781,24 +802,24 @@ class TestServer(unittest.TestCase):
                 "Error validating request parameters",
             )
         mock_log_warning.assert_called()
-        mock_get.assert_not_called()
+        mock_post.assert_not_called()
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
-    @patch("httpx.AsyncClient.get")
+    @patch("httpx.AsyncClient.post")
     def test_get_job_status_list_get_all_jobs(
         self,
-        mock_get,
+        mock_post,
     ):
-        """Tests get_job_status_list when get_all_jobs is True."""
+        """Tests get_job_status_list when there are many jobs."""
 
-        def mock_airflow_dags(url, params):
+        def mock_airflow_dags(url, **kwargs):
             """Mocks the response from airflow."""
-            limit = int(params.get("limit"))
+            limit = int(kwargs["json"].get("page_limit"))
             mock_dag_runs_response = Response()
             mock_dag_runs_response.status_code = 200
             mock_dag_runs_response._content = json.dumps(
                 {
-                    "total_entries": 325,
+                    "total_entries": 300,
                     "dag_runs": [
                         self.get_dag_run_response for _ in range(limit)
                     ],
@@ -806,28 +827,26 @@ class TestServer(unittest.TestCase):
             ).encode("utf-8")
             return mock_dag_runs_response
 
-        mock_get.side_effect = mock_airflow_dags
+        mock_post.side_effect = mock_airflow_dags
         expected_message = "Retrieved job status list from airflow"
         with TestClient(app) as client:
-            response = client.get(
-                "/api/v1/get_job_status_list", params={"get_all_jobs": True}
-            )
+            response = client.get("/api/v1/get_job_status_list")
         response_content = response.json()
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response_content["message"], expected_message)
-        self.assertEqual(response_content["data"]["total_entries"], 325)
-        self.assertEqual(len(response_content["data"]["job_status_list"]), 325)
+        self.assertEqual(response_content["data"]["total_entries"], 300)
+        self.assertEqual(len(response_content["data"]["job_status_list"]), 300)
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch("logging.Logger.exception")
-    @patch("requests.get")
+    @patch("httpx.AsyncClient.post")
     def test_get_job_status_list_error(
         self,
-        mock_get: MagicMock,
+        mock_post: MagicMock,
         mock_log_error: MagicMock,
     ):
         """Tests get_job_status_list when there is an error sending request."""
-        mock_get.side_effect = Exception("mock error")
+        mock_post.side_effect = Exception("mock error")
         with TestClient(app) as client:
             response = client.get("/api/v1/get_job_status_list")
         response_content = response.json()
@@ -837,6 +856,11 @@ class TestServer(unittest.TestCase):
             "Unable to retrieve job status list from airflow",
         )
         mock_log_error.assert_called_once()
+        mock_post.assert_called_once()
+        self.assertEqual(
+            mock_post.call_args_list[0][0][0],
+            "airflow_jobs_url/~/dagRuns/list",
+        )
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch("requests.get")
@@ -853,10 +877,12 @@ class TestServer(unittest.TestCase):
         mock_get.return_value = mock_task_instances_response
         expected_message = "Retrieved job tasks list from airflow"
         expected_params = {
+            "dag_id": "transform_and_upload",
             "dag_run_id": "mock_dag_run_id",
         }
         expected_task_list = [
             {
+                "dag_id": "transform_and_upload",
                 "job_id": "manual__2024-08-21T16:16:54.302335+00:00",
                 "task_id": "send_job_start_email",
                 "try_number": 1,
@@ -870,6 +896,7 @@ class TestServer(unittest.TestCase):
                 "comment": None,
             },
             {
+                "dag_id": "transform_and_upload",
                 "job_id": "manual__2024-08-21T16:16:54.302335+00:00",
                 "task_id": "create_default_settings",
                 "try_number": 1,
@@ -883,6 +910,7 @@ class TestServer(unittest.TestCase):
                 "comment": None,
             },
             {
+                "dag_id": "transform_and_upload",
                 "job_id": "manual__2024-08-21T16:16:54.302335+00:00",
                 "task_id": "check_s3_folder_exist",
                 "try_number": 1,
@@ -896,6 +924,7 @@ class TestServer(unittest.TestCase):
                 "comment": None,
             },
             {
+                "dag_id": "transform_and_upload",
                 "job_id": "manual__2024-08-21T16:16:54.302335+00:00",
                 "task_id": "create_default_slurm_environment",
                 "try_number": 1,
@@ -909,6 +938,7 @@ class TestServer(unittest.TestCase):
                 "comment": None,
             },
             {
+                "dag_id": "transform_and_upload",
                 "job_id": "manual__2024-08-21T16:16:54.302335+00:00",
                 "task_id": "check_source_folders_exist",
                 "try_number": 1,
@@ -922,6 +952,7 @@ class TestServer(unittest.TestCase):
                 "comment": None,
             },
             {
+                "dag_id": "transform_and_upload",
                 "job_id": "manual__2024-08-21T16:16:54.302335+00:00",
                 "task_id": "create_folder",
                 "try_number": 1,
@@ -935,6 +966,7 @@ class TestServer(unittest.TestCase):
                 "comment": None,
             },
             {
+                "dag_id": "transform_and_upload",
                 "job_id": "manual__2024-08-21T16:16:54.302335+00:00",
                 "task_id": "make_modality_list",
                 "try_number": 1,
@@ -948,6 +980,7 @@ class TestServer(unittest.TestCase):
                 "comment": None,
             },
             {
+                "dag_id": "transform_and_upload",
                 "job_id": "manual__2024-08-21T16:16:54.302335+00:00",
                 "task_id": "gather_preliminary_metadata",
                 "try_number": 1,
@@ -961,6 +994,7 @@ class TestServer(unittest.TestCase):
                 "comment": None,
             },
             {
+                "dag_id": "transform_and_upload",
                 "job_id": "manual__2024-08-21T16:16:54.302335+00:00",
                 "task_id": "compress_data",
                 "try_number": 1,
@@ -974,6 +1008,7 @@ class TestServer(unittest.TestCase):
                 "comment": None,
             },
             {
+                "dag_id": "transform_and_upload",
                 "job_id": "manual__2024-08-21T16:16:54.302335+00:00",
                 "task_id": "gather_final_metadata",
                 "try_number": 1,
@@ -987,6 +1022,7 @@ class TestServer(unittest.TestCase):
                 "comment": None,
             },
             {
+                "dag_id": "transform_and_upload",
                 "job_id": "manual__2024-08-21T16:16:54.302335+00:00",
                 "task_id": "upload_data_to_s3",
                 "try_number": 1,
@@ -1000,6 +1036,7 @@ class TestServer(unittest.TestCase):
                 "comment": None,
             },
             {
+                "dag_id": "transform_and_upload",
                 "job_id": "manual__2024-08-21T16:16:54.302335+00:00",
                 "task_id": "send_codeocean_request",
                 "try_number": 1,
@@ -1013,6 +1050,7 @@ class TestServer(unittest.TestCase):
                 "comment": None,
             },
             {
+                "dag_id": "transform_and_upload",
                 "job_id": "manual__2024-08-21T16:16:54.302335+00:00",
                 "task_id": "remove_folder",
                 "try_number": 1,
@@ -1026,6 +1064,7 @@ class TestServer(unittest.TestCase):
                 "comment": None,
             },
             {
+                "dag_id": "transform_and_upload",
                 "job_id": "manual__2024-08-21T16:16:54.302335+00:00",
                 "task_id": "send_job_end_email",
                 "try_number": 1,
@@ -1043,6 +1082,7 @@ class TestServer(unittest.TestCase):
             response = client.get(
                 "/api/v1/get_tasks_list",
                 params={
+                    "dag_id": "transform_and_upload",
                     "dag_run_id": "mock_dag_run_id",
                 },
             )
@@ -1101,6 +1141,7 @@ class TestServer(unittest.TestCase):
             response = client.get(
                 "/api/v1/get_tasks_list",
                 params={
+                    "dag_id": "transform_and_upload",
                     "dag_run_id": "mock_dag_run_id",
                 },
             )
@@ -1125,6 +1166,7 @@ class TestServer(unittest.TestCase):
         mock_get.return_value = mock_logs_response
         expected_message = "Retrieved task logs from airflow"
         expected_default_params = {
+            "dag_id": "mock_dag_id",
             "dag_run_id": "mock_dag_run_id",
             "task_id": "mock_task_id",
             "try_number": 1,
@@ -1135,6 +1177,7 @@ class TestServer(unittest.TestCase):
             response = client.get(
                 "/api/v1/get_task_logs",
                 params={
+                    "dag_id": "mock_dag_id",
                     "dag_run_id": "mock_dag_run_id",
                     "task_id": "mock_task_id",
                     "try_number": 1,
@@ -1164,6 +1207,7 @@ class TestServer(unittest.TestCase):
     ):
         """Tests get_task_logs when query_params are invalid."""
         invalid_params = {
+            "dag_id": "mock_dag_id",
             "dag_run_id": "mock_dag_run_id",
             "task_id": "mock_task_id",
             "try_number": "invalid",
@@ -1195,6 +1239,7 @@ class TestServer(unittest.TestCase):
             response = client.get(
                 "/api/v1/get_task_logs",
                 params={
+                    "dag_id": "transform_and_upload",
                     "dag_run_id": "mock_dag_run_id",
                     "task_id": "mock_task_id",
                     "try_number": 1,
@@ -1367,41 +1412,6 @@ class TestServer(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn("Jobs Submitted:", response.text)
 
-    @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
-    @patch("httpx.AsyncClient.get")
-    def test_jobs_table_success(self, mock_get: MagicMock):
-        """Tests that job status table renders as expected."""
-        mock_response = Response()
-        mock_response.status_code = 200
-        mock_response._content = json.dumps(
-            self.list_dag_runs_response
-        ).encode("utf-8")
-        mock_get.return_value = mock_response
-        with TestClient(app) as client:
-            response = client.get("/job_status_table")
-        self.assertEqual(response.status_code, 200)
-        self.assertIn("Asset Name", response.text)
-
-    @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
-    @patch("logging.Logger.error")
-    @patch("httpx.AsyncClient.get")
-    def test_jobs_table_failure(
-        self, mock_get: MagicMock, mock_log_error: MagicMock
-    ):
-        """Tests that job status table renders error message from airflow."""
-        mock_response = Response()
-        mock_response.status_code = 500
-        mock_get.return_value = mock_response
-        with TestClient(app) as client:
-            response = client.get("/job_status_table")
-        self.assertEqual(response.status_code, 200)
-        self.assertIn("Asset Name", response.text)
-        self.assertIn(
-            "Unable to retrieve job status list from airflow", response.text
-        )
-        self.assertIn("500 Server Error", response.text)
-        mock_log_error.assert_called_once()
-
     @patch("requests.get")
     def test_tasks_table_success(self, mock_get: MagicMock):
         """Tests that job tasks table renders as expected."""
@@ -1413,7 +1423,8 @@ class TestServer(unittest.TestCase):
         mock_get.return_value = mock_response
         with TestClient(app) as client:
             response = client.get(
-                "/job_tasks_table", params={"dag_run_id": "dag_run_id"}
+                "/job_tasks_table",
+                params={"dag_id": "dag_id", "dag_run_id": "dag_run_id"},
             )
         self.assertEqual(response.status_code, 200)
         self.assertIn("Task ID", response.text)
@@ -1431,7 +1442,11 @@ class TestServer(unittest.TestCase):
         mock_get.return_value = mock_response
         with TestClient(app) as client:
             response = client.get(
-                "/job_tasks_table", params={"dag_run_id": "dag_run_id"}
+                "/job_tasks_table",
+                params={
+                    "dag_id": "transform_and_upload",
+                    "dag_run_id": "dag_run_id",
+                },
             )
         self.assertEqual(response.status_code, 200)
         self.assertIn("Task ID", response.text)
@@ -1452,6 +1467,7 @@ class TestServer(unittest.TestCase):
             response = client.get(
                 "/task_logs",
                 params={
+                    "dag_id": "transform_and_upload",
                     "dag_run_id": "dag_run_id",
                     "task_id": "task_id",
                     "try_number": 1,
@@ -1475,6 +1491,7 @@ class TestServer(unittest.TestCase):
             response = client.get(
                 "/task_logs",
                 params={
+                    "dag_id": "transform_and_upload",
                     "dag_run_id": "dag_run_id",
                     "task_id": "task_id",
                     "try_number": 1,
@@ -1816,7 +1833,6 @@ class TestServer(unittest.TestCase):
                 submit_job_response = client.post(
                     url=f"/api/{version}/submit_jobs", json=request_json
                 )
-            print(submit_job_response.json())
             self.assertEqual(500, submit_job_response.status_code)
             mock_log_exception.assert_called()
         mock_get_job_types.assert_called_once_with("v2")
