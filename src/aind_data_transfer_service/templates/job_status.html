@@ -47,7 +47,7 @@
                 <!-- filter by job status -->
                 <div class="input-group input-group-sm mb-1">
                     <span class="input-group-text" style="width:35%">Status</span>
-                    <select class="form-select" onchange="filterJobsByColumn(3, this.value);this.blur();">
+                    <select class="form-select" onchange="filterJobsByColumn(4, this.value);this.blur();">
                         {% for s in [
                             {"label": "all", "value": "", "class": "text-dark"},
                             {"label": "queued", "value": "queued", "class": "text-secondary"},
@@ -67,7 +67,7 @@
                 <!-- filter by dag id -->
                 <div class="input-group input-group-sm mb-1">
                     <span class="input-group-text" style="width:35%">Dag ID</span>
-                    <select class="form-select" onchange="filterJobsByColumn(2, this.value);this.blur();">
+                    <select class="form-select" onchange="filterJobsByColumn(3, this.value);this.blur();">
                         <option class="text-dark" value="">all</option>
                         {% for dag_id in dag_ids %}
                         <option class="text-secondary" value="^{{ dag_id }}$">{{ dag_id }}</option>
@@ -100,6 +100,7 @@
                     <tr>
                         <th>Asset Name</th>
                         <th>Job ID</th>
+                        <th>Job Type</th>
                         <th>Dag ID</th>
                         <th>Status</th>
                         <th>Submit Time</th>
@@ -204,6 +205,7 @@
                 columns: [
                     { data: 'name', searchable: true },
                     { data: 'job_id', searchable: true },
+                    { data: 'job_type', searchable: false },
                     { data: 'dag_id', searchable: true },
                     { data: 'job_state', searchable: true, createdCell: renderJobStatus },
                     { data: 'submit_time', searchable: false, render: renderDatetime },
@@ -288,8 +290,8 @@
         }
         // Filters
         function filterJobsByColumn(columnIndex, value) {
-            if (columnIndex == 2 || columnIndex == 3) {
-                //exact match
+            if (columnIndex == 3 || columnIndex == 4) {
+                //exact match for dag_id and job_state dropdowns
                 $('#searchJobsTable').DataTable().columns(columnIndex).search(value.trim(), true, false).draw();
             } else {
                 // smart match

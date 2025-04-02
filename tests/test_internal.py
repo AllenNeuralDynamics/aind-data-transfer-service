@@ -53,6 +53,7 @@ class TestJobStatus(unittest.TestCase):
             "job_id": "manual__2024-05-18T23:43:19.184853+00:00",
             "job_state": "failed",
             "name": "ecephys_655019_2000-10-10_01-00-24",
+            "job_type": "",
             "start_time": datetime(
                 2024, 5, 18, 23, 43, 19, 428659, tzinfo=timezone.utc
             ),

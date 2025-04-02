@@ -150,6 +150,7 @@ class JobStatus(BaseModel):
     job_id: Optional[str] = Field(None)
     job_state: Optional[str] = Field(None)
     name: Optional[str] = Field(None)
+    job_type: Optional[str] = Field(None)
     comment: Optional[str] = Field(None)
     start_time: Optional[datetime] = Field(None)
     submit_time: Optional[datetime] = Field(None)
@@ -158,12 +159,19 @@ class JobStatus(BaseModel):
     def from_airflow_dag_run(cls, airflow_dag_run: AirflowDagRun):
         """Maps the fields from the HpcJobStatusResponse to this model"""
         name = airflow_dag_run.conf.get("s3_prefix", "")
+        job_type = airflow_dag_run.conf.get("job_type", "")
+        # v1 job_type is in CO configs
+        if job_type == "":
+            job_type = airflow_dag_run.conf.get("codeocean_configs", {}).get(
+                "job_type", ""
+            )
         return cls(
             dag_id=airflow_dag_run.dag_id,
             end_time=airflow_dag_run.end_date,
             job_id=airflow_dag_run.dag_run_id,
             job_state=airflow_dag_run.state,
             name=name,
+            job_type=job_type,
             comment=airflow_dag_run.note,
             start_time=airflow_dag_run.start_date,
             submit_time=airflow_dag_run.execution_date,
