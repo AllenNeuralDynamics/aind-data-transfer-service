@@ -10,6 +10,7 @@ from aind_data_schema_models.data_name_patterns import build_data_name
 from aind_data_schema_models.modalities import Modality
 from aind_data_schema_models.platforms import Platform
 from pydantic import (
+    BaseModel,
     ConfigDict,
     EmailStr,
     Field,
@@ -46,7 +47,7 @@ def validation_context(context: Union[Dict[str, Any], None]) -> None:
         _validation_context.reset(token)
 
 
-class Task(BaseSettings):
+class Task(BaseModel):
     """Configuration for a task run during a data transfer upload job."""
 
     skip_task: bool = Field(
@@ -57,7 +58,6 @@ class Task(BaseSettings):
         ),
         title="Skip Step",
     )
-
     image: Optional[str] = Field(
         default=None, description="Name of docker image to run", title="Image"
     )
@@ -66,31 +66,33 @@ class Task(BaseSettings):
         description="Version of docker image to run",
         title="Image Version",
     )
-    image_environment: Optional[Dict[str, Any]] = Field(
+    image_resources: Optional[Dict[str, Any]] = Field(
         default=None,
-        description=(
-            "Environment for the docker image. Must be json serializable."
-        ),
+        description="Slurm environment. Must be json serializable.",
         title="Image Environment",
     )
-    parameters_settings: Optional[Dict[str, Any]] = Field(
+    job_settings: Optional[Dict[str, Any]] = Field(
         default=None,
-        description="Settings for the task. Must be json serializable.",
-        title="Parameters Settings",
+        description="Settings for the job.",
+        title="Job Settings",
     )
-    dynamic_parameters_settings: Optional[Dict[str, Any]] = Field(
+    command_script: Optional[str] = Field(
         default=None,
         description=(
-            "Dynamic settings for the task (e.g. modality, source, chunk). "
-            "Must be json serializable."
+            """
+            Command script to run. A few strings may be replaced:
+            %JOB_SETTINGS: This will be replaced with json.dumps(job_settings)
+            %OUTPUT_DIRECTORY: Output location such as an s3 folder
+            %INPUT_SOURCE: If a job requires a dynamic input source,
+             then this may be replaced.
+            %ENV_FILE: An environment file location, such as aws configs.
+            """
         ),
-        title="Dynamic Parameters Settings",
     )
 
     @field_validator(
-        "image_environment",
-        "parameters_settings",
-        "dynamic_parameters_settings",
+        "image_resources",
+        "job_settings",
         mode="after",
     )
     def validate_json_serializable(
@@ -173,7 +175,7 @@ class UploadJobConfigsV2(BaseSettings):
         description="Datetime data was acquired",
         title="Acquisition Datetime",
     )
-    tasks: Dict[str, Union[Task, List[Task]]] = Field(
+    tasks: Dict[str, Union[Task, Dict[str, Task]]] = Field(
         ...,
         description=(
             "Dictionary of tasks to run with custom settings. The key must be "
