@@ -82,9 +82,11 @@ class Task(BaseModel):
             """
             Command script to run. A few strings may be replaced:
             %JOB_SETTINGS: This will be replaced with json.dumps(job_settings)
-            %OUTPUT_DIRECTORY: Output location such as an s3 folder
+            %OUTPUT_LOCATION: Output location such as an s3 folder
             %INPUT_SOURCE: If a job requires a dynamic input source,
              then this may be replaced.
+            %IMAGE: The containerized image.
+            %IMAGE_VERSION: The image version.
             %ENV_FILE: An environment file location, such as aws configs.
             """
         ),
