@@ -25,6 +25,7 @@ from aind_data_transfer_models.trigger import TriggerConfigModel, ValidJobType
 from botocore.exceptions import ClientError
 from fastapi.responses import StreamingResponse
 from fastapi.testclient import TestClient
+# from starlette.responses import RedirectResponse
 from pydantic import SecretStr
 from requests import Response
 
@@ -1426,12 +1427,34 @@ class TestServer(unittest.TestCase):
         self.assertEqual(200, response.status_code)
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
-    def test_job_params(self):
+    @patch("fastapi.Request.session")
+    def test_job_params(self, mock_session: MagicMock):
         """Tests that job params page renders at startup as expected."""
+        expected_user = {"username": "test_user"}
+        mock_session.get.return_value = expected_user
+        # mock_get_user.return_value = expected_user
         with TestClient(app) as client:
             response = client.get("/job_params")
+        mock_session.get.assert_called_once_with("user")
         self.assertEqual(response.status_code, 200)
         self.assertIn("Job Parameters", response.text)
+    
+    @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
+    @patch("fastapi.Request.session")
+    @patch("starlette.responses.RedirectResponse")
+    def test_job_params_unauthenticated(self, mock_redirect_response: MagicMock, mock_session: MagicMock):
+        """Tests that job params page renders at startup as expected."""
+        expected_user = None
+        mock_session.get.return_value = expected_user
+        mock_redirect_response.return_value = None
+        with TestClient(app) as client:
+            response = client.get("/job_params")
+        mock_session.get.assert_called_once_with("user")
+        self.assertEqual(response.status_code, 307)
+        self.assertEqual(response.headers["location"], "/login")
+        # self.assertEqual("redirected", response)
+        mock_redirect_response.assert_called_once_with(url="/login")
+
 
     @patch("aind_data_transfer_service.server.JobUploadTemplate")
     @patch("logging.Logger.exception")
