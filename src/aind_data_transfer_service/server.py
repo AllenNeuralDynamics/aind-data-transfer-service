@@ -124,6 +124,7 @@ def get_parameter_infos(version: Optional[str] = None) -> List[JobParamInfo]:
                     parameter=param,
                     job_type=match.group("job_type"),
                     task_id=match.group("task_id"),
+                    modality=match.group("modality"),
                 )
                 params.append(param_info)
             else:
@@ -1069,7 +1070,7 @@ routes = [
     Route("/api/v1/get_task_logs", endpoint=get_task_logs, methods=["GET"]),
     Route("/api/v1/parameters", endpoint=list_parameters, methods=["GET"]),
     Route(
-        "/api/v1/parameters/job_types/{job_type:str}/tasks/{task_id:str}",
+        "/api/v1/parameters/job_types/{job_type:str}/tasks/{task_id:path}",
         endpoint=get_parameter,
         methods=["GET"],
     ),
@@ -1079,7 +1080,7 @@ routes = [
     Route("/api/v2/submit_jobs", endpoint=submit_jobs_v2, methods=["POST"]),
     Route("/api/v2/parameters", endpoint=list_parameters_v2, methods=["GET"]),
     Route(
-        "/api/v2/parameters/job_types/{job_type:str}/tasks/{task_id:str}",
+        "/api/v2/parameters/job_types/{job_type:str}/tasks/{task_id:path}",
         endpoint=get_parameter_v2,
         methods=["GET"],
     ),
