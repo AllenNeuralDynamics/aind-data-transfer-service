@@ -612,12 +612,17 @@ class TestServer(unittest.TestCase):
     @patch("aind_data_transfer_service.server.get_parameter_infos")
     def test_get_job_types(self, mock_get_parameter_infos: MagicMock):
         """Tests get_job_types method"""
-        tasks = [("job1", "task1"), ("job1", "task2"), ("job2", "task1")]
+        tasks = [
+            ("job1", "task1", None),
+            ("job1", "task2", None),
+            ("job2", "task1", "modality1"),
+        ]
         mock_get_parameter_infos.return_value = [
             JobParamInfo(
                 name=f"/param_prefix/v2/{t[0]}/tasks/{t[1]}",
                 job_type=t[0],
                 task_id=t[1],
+                modality=t[2],
                 last_modified=None,
             )
             for t in tasks
@@ -1277,12 +1282,14 @@ class TestServer(unittest.TestCase):
                     "last_modified": "2025-01-23T11:50:04.535000-08:00",
                     "name": "/param_prefix/job1/tasks/task1",
                     "task_id": "task1",
+                    "modality": None,
                 },
                 {
                     "job_type": "job2",
                     "last_modified": "2025-01-23T11:50:04.605000-08:00",
                     "name": "/param_prefix/job2/tasks/task2",
                     "task_id": "task2",
+                    "modality": None,
                 },
             ],
             "v2": [
@@ -1291,6 +1298,14 @@ class TestServer(unittest.TestCase):
                     "last_modified": "2025-01-23T11:50:04.605000-08:00",
                     "name": "/param_prefix/v2/job1/tasks/task1",
                     "task_id": "task1",
+                    "modality": None,
+                },
+                {
+                    "job_type": "job1",
+                    "last_modified": "2025-01-23T11:50:04.605000-08:00",
+                    "name": "/param_prefix/v2/job1/tasks/task2/modality1",
+                    "task_id": "task2",
+                    "modality": "modality1",
                 },
             ],
         }

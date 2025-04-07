@@ -227,10 +227,15 @@ class JobParamInfo(BaseModel):
     last_modified: Optional[datetime]
     job_type: str
     task_id: str
+    modality: Optional[str]
 
     @classmethod
     def from_aws_describe_parameter(
-        cls, parameter: ParameterMetadataTypeDef, job_type: str, task_id: str
+        cls,
+        parameter: ParameterMetadataTypeDef,
+        job_type: str,
+        task_id: str,
+        modality: Optional[str],
     ):
         """Map the parameter to the model"""
         return cls(
@@ -238,6 +243,7 @@ class JobParamInfo(BaseModel):
             last_modified=parameter.get("LastModifiedDate"),
             job_type=job_type,
             task_id=task_id,
+            modality=modality,
         )
 
     @staticmethod
@@ -252,7 +258,10 @@ class JobParamInfo(BaseModel):
     def get_parameter_regex(version: Optional[str] = None) -> str:
         """Create the regex pattern to match the parameter name"""
         prefix = os.getenv("AIND_AIRFLOW_PARAM_PREFIX")
-        regex = "(?P<job_type>[^/]+)/tasks/(?P<task_id>[^/]+)"
+        regex = (
+            "(?P<job_type>[^/]+)/tasks/(?P<task_id>[^/]+)"
+            "(?:/(?P<modality>[^/]+))?"
+        )
         if version is None:
             return f"{prefix}/{regex}"
         return f"{prefix}/{version}/{regex}"

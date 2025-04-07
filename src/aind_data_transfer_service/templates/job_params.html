@@ -58,6 +58,7 @@
                     <tr>
                         <th>Job Type</th>
                         <th>Task ID</th>
+                        <th>Modality</th>
                         <th>Parameter Name</th>
                         <th>Last Modified</th>
                     </tr>
@@ -88,11 +89,15 @@
                 var paramName = button.data('bs-param-name');
                 var jobType = button.data('bs-job-type');
                 var taskId = button.data('bs-task-id');
+                var modality = button.data('bs-modality');
                 // update the modal label and contents
                 var modal = $(this);
                 modal.find('#param-modal-label').text(paramName);
                 var version = $('#version-button').text().trim();
                 var getParameterUrl = `/api/${version}/parameters/job_types/${jobType}/tasks/${taskId}`;
+                if (modality) {
+                    getParameterUrl += `/${modality}`;
+                }
                 $.ajax({
                     url: getParameterUrl,
                     type: 'GET',
@@ -129,6 +134,7 @@
                 columns: [
                     { data: 'job_type', searchPanes: {show: true} },
                     { data: 'task_id', searchPanes: {show: true} },
+                    { data: 'modality', searchPanes: {show: false} },
                     { data: 'name', render: renderParameterButton },
                     { data: 'last_modified', render: renderDatetime },
                 ],
@@ -176,6 +182,7 @@
                         data-bs-param-name=${data} 
                         data-bs-job-type=${row.job_type} 
                         data-bs-task-id=${row.task_id}
+                        data-bs-modality=${row.modality}
                     >${data}
                     </button>`
                 );
