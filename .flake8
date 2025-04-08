@@ -2,5 +2,6 @@
 exclude =
     .git,
     __pycache__,
-    build
+    build,
+    env
 max-complexity = 10
