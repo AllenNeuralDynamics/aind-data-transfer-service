@@ -69,7 +69,7 @@ class Task(BaseModel):
     image_resources: Optional[Dict[str, Any]] = Field(
         default=None,
         description="Slurm environment. Must be json serializable.",
-        title="Image Environment",
+        title="Image Resources",
     )
     job_settings: Optional[Dict[str, Any]] = Field(
         default=None,
