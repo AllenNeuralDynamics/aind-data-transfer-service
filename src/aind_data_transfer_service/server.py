@@ -124,6 +124,7 @@ def get_parameter_infos(version: Optional[str] = None) -> List[JobParamInfo]:
                     parameter=param,
                     job_type=match.group("job_type"),
                     task_id=match.group("task_id"),
+                    modality=match.group("modality"),
                 )
                 params.append(param_info)
             else:
@@ -667,20 +668,28 @@ async def submit_hpc_jobs(request: Request):  # noqa: C901
 
 
 async def get_job_status_list(request: Request):
-    """Get status of jobs with default pagination of limit=25 and offset=0."""
+    """Get status of jobs using input query params."""
 
     # TODO: resolved "shadows name from outer scope warnings"
     async def fetch_jobs(
-        client: AsyncClient, url: str, params: Optional[dict]
-    ):
+        client: AsyncClient, url: str, request_body: dict
+    ) -> tuple[int, List[JobStatus]]:
         """Helper method to fetch jobs using httpx async client"""
-        response = await client.get(url, params=params)
+        response = await client.post(url, json=request_body)
         response.raise_for_status()
-        return response.json()
+        response_jobs = response.json()
+        dag_runs = AirflowDagRunsResponse.model_validate_json(
+            json.dumps(response_jobs)
+        )
+        job_status_list = [
+            JobStatus.from_airflow_dag_run(d) for d in dag_runs.dag_runs
+        ]
+        total_entries = dag_runs.total_entries
+        return (total_entries, job_status_list)
 
     try:
         url = os.getenv("AIND_AIRFLOW_SERVICE_JOBS_URL", "").strip("/")
-        get_all_jobs = request.query_params.get("get_all_jobs") is not None
+        url = f"{url}/~/dagRuns/list"
         params = AirflowDagRunsRequestParameters.from_query_params(
             request.query_params
         )
@@ -693,39 +702,23 @@ async def get_job_status_list(request: Request):
             )
         ) as client:
             # Fetch initial jobs
-            response_jobs = await fetch_jobs(
+            (total_entries, job_status_list) = await fetch_jobs(
                 client=client,
                 url=url,
-                params=params_dict,
+                request_body=params_dict,
             )
-            dag_runs = AirflowDagRunsResponse.model_validate_json(
-                json.dumps(response_jobs)
-            )
-            job_status_list = [
-                JobStatus.from_airflow_dag_run(d) for d in dag_runs.dag_runs
-            ]
-            total_entries = dag_runs.total_entries
-            if get_all_jobs:
-                # Fetch remaining jobs concurrently
-                tasks = []
-                offset = params_dict["offset"] + params_dict["limit"]
-                while offset < total_entries:
-                    params = {**params_dict, "limit": 100, "offset": offset}
-                    tasks.append(
-                        fetch_jobs(client=client, url=url, params=params)
-                    )
-                    offset += 100
-                batches = await gather(*tasks)
-                for batch in batches:
-                    dag_runs = AirflowDagRunsResponse.model_validate_json(
-                        json.dumps(batch)
-                    )
-                    job_status_list.extend(
-                        [
-                            JobStatus.from_airflow_dag_run(d)
-                            for d in dag_runs.dag_runs
-                        ]
-                    )
+            # Fetch remaining jobs concurrently
+            tasks = []
+            offset = params_dict["page_offset"] + params_dict["page_limit"]
+            while offset < total_entries:
+                params = {**params_dict, "page_offset": offset}
+                tasks.append(
+                    fetch_jobs(client=client, url=url, request_body=params)
+                )
+                offset += params_dict["page_limit"]
+            batches = await gather(*tasks)
+            for _, jobs_batch in batches:
+                job_status_list.extend(jobs_batch)
         status_code = 200
         message = "Retrieved job status list from airflow"
         data = {
@@ -757,7 +750,7 @@ async def get_job_status_list(request: Request):
 
 
 async def get_tasks_list(request: Request):
-    """Get list of tasks instances given a job id."""
+    """Get list of tasks instances given dag id and job id."""
     try:
         url = os.getenv("AIND_AIRFLOW_SERVICE_JOBS_URL", "").strip("/")
         params = AirflowTaskInstancesRequestParameters.from_query_params(
@@ -765,7 +758,10 @@ async def get_tasks_list(request: Request):
         )
         params_dict = json.loads(params.model_dump_json())
         response_tasks = requests.get(
-            url=f"{url}/{params.dag_run_id}/taskInstances",
+            url=(
+                f"{url}/{params.dag_id}/dagRuns/{params.dag_run_id}/"
+                "taskInstances"
+            ),
             auth=(
                 os.getenv("AIND_AIRFLOW_SERVICE_USER"),
                 os.getenv("AIND_AIRFLOW_SERVICE_PASSWORD"),
@@ -817,7 +813,7 @@ async def get_tasks_list(request: Request):
 
 
 async def get_task_logs(request: Request):
-    """Get task logs given a job id, task id, and task try number."""
+    """Get task logs given dag id, job id, task id, and task try number."""
     try:
         url = os.getenv("AIND_AIRFLOW_SERVICE_JOBS_URL", "").strip("/")
         params = AirflowTaskInstanceLogsRequestParameters.from_query_params(
@@ -827,8 +823,8 @@ async def get_task_logs(request: Request):
         params_full = dict(params)
         response_logs = requests.get(
             url=(
-                f"{url}/{params.dag_run_id}/taskInstances/{params.task_id}"
-                f"/logs/{params.try_number}"
+                f"{url}/{params.dag_id}/dagRuns/{params.dag_run_id}"
+                f"/taskInstances/{params.task_id}/logs/{params.try_number}"
             ),
             auth=(
                 os.getenv("AIND_AIRFLOW_SERVICE_USER"),
@@ -878,29 +874,6 @@ async def index(request: Request):
     )
 
 
-async def job_status_table(request: Request):
-    """Get Job Status table with pagination"""
-    response_jobs = await get_job_status_list(request)
-    response_jobs_json = json.loads(response_jobs.body)
-    data = response_jobs_json.get("data")
-    params = data.get("params")
-    return templates.TemplateResponse(
-        name="job_status_table.html",
-        context=(
-            {
-                "request": request,
-                "status_code": response_jobs.status_code,
-                "message": response_jobs_json.get("message"),
-                "errors": data.get("errors", []),
-                "limit": params.get("limit") if params else None,
-                "offset": params.get("offset") if params else None,
-                "total_entries": data.get("total_entries", 0),
-                "job_status_list": data.get("job_status_list", []),
-            }
-        ),
-    )
-
-
 async def job_tasks_table(request: Request):
     """Get Job Tasks table given a job id"""
     response_tasks = await get_tasks_list(request)
@@ -942,24 +915,14 @@ async def task_logs(request: Request):
 
 async def jobs(request: Request):
     """Get Job Status page with pagination"""
-    default_limit = AirflowDagRunsRequestParameters.model_fields[
-        "limit"
-    ].default
-    default_offset = AirflowDagRunsRequestParameters.model_fields[
-        "offset"
-    ].default
-    default_state = AirflowDagRunsRequestParameters.model_fields[
-        "state"
-    ].default
+    dag_ids = AirflowDagRunsRequestParameters.model_fields["dag_ids"].default
     return templates.TemplateResponse(
         name="job_status.html",
         context=(
             {
                 "request": request,
-                "default_limit": default_limit,
-                "default_offset": default_offset,
-                "default_state": default_state,
                 "project_names_url": project_names_url,
+                "dag_ids": dag_ids,
             }
         ),
     )
@@ -1107,7 +1070,7 @@ routes = [
     Route("/api/v1/get_task_logs", endpoint=get_task_logs, methods=["GET"]),
     Route("/api/v1/parameters", endpoint=list_parameters, methods=["GET"]),
     Route(
-        "/api/v1/parameters/job_types/{job_type:str}/tasks/{task_id:str}",
+        "/api/v1/parameters/job_types/{job_type:str}/tasks/{task_id:path}",
         endpoint=get_parameter,
         methods=["GET"],
     ),
@@ -1117,12 +1080,11 @@ routes = [
     Route("/api/v2/submit_jobs", endpoint=submit_jobs_v2, methods=["POST"]),
     Route("/api/v2/parameters", endpoint=list_parameters_v2, methods=["GET"]),
     Route(
-        "/api/v2/parameters/job_types/{job_type:str}/tasks/{task_id:str}",
+        "/api/v2/parameters/job_types/{job_type:str}/tasks/{task_id:path}",
         endpoint=get_parameter_v2,
         methods=["GET"],
     ),
     Route("/jobs", endpoint=jobs, methods=["GET"]),
-    Route("/job_status_table", endpoint=job_status_table, methods=["GET"]),
     Route("/job_tasks_table", endpoint=job_tasks_table, methods=["GET"]),
     Route("/task_logs", endpoint=task_logs, methods=["GET"]),
     Route("/job_params", endpoint=job_params, methods=["GET"]),

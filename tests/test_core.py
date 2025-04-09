@@ -3,7 +3,6 @@
 import json
 import unittest
 from datetime import datetime
-from pathlib import PurePosixPath
 
 from aind_data_schema_models.modalities import Modality
 from aind_data_schema_models.platforms import Platform
@@ -26,14 +25,14 @@ class TestTask(unittest.TestCase):
         custom_task = Task(
             image="some_image",
             image_version="1.0.0",
-            image_environment={"key": "value"},
-            parameters_settings={"param1": "value1", "param2": "value2"},
-            dynamic_parameters_settings={"dynamic_param": "dynamic_value"},
+            image_resources={"key": "value"},
+            job_settings={"param1": "value1", "param2": "value2"},
+            command_script="#!/bin/bash \necho 'hello world'",
         )
         cls.custom_task = custom_task
         cls.custom_task_configs = custom_task.model_dump()
 
-    def test_contructor(self):
+    def test_constructor(self):
         """Tests that Tasks can be created correctly."""
         # custom task
         self.assertDictEqual(
@@ -41,14 +40,12 @@ class TestTask(unittest.TestCase):
                 "skip_task": False,
                 "image": "some_image",
                 "image_version": "1.0.0",
-                "image_environment": {"key": "value"},
-                "parameters_settings": {
+                "image_resources": {"key": "value"},
+                "job_settings": {
                     "param1": "value1",
                     "param2": "value2",
                 },
-                "dynamic_parameters_settings": {
-                    "dynamic_param": "dynamic_value"
-                },
+                "command_script": "#!/bin/bash \necho 'hello world'",
             },
             json.loads(self.custom_task.model_dump_json()),
         )
@@ -57,9 +54,9 @@ class TestTask(unittest.TestCase):
             "skip_task": True,
             "image": None,
             "image_version": None,
-            "image_environment": None,
-            "parameters_settings": None,
-            "dynamic_parameters_settings": None,
+            "image_resources": None,
+            "job_settings": None,
+            "command_script": None,
         }
         task = Task(skip_task=True)
         self.assertDictEqual(
@@ -69,9 +66,8 @@ class TestTask(unittest.TestCase):
     def test_json_serializable(self):
         """Tests that an error is raised if dicts are not json serializable"""
         for field in [
-            "image_environment",
-            "parameters_settings",
-            "dynamic_parameters_settings",
+            "image_resources",
+            "job_settings",
         ]:
             expected_error = f"Value error, {field} must be json serializable!"
             invalid_configs = self.custom_task_configs.copy()
@@ -96,18 +92,14 @@ class TestUploadJobConfigsV2(unittest.TestCase):
             subject_id="123456",
             acq_datetime=datetime(2020, 10, 13, 13, 10, 10),
             tasks={
-                "make_modality_list": Task(
-                    dynamic_parameters_settings={
-                        "modality": Modality.BEHAVIOR_VIDEOS.model_dump(
-                            mode="json"
-                        ),
-                        "source": (
-                            PurePosixPath("dir") / "data_set_1"
-                        ).as_posix(),
-                    },
-                ),
+                "modality_transformation_settings": {
+                    "behavior-videos": Task(
+                        job_settings={"input_source": "dir/data_set_1"},
+                    ),
+                }
             },
         )
+
         cls.example_configs = example_configs
         cls.base_configs = example_configs.model_dump(
             exclude={"job_type": True, "s3_bucket": True, "s3_prefix": True}
@@ -219,34 +211,30 @@ class TestUploadJobConfigsV2(unittest.TestCase):
         """Tests that tasks can be set correctly"""
         configs = self.base_configs.copy()
         configs["tasks"] = {
-            "make_modality_list": [
-                Task(
-                    dynamic_parameters_settings={
-                        "modality": Modality.BEHAVIOR_VIDEOS.model_dump(
-                            mode="json"
-                        ),
-                        "source": (
-                            PurePosixPath("dir") / "data_set_1"
-                        ).as_posix(),
+            "modality_transformation_settings": {
+                "behavior-videos": Task(
+                    job_settings={
+                        "input_source": "dir/data_set_1",
                         "chunk": "1",
-                    },
+                    }
                 ),
-                Task(
-                    dynamic_parameters_settings={
-                        "modality": Modality.ECEPHYS.model_dump(mode="json"),
-                        "source": (
-                            PurePosixPath("dir") / "data_set_2"
-                        ).as_posix(),
+                "ecephys": Task(
+                    job_settings={
+                        "input_source": "dir/data_set_2",
                         "chunk": "1",
-                    },
+                    }
                 ),
-            ],
+            },
             "gather_final_metadata": Task(skip_task=True),
             "register_data_asset_to_codeocean": Task(skip_task=True),
         }
+
         job_configs = UploadJobConfigsV2(**configs)
         self.assertEqual(3, len(job_configs.tasks))
-        self.assertEqual(2, len(job_configs.tasks["make_modality_list"]))
+        self.assertEqual(
+            2,
+            len(job_configs.tasks["modality_transformation_settings"].items()),
+        )
 
 
 class TestSubmitJobRequestV2(unittest.TestCase):
@@ -264,14 +252,9 @@ class TestSubmitJobRequestV2(unittest.TestCase):
             subject_id="123456",
             acq_datetime=datetime(2020, 10, 13, 13, 10, 10),
             tasks={
-                "make_modality_list": Task(
-                    dynamic_parameters_settings={
-                        "modality": Modality.BEHAVIOR_VIDEOS.model_dump(
-                            mode="json"
-                        ),
-                        "source": (
-                            PurePosixPath("dir") / "data_set_1"
-                        ).as_posix(),
+                "modality_transformation_settings": Task(
+                    job_settings={
+                        "input_source": "dir/data_set_1",
                     },
                 )
             },

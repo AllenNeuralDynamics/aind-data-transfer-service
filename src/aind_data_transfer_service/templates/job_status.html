@@ -20,15 +20,6 @@
         nav {
             height: 40px;
         }
-        #default-jobs-table {
-            width: 100%;
-            height: calc(100vh - 200px);
-            iframe {
-                border: none;
-                width: 100%;
-                height: 100%;
-            }
-        }
         .modal-body {
             height: calc(100vh - 100px);
         }
@@ -44,8 +35,8 @@
         <a title="For more information click here" href="https://aind-data-transfer-service.readthedocs.io"  target="_blank" >Help</a>
     </nav>
     <div class="content">
-        <!-- display total entries from child iframe -->
-        <h4 class="mb-2">Jobs Submitted: <span id="jobs-iframe-total-entries"></h4>
+        <!-- display total entries -->
+        <h4 class="mb-2">Jobs Submitted: <span id="total-entries"></span></h4>
         <!-- filters for job status results-->
         <div class="card mb-4 small" style="width:400px">
             <div class="card-header py-1" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-filters" aria-expanded="false" aria-controls="collapse-filters">
@@ -56,17 +47,15 @@
                 <!-- filter by job status -->
                 <div class="input-group input-group-sm mb-1">
                     <span class="input-group-text" style="width:35%">Status</span>
-                    <select class="form-select" onchange="filterJobsByStatus(this.value);this.blur();">
+                    <select class="form-select" onchange="filterJobsByColumn(4, this.value);this.blur();">
                         {% for s in [
-                            {"label": "all", "value": [], "class": "text-dark"},
-                            {"label": "queued", "value": ["queued"], "class": "text-secondary"},
-                            {"label": "running", "value": ["running"], "class": "text-info"},
-                            {"label": "failed", "value": ["failed"], "class": "text-danger"},
-                            {"label": "success", "value": ["success"], "class": "text-success"},
+                            {"label": "all", "value": "", "class": "text-dark"},
+                            {"label": "queued", "value": "queued", "class": "text-secondary"},
+                            {"label": "running", "value": "running", "class": "text-info"},
+                            {"label": "failed", "value": "failed", "class": "text-danger"},
+                            {"label": "success", "value": "success", "class": "text-success"},
                         ] %}
-                        {% if s.value==default_state %}<option class="{{ s.class }}" value="{{ s.value }}" selected>{{ s.label }}</option>
-                        {% else %}<option class="{{ s.class }}" value="{{ s.value }}">{{ s.label }}</option>
-                        {% endif %}
+                        <option class="{{ s.class }}" value="{{ s.value }}">{{ s.label }}</option>
                         {% endfor %}
                     </select>
                 </div>
@@ -75,60 +64,52 @@
                     <span class="input-group-text" style="width:35%">Submit Time</span>
                     <input id="submit-date-range" class="form-select" type="text" />
                 </div>
-                <!-- advanced search (uses full jobs table)-->
+                <!-- filter by asset name -->
                 <hr class="flex-grow-1 border-secondary">
-                <div class="form-check form-switch mb-1">
-                    <input id="advanced-search-toggle"class="form-check-input" type="checkbox" role="switch" onchange="toggleAdvancedSearch(event)">
-                    <label class="form-check-label" for="advanced-search-toggle">Enable advanced search</label>
-                </div>
                 <div class="input-group input-group-sm mb-1">
-                    <span class="input-group-text" style="width:35%">Search</span>
-                    <input id="advanced-search-input" type="text" class="form-control" placeholder="asset name or job id" oninput="searchFullJobsTable(event)" disabled/>
-                    <button id="advanced-search-clear" class="btn btn-outline-secondary" type="button" title="Clear" onclick="clearAdvancedSearch(event)" disabled>
+                    <span class="input-group-text" style="width:35%">Asset Name</span>
+                    <input id="filter-name-input" type="text" class="form-control" placeholder="asset name" oninput="filterJobsByColumn(0, this.value)">
+                    <button id="filter-name-clear" class="btn btn-outline-secondary" type="button" title="Clear" onclick="clearFilterJobsByColumn(0, '#filter-name-input')">
                         <i class="bi bi-x-lg"></i>
                     </button>
                 </div>
-            </div>
-        </div>
-        <!-- job status tables -->
-        <div id="default-jobs-table">
-            <!-- toolbar to change jobs per page and navigate pages -->
-            <div id="jobs-toolbar" class="btn-toolbar justify-content-between mb-2" role="toolbar">
-                <div class="input-group input-group-sm">
-                    <select class="form-select" onchange="updateJobStatusTableLimit(this.value);this.blur();">
-                        {% for l in [10, 25, 50, 100] %}
-                        {% if l==default_limit %}<option value="{{ l }}" selected>{{ l }}</option>
-                        {% else %}<option value="{{ l }}">{{ l }}</option>
-                        {% endif %}
+                <!-- filter by job id-->
+                <div class="input-group input-group-sm mb-1">
+                    <span class="input-group-text" style="width:35%">Job ID</span>
+                    <input id="filter-id-input" type="text" class="form-control" placeholder="job id" oninput="filterJobsByColumn(1, this.value)">
+                    <button id="filter-id-clear" class="btn btn-outline-secondary" type="button" title="Clear" onclick="clearFilterJobsByColumn(1, '#filter-id-input')">
+                        <i class="bi bi-x-lg"></i>
+                    </button>
+                </div>
+                <!-- filter by job type-->
+                <div class="input-group input-group-sm mb-1">
+                    <span class="input-group-text" style="width:35%">Job Type</span>
+                    <input id="filter-job-type-input" type="text" class="form-control" placeholder="job type" oninput="filterJobsByColumn(2, this.value)">
+                    <button id="filter-job-type-clear" class="btn btn-outline-secondary" type="button" title="Clear" onclick="clearFilterJobsByColumn(2, '#filter-job-type-input')">
+                        <i class="bi bi-x-lg"></i>
+                    </button>
+                </div>
+                <!-- filter by dag id -->
+                <div class="input-group input-group-sm mb-1">
+                    <span class="input-group-text" style="width:35%">Dag ID</span>
+                    <select class="form-select" onchange="filterJobsByColumn(3, this.value);this.blur();">
+                        <option class="text-dark" value="">all</option>
+                        {% for dag_id in dag_ids %}
+                        <option class="text-secondary" value="^{{ dag_id }}$">{{ dag_id }}</option>
                         {% endfor %}
                     </select>
-                    <span class="input-group-text">jobs per page</span>
-                </div>
-                <div class="btn-group btn-group-sm" role="group">
-                    <!-- display current jobs range e.g, "1 to 10 of 100" -->
-                    <span id="jobs-iframe-showing" class="btn" style="cursor:default;"></span>
-                </div>
-                <div class="btn-group pagination pagination-sm" role="group">
-                    <button id="jobs-page-btn-first" type="button" class="btn page-link"
-                        onclick="updateJobStatusTablePage(PaginateTo.FIRST);this.blur();">&laquo; First</button>
-                    <button id="jobs-page-btn-prev" type="button" class="btn page-link"
-                        onclick="updateJobStatusTablePage(PaginateTo.PREV);this.blur();"
-                        >&lsaquo; Prev</button>
-                    <button id="jobs-page-btn-next" type="button" class="btn page-link"
-                        onclick="updateJobStatusTablePage(PaginateTo.NEXT);this.blur();">Next &rsaquo;</button>
-                    <button id="jobs-page-btn-last" type="button" class="btn page-link"
-                        onclick="updateJobStatusTablePage(PaginateTo.LAST);this.blur();">Last &raquo;</button>
                 </div>
             </div>
-            <!-- iframe to display paginated job status table -->
-            <iframe id="jobs-iframe" src=""></iframe>
         </div>
-        <div id="full-jobs-table" hidden>
+        <!-- job status table -->
+        <div>
             <table id="searchJobsTable" class="display compact table table-bordered table-sm" style="font-size: small">
                 <thead>
                     <tr>
                         <th>Asset Name</th>
                         <th>Job ID</th>
+                        <th>Job Type</th>
+                        <th>Dag ID</th>
                         <th>Status</th>
                         <th>Submit Time</th>
                         <th>Start Time</th>
@@ -159,19 +140,9 @@
         </div>
     </div>
     <script>
-        // User can filter for jobs by status and submit time, and view results in 2 ways:
-        // 1. Default table: Loads 1 page of jobs at a time using Jinja template.
-        // 2. Full Jobs Table: Loads all jobs using DataTables library. Enables searching across all jobs.
-        let tableUrls = {
-            default: new URL("{{ url_for('job_status_table') }}"),
-            full: new URL("{{ url_for('get_job_status_list') }}" + "?get_all_jobs=true"),
-        };  
-        const PaginateTo = {
-            NEXT: 'next',
-            PREV: 'prev',
-            FIRST: 'first',
-            LAST: 'last'
-        };
+        // User can filter for jobs by status and submit time, and view results.
+        // Full Jobs Table: Loads all jobs using DataTables library. Enables searching across all jobs.
+        let tableUrl = new URL("{{ url_for('get_job_status_list') }}");
         $(document).ready(function() {
             const today = moment();
             const twoWeeksAgo = moment().subtract(13, 'days');
@@ -192,9 +163,6 @@
 
             // initialize job status table with default values
             const initialParams = {
-                limit: "{{ default_limit }}",
-                offset: "{{ default_offset }}",
-                state: "{{ default_state }}",
                 // set default submit date range client-side for browser's local time
                 execution_date_gte: twoWeeksAgo.startOf('day').toISOString(),
                 execution_date_lte: today.endOf('day').toISOString(),
@@ -205,10 +173,10 @@
             var tasksModal = document.getElementById('tasks-modal-full');
             tasksModal.addEventListener('show.bs.modal', function (event) {
                 var sourceData = event.relatedTarget?.dataset;
-                updateJobTasksModal(sourceData?.jobId, sourceData?.jobName, sourceData?.jobState);
+                updateJobTasksModal(sourceData?.dagId, sourceData?.jobId, sourceData?.jobName, sourceData?.jobState);
             })
             tasksModal.addEventListener('hidden.bs.modal', function (event) {
-                updateJobTasksModal(null, null, null);
+                updateJobTasksModal(null, null, null, null);
             })
         });
         // FULL JOBS TABLE -----------------------------------------------
@@ -228,7 +196,7 @@
         }
         function renderTasksButton(data, type, row) {
             if (type == 'display') {
-                return (`<button type="button" class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#tasks-modal-full" data-job-id="${data}" data-job-name="${row.name}" data-job-state="${row.job_state}">
+                return (`<button type="button" class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#tasks-modal-full" data-dag-id="${row.dag_id}" data-job-id="${data}" data-job-name="${row.name}" data-job-state="${row.job_state}">
                     <i class="bi bi-box-arrow-up-right" title="View tasks and logs"></i>
                     </button>`);
             }
@@ -238,21 +206,24 @@
         function createFullJobsTable() {
             $('#searchJobsTable').DataTable({
                 ajax: {
-                    url: tableUrls.full,
+                    url: tableUrl,
                     dataSrc: 'data.job_status_list'
                 },
                 processing: true,
                 columns: [
                     { data: 'name', searchable: true },
                     { data: 'job_id', searchable: true },
-                    { data: 'job_state', searchable: false, createdCell: renderJobStatus },
+                    { data: 'job_type', searchable: true },
+                    { data: 'dag_id', searchable: true },
+                    { data: 'job_state', searchable: true, createdCell: renderJobStatus },
                     { data: 'submit_time', searchable: false, render: renderDatetime },
                     { data: 'start_time', searchable: false, render: renderDatetime },
                     { data: 'end_time', searchable: false, render: renderDatetime },
                     { data: 'comment', searchable: false, defaultContent: 'None' },
                     { data: 'job_id', searchable: false, render: renderTasksButton },
                 ],
-                // options to match default jobs table
+                initComplete: (settings, json) => updateJobsCount(json),
+                // layout options
                 pageLength: 25,
                 order: [3, 'desc'],
                 layout: {
@@ -280,7 +251,7 @@
             });
         }
         // Modal for tasks per job from full jobs table
-        function updateJobTasksModal(jobId, jobName, jobState) {
+        function updateJobTasksModal(dagId, jobId, jobName, jobState) {
             // Update the modal header with the job id and name
             document.getElementById('modal-title-job-id').textContent = `(${jobId})`;
             document.getElementById('modal-title-job-name').textContent = jobName;
@@ -300,6 +271,7 @@
             var tasksIframe = document.getElementById('tasks-iframe');
             if (jobId) {
                 var url = new URL("{{ url_for('job_tasks_table') }}");
+                url.searchParams.append('dag_id', dagId);
                 url.searchParams.append('dag_run_id', jobId);
                 tasksIframe.src = url;
             } else {
@@ -309,85 +281,42 @@
         // EVENT HANDLERS ------------------------------------------------
         function updateJobStatusTable(newParams) {
             Object.entries(newParams).forEach(([key, value]) => {
-                tableUrls.default.searchParams.set(key, value);
-                // Ignore paginate changes for full jobs table
-                if (key !== 'limit' && key !== 'offset') {
-                    tableUrls.full.searchParams.set(key, value);
-                }
+                tableUrl.searchParams.set(key, value);
             });
-            // Update only the currently enabled table
-            let isDefault = !document.getElementById('advanced-search-toggle').checked;
-            if (isDefault) {
-                var iframe = document.getElementById('jobs-iframe');
-                iframe.src = tableUrls.default.toString();
-            } else if (DataTable.isDataTable('#searchJobsTable')) {
-                $('#searchJobsTable').DataTable().ajax.url(tableUrls.full.toString()).load();
+            if (DataTable.isDataTable('#searchJobsTable')) {
+                // load the table with new params and update total entries
+                $('#searchJobsTable').DataTable().ajax.url(tableUrl.toString()).load(
+                    (data) => updateJobsCount(data)
+                );
             } else {
                 createFullJobsTable();
             }
         }
+        function updateJobsCount(data) {
+            // data is the response from the server after ajax call
+            $('#total-entries').text(data?.data?.total_entries);
+        }
         // Filters
-        function filterJobsByStatus(newStatus) {
-            updateJobStatusTable({
-                state: newStatus,
-                offset: 0 // reset to first page
-            });
+        function filterJobsByColumn(columnIndex, value) {
+            if (columnIndex == 3 || columnIndex == 4) {
+                //exact match for dag_id and job_state dropdowns
+                $('#searchJobsTable').DataTable().columns(columnIndex).search(value.trim(), true, false).draw();
+            } else {
+                // smart match
+                $('#searchJobsTable').DataTable().columns(columnIndex).search(value.trim()).draw();
+            }
+        }
+        function clearFilterJobsByColumn(columnIndex, inputElementId) {
+            $(inputElementId).val('');
+            filterJobsByColumn(columnIndex, '');
         }
         function filterJobsBySubmitTimeRange(start, end) {
+            // This filter is the only one that sends a new ajax request to the server
             // NOTE: daterangepicker already has 00:00:00.000 and 23:59:59.999 for start and end
             updateJobStatusTable({
                 execution_date_gte: start.toISOString(),
                 execution_date_lte: end.toISOString(),
-                offset: 0 // reset to first page
             });
-        }
-        // Advanced search (full table)
-        function toggleAdvancedSearch(event) {
-            let isDefault = !event.target.checked;
-            // enable/disable advanced-search-input
-            $('#advanced-search-input').prop('disabled', isDefault);
-            $('#advanced-search-clear').prop('disabled', isDefault);
-            // update appropriate table
-            $('#default-jobs-table').prop('hidden', !isDefault);
-            $('#full-jobs-table').prop('hidden', isDefault);
-            updateJobStatusTable({});
-            event.target.blur();
-        };
-        function searchFullJobsTable(event) {
-            event.preventDefault();
-            let searchValue = event.target.value;
-            $('#searchJobsTable').DataTable().search(searchValue).draw();
-        }
-        function clearAdvancedSearch(event) {
-            event.preventDefault();
-            $('#advanced-search-input').val('');
-            $('#searchJobsTable').DataTable().search('').draw();
-        }
-        // Pagination (default table)
-        function updateJobStatusTableLimit(newLimit) {
-            updateJobStatusTable({limit: newLimit});
-        }
-        function updateJobStatusTablePage(paginateTo) {
-            var iframe = document.getElementById('jobs-iframe');
-            var offset = parseInt(tableUrls.default.searchParams.get('offset'));
-            var limit = parseInt(tableUrls.default.searchParams.get('limit'));
-            switch (paginateTo) {
-                case PaginateTo.NEXT:
-                    offset += limit;
-                    break;
-                case PaginateTo.PREV:
-                    offset -= limit;
-                    if (offset < 0) offset = 0; // Prevent negative offset
-                    break;
-                case PaginateTo.FIRST:
-                    offset = 0;
-                    break;
-                case PaginateTo.LAST:
-                    totalEntries = document.getElementById('jobs-iframe-total-entries').innerText;
-                    offset = Math.floor(totalEntries / limit) * limit;
-                    break;
-            }
-            updateJobStatusTable({offset: offset});
         }
     </script>
     </body>

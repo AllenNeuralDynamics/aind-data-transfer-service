@@ -39,9 +39,10 @@ class AirflowDagRunsResponse(BaseModel):
 class AirflowDagRunsRequestParameters(BaseModel):
     """Model for parameters when requesting info from dag_runs endpoint"""
 
-    limit: int = 25
-    offset: int = 0
-    state: Optional[list[str]] = []
+    dag_ids: list[str] = ["transform_and_upload", "transform_and_upload_v2"]
+    page_limit: int = 100
+    page_offset: int = 0
+    states: Optional[list[str]] = []
     execution_date_gte: Optional[str] = (
         datetime.now(timezone.utc) - timedelta(weeks=2)
     ).isoformat()
@@ -64,8 +65,8 @@ class AirflowDagRunsRequestParameters(BaseModel):
     def from_query_params(cls, query_params: QueryParams):
         """Maps the query parameters to the model"""
         params = dict(query_params)
-        if "state" in params:
-            params["state"] = ast.literal_eval(params["state"])
+        if "states" in params:
+            params["states"] = ast.literal_eval(params["states"])
         return cls.model_validate(params)
 
 
@@ -73,6 +74,7 @@ class AirflowTaskInstancesRequestParameters(BaseModel):
     """Model for parameters when requesting info from task_instances
     endpoint"""
 
+    dag_id: str = Field(..., min_length=1)
     dag_run_id: str = Field(..., min_length=1)
 
     @classmethod
@@ -126,6 +128,7 @@ class AirflowTaskInstanceLogsRequestParameters(BaseModel):
     endpoint"""
 
     # excluded fields are used to build the url
+    dag_id: str = Field(..., min_length=1, exclude=True)
     dag_run_id: str = Field(..., min_length=1, exclude=True)
     task_id: str = Field(..., min_length=1, exclude=True)
     try_number: int = Field(..., ge=0, exclude=True)
@@ -142,10 +145,12 @@ class AirflowTaskInstanceLogsRequestParameters(BaseModel):
 class JobStatus(BaseModel):
     """Model for what we want to render to the user."""
 
+    dag_id: Optional[str] = Field(None)
     end_time: Optional[datetime] = Field(None)
     job_id: Optional[str] = Field(None)
     job_state: Optional[str] = Field(None)
     name: Optional[str] = Field(None)
+    job_type: Optional[str] = Field(None)
     comment: Optional[str] = Field(None)
     start_time: Optional[datetime] = Field(None)
     submit_time: Optional[datetime] = Field(None)
@@ -154,11 +159,19 @@ class JobStatus(BaseModel):
     def from_airflow_dag_run(cls, airflow_dag_run: AirflowDagRun):
         """Maps the fields from the HpcJobStatusResponse to this model"""
         name = airflow_dag_run.conf.get("s3_prefix", "")
+        job_type = airflow_dag_run.conf.get("job_type", "")
+        # v1 job_type is in CO configs
+        if job_type == "":
+            job_type = airflow_dag_run.conf.get("codeocean_configs", {}).get(
+                "job_type", ""
+            )
         return cls(
+            dag_id=airflow_dag_run.dag_id,
             end_time=airflow_dag_run.end_date,
             job_id=airflow_dag_run.dag_run_id,
             job_state=airflow_dag_run.state,
             name=name,
+            job_type=job_type,
             comment=airflow_dag_run.note,
             start_time=airflow_dag_run.start_date,
             submit_time=airflow_dag_run.execution_date,
@@ -173,6 +186,7 @@ class JobStatus(BaseModel):
 class JobTasks(BaseModel):
     """Model for what is rendered to the user for each task."""
 
+    dag_id: Optional[str] = Field(None)
     job_id: Optional[str] = Field(None)
     task_id: Optional[str] = Field(None)
     try_number: Optional[int] = Field(None)
@@ -191,6 +205,7 @@ class JobTasks(BaseModel):
     ):
         """Maps the fields from the HpcJobStatusResponse to this model"""
         return cls(
+            dag_id=airflow_task_instance.dag_id,
             job_id=airflow_task_instance.dag_run_id,
             task_id=airflow_task_instance.task_id,
             try_number=airflow_task_instance.try_number,
@@ -212,10 +227,15 @@ class JobParamInfo(BaseModel):
     last_modified: Optional[datetime]
     job_type: str
     task_id: str
+    modality: Optional[str]
 
     @classmethod
     def from_aws_describe_parameter(
-        cls, parameter: ParameterMetadataTypeDef, job_type: str, task_id: str
+        cls,
+        parameter: ParameterMetadataTypeDef,
+        job_type: str,
+        task_id: str,
+        modality: Optional[str],
     ):
         """Map the parameter to the model"""
         return cls(
@@ -223,6 +243,7 @@ class JobParamInfo(BaseModel):
             last_modified=parameter.get("LastModifiedDate"),
             job_type=job_type,
             task_id=task_id,
+            modality=modality,
         )
 
     @staticmethod
@@ -237,7 +258,10 @@ class JobParamInfo(BaseModel):
     def get_parameter_regex(version: Optional[str] = None) -> str:
         """Create the regex pattern to match the parameter name"""
         prefix = os.getenv("AIND_AIRFLOW_PARAM_PREFIX")
-        regex = "(?P<job_type>[^/]+)/tasks/(?P<task_id>[^/]+)"
+        regex = (
+            "(?P<job_type>[^/]+)/tasks/(?P<task_id>[^/]+)"
+            "(?:/(?P<modality>[^/]+))?"
+        )
         if version is None:
             return f"{prefix}/{regex}"
         return f"{prefix}/{version}/{regex}"
