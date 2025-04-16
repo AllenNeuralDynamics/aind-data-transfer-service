@@ -224,6 +224,15 @@ class SubmitJobRequestV2(BaseSettings):
     """Main request that will be sent to the backend. Bundles jobs into a list
     and allows a user to add an email address to receive notifications."""
 
+    # noinspection PyMissingConstructor
+    def __init__(self, /, **data: Any) -> None:
+        """Add context manager to init for validating project_names."""
+        self.__pydantic_validator__.validate_python(
+            data,
+            self_instance=self,
+            context=_validation_context.get(),
+        )
+
     model_config = ConfigDict(use_enum_values=True, extra="ignore")
 
     dag_id: Literal["transform_and_upload_v2"] = "transform_and_upload_v2"
@@ -263,17 +272,28 @@ class SubmitJobRequestV2(BaseSettings):
         return self
 
     @model_validator(mode="after")
-    def check_duplicate_upload_jobs(self):
-        """Validate that there are no duplicate upload jobs."""
-        s3_prefixes = set(job.s3_prefix for job in self.upload_jobs)
-        if len(s3_prefixes) == len(self.upload_jobs):
-            return self
+    def check_duplicate_upload_jobs(self, info: ValidationInfo):
+        """Validate that there are no duplicate upload jobs. If a list of
+        current jobs is provided in a context manager, jobs are also checked
+        against the list."""
         jobs_map = {}
+        # check jobs with the same s3_prefix
         for job in self.upload_jobs:
             prefix = job.s3_prefix
-            job_json = job.model_dump_json(exclude_none=True)
+            job_json = json.dumps(
+                job.model_dump(mode="json", exclude_none=True), sort_keys=True
+            )
             jobs_map.setdefault(prefix, set())
             if job_json in jobs_map[prefix]:
                 raise ValueError(f"Duplicate jobs found for {prefix}")
             jobs_map[prefix].add(job_json)
+        # check against any jobs in the context
+        current_jobs = (info.context or dict()).get("current_jobs", [])
+        for job in current_jobs:
+            prefix = job["s3_prefix"]
+            if (
+                prefix in jobs_map
+                and json.dumps(job, sort_keys=True) in jobs_map[prefix]
+            ):
+                raise ValueError(f"Job is already running/queued for {prefix}")
         return self
