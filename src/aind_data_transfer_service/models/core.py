@@ -261,3 +261,19 @@ class SubmitJobRequestV2(BaseSettings):
                     global_email_notification_types
                 )
         return self
+
+    @model_validator(mode="after")
+    def check_duplicate_upload_jobs(self):
+        """Validate that there are no duplicate upload jobs."""
+        s3_prefixes = set(job.s3_prefix for job in self.upload_jobs)
+        if len(s3_prefixes) == len(self.upload_jobs):
+            return self
+        jobs_map = {}
+        for job in self.upload_jobs:
+            prefix = job.s3_prefix
+            job_json = job.model_dump_json(exclude_none=True)
+            jobs_map.setdefault(prefix, set())
+            if job_json in jobs_map[prefix]:
+                raise ValueError(f"Duplicate jobs found for {prefix}")
+            jobs_map[prefix].add(job_json)
+        return self
