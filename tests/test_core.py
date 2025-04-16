@@ -386,7 +386,7 @@ class TestSubmitJobRequestV2(unittest.TestCase):
         job_configs = self.example_upload_config.model_dump(
             mode="json", exclude={"tasks"}
         )
-        upload_jobs = []
+        upload_jobs = list()
         for i in range(10):
             tasks = {
                 "modality_transformation_settings": Task(

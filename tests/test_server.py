@@ -1685,7 +1685,7 @@ class TestServer(unittest.TestCase):
         """Tests submit jobs 406 response."""
         mock_get_job_types.return_value = ["ecephys"]
         mock_get_project_names.return_value = ["Ephys Platform"]
-        mock_get_airflow_jobs.return_value = (0, [])
+        mock_get_airflow_jobs.return_value = (0, list())
         for version in ["v1", "v2"]:
             with TestClient(app) as client:
                 submit_job_response = client.post(
@@ -1715,7 +1715,7 @@ class TestServer(unittest.TestCase):
         """Tests submit jobs success."""
         mock_get_project_names.return_value = ["Ephys Platform"]
         mock_get_job_types.return_value = ["ecephys"]
-        mock_get_airflow_jobs.return_value = (0, [])
+        mock_get_airflow_jobs.return_value = (0, list())
         mock_response = Response()
         mock_response.status_code = 200
         mock_response._content = json.dumps({"message": "sent"}).encode(
@@ -1789,7 +1789,7 @@ class TestServer(unittest.TestCase):
         """Tests submit jobs 500 response."""
         mock_get_job_types.return_value = ["ecephys"]
         mock_get_project_names.return_value = ["Ephys Platform"]
-        mock_get_airflow_jobs.return_value = (0, [])
+        mock_get_airflow_jobs.return_value = (0, list())
         mock_post.side_effect = Exception("Something went wrong")
         request_json_v1 = {
             "user_email": None,
@@ -2067,7 +2067,7 @@ class TestServer(unittest.TestCase):
 
         mock_get_project_names.return_value = ["Ephys Platform"]
         mock_get_job_types.return_value = ["ecephys"]
-        mock_get_airflow_jobs.return_value = (0, [])
+        mock_get_airflow_jobs.return_value = (0, list())
 
         mock_response = Response()
         mock_response.status_code = 200
@@ -2133,7 +2133,7 @@ class TestServer(unittest.TestCase):
 
         mock_get_project_names.return_value = ["Ephys Platform"]
         mock_get_job_types.return_value = ["ecephys"]
-        mock_get_airflow_jobs.return_value = (0, [])
+        mock_get_airflow_jobs.return_value = (0, list())
 
         # v1
         ephys_source_dir = PurePosixPath("shared_drive/ephys_data/690165")
@@ -2206,7 +2206,7 @@ class TestServer(unittest.TestCase):
         """Tests validate_json when json is invalid."""
         mock_get_job_types.return_value = ["ecephys"]
         mock_get_project_names.return_value = ["Ephys Platform"]
-        mock_get_airflow_jobs.return_value = (0, [])
+        mock_get_airflow_jobs.return_value = (0, list())
         content = {"foo": "bar"}
         versions = {
             "v1": aind_data_transfer_models_version,
@@ -2237,7 +2237,7 @@ class TestServer(unittest.TestCase):
     @patch("httpx.AsyncClient.post")
     @patch("aind_data_transfer_service.server.get_project_names")
     @patch("aind_data_transfer_service.server.get_job_types")
-    def test_validate_json_v2_invalid_current_jobs(
+    def test_validate_json_v2_invalid_current(
         self,
         mock_get_job_types: MagicMock,
         mock_get_project_names: MagicMock,
@@ -2295,7 +2295,7 @@ class TestServer(unittest.TestCase):
 
         mock_get_job_types.return_value = ["ecephys"]
         mock_get_project_names.return_value = ["Ephys Platform"]
-        mock_get_airflow_jobs.return_value = (0, [])
+        mock_get_airflow_jobs.return_value = (0, list())
         mock_model_validate_json.side_effect = Exception("Unknown error")
         versions = {
             "v1": aind_data_transfer_models_version,

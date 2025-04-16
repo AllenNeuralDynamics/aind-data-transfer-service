@@ -184,7 +184,7 @@ async def get_airflow_jobs(
             request_body=params_dict,
         )
         # Fetch remaining jobs concurrently
-        tasks = []
+        tasks = list()
         offset = params_dict["page_offset"] + params_dict["page_limit"]
         while offset < total_entries:
             batch_params = {**params_dict, "page_offset": offset}

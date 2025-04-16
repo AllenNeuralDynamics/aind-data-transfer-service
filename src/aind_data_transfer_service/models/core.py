@@ -119,7 +119,7 @@ class UploadJobConfigsV2(BaseSettings):
 
     # noinspection PyMissingConstructor
     def __init__(self, /, **data: Any) -> None:
-        """Add context manager to init for validating project_names."""
+        """Add context manager to init for validating fields."""
         self.__pydantic_validator__.validate_python(
             data,
             self_instance=self,
@@ -226,7 +226,7 @@ class SubmitJobRequestV2(BaseSettings):
 
     # noinspection PyMissingConstructor
     def __init__(self, /, **data: Any) -> None:
-        """Add context manager to init for validating project_names."""
+        """Add context manager to init for validating upload_jobs."""
         self.__pydantic_validator__.validate_python(
             data,
             self_instance=self,
@@ -276,7 +276,7 @@ class SubmitJobRequestV2(BaseSettings):
         """Validate that there are no duplicate upload jobs. If a list of
         current jobs is provided in a context manager, jobs are also checked
         against the list."""
-        jobs_map = {}
+        jobs_map = dict()
         # check jobs with the same s3_prefix
         for job in self.upload_jobs:
             prefix = job.s3_prefix
@@ -288,7 +288,7 @@ class SubmitJobRequestV2(BaseSettings):
                 raise ValueError(f"Duplicate jobs found for {prefix}")
             jobs_map[prefix].add(job_json)
         # check against any jobs in the context
-        current_jobs = (info.context or dict()).get("current_jobs", [])
+        current_jobs = (info.context or dict()).get("current_jobs", list())
         for job in current_jobs:
             prefix = job.get("s3_prefix")
             if (
