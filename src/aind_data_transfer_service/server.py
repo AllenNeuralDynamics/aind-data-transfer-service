@@ -427,9 +427,14 @@ async def submit_jobs_v2(request: Request):
     logger.info("Received request to submit jobs v2")
     content = await request.json()
     try:
+        params = AirflowDagRunsRequestParameters(
+            dag_ids=["transform_and_upload_v2"], states=["running", "queued"]
+        )
+        _, current_jobs = await get_airflow_jobs(params=params, get_confs=True)
         context = {
             "job_types": get_job_types("v2"),
             "project_names": get_project_names(),
+            "current_jobs": current_jobs,
         }
         with validation_context_v2(context):
             model = SubmitJobRequestV2.model_validate_json(json.dumps(content))

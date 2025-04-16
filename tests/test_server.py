@@ -1671,18 +1671,21 @@ class TestServer(unittest.TestCase):
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch("logging.Logger.warning")
     @patch("requests.post")
+    @patch("aind_data_transfer_service.server.get_airflow_jobs")
     @patch("aind_data_transfer_service.server.get_project_names")
     @patch("aind_data_transfer_service.server.get_job_types")
     def test_submit_v1_v2_jobs_406(
         self,
         mock_get_job_types: MagicMock,
         mock_get_project_names: MagicMock,
+        mock_get_airflow_jobs: MagicMock,
         mock_post: MagicMock,
         mock_log_warning: MagicMock,
     ):
         """Tests submit jobs 406 response."""
         mock_get_job_types.return_value = ["ecephys"]
         mock_get_project_names.return_value = ["Ephys Platform"]
+        mock_get_airflow_jobs.return_value = (0, [])
         for version in ["v1", "v2"]:
             with TestClient(app) as client:
                 submit_job_response = client.post(
@@ -1694,21 +1697,25 @@ class TestServer(unittest.TestCase):
                 "There were validation errors processing {}"
             )
         mock_get_job_types.assert_called_once_with("v2")
+        mock_get_airflow_jobs.assert_called_once()
         self.assertEqual(2, mock_get_project_names.call_count)
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch("requests.post")
+    @patch("aind_data_transfer_service.server.get_airflow_jobs")
     @patch("aind_data_transfer_service.server.get_project_names")
     @patch("aind_data_transfer_service.server.get_job_types")
     def test_submit_v1_v2_jobs_200(
         self,
         mock_get_job_types: MagicMock,
         mock_get_project_names: MagicMock,
+        mock_get_airflow_jobs: MagicMock,
         mock_post: MagicMock,
     ):
         """Tests submit jobs success."""
         mock_get_project_names.return_value = ["Ephys Platform"]
         mock_get_job_types.return_value = ["ecephys"]
+        mock_get_airflow_jobs.return_value = (0, [])
         mock_response = Response()
         mock_response.status_code = 200
         mock_response._content = json.dumps({"message": "sent"}).encode(
@@ -1762,23 +1769,27 @@ class TestServer(unittest.TestCase):
                 )
             self.assertEqual(200, submit_job_response.status_code)
         mock_get_job_types.assert_called_once_with("v2")
+        mock_get_airflow_jobs.assert_called_once()
         self.assertEqual(2, mock_get_project_names.call_count)
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch("requests.post")
     @patch("logging.Logger.exception")
+    @patch("aind_data_transfer_service.server.get_airflow_jobs")
     @patch("aind_data_transfer_service.server.get_project_names")
     @patch("aind_data_transfer_service.server.get_job_types")
     def test_submit_v1_v2_jobs_500(
         self,
         mock_get_job_types: MagicMock,
         mock_get_project_names: MagicMock,
+        mock_get_airflow_jobs: MagicMock,
         mock_log_exception: MagicMock,
         mock_post: MagicMock,
     ):
         """Tests submit jobs 500 response."""
         mock_get_job_types.return_value = ["ecephys"]
         mock_get_project_names.return_value = ["Ephys Platform"]
+        mock_get_airflow_jobs.return_value = (0, [])
         mock_post.side_effect = Exception("Something went wrong")
         request_json_v1 = {
             "user_email": None,
@@ -1854,6 +1865,7 @@ class TestServer(unittest.TestCase):
             self.assertEqual(500, submit_job_response.status_code)
             mock_log_exception.assert_called()
         mock_get_job_types.assert_called_once_with("v2")
+        mock_get_airflow_jobs.assert_called_once()
         self.assertEqual(2, mock_get_project_names.call_count)
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
@@ -2041,18 +2053,21 @@ class TestServer(unittest.TestCase):
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch("requests.post")
+    @patch("aind_data_transfer_service.server.get_airflow_jobs")
     @patch("aind_data_transfer_service.server.get_project_names")
     @patch("aind_data_transfer_service.server.get_job_types")
     def test_submit_v2_jobs_200_basic_serialization(
         self,
         mock_get_job_types: MagicMock,
         mock_get_project_names: MagicMock,
+        mock_get_airflow_jobs: MagicMock,
         mock_post: MagicMock,
     ):
         """Tests submission when user posts standard pydantic json"""
 
         mock_get_project_names.return_value = ["Ephys Platform"]
         mock_get_job_types.return_value = ["ecephys"]
+        mock_get_airflow_jobs.return_value = (0, [])
 
         mock_response = Response()
         mock_response.status_code = 200
@@ -2102,6 +2117,7 @@ class TestServer(unittest.TestCase):
                 )
             self.assertEqual(200, submit_job_response.status_code)
         mock_get_job_types.assert_called_once_with("v2")
+        mock_get_airflow_jobs.assert_called_once()
         self.assertEqual(2, mock_get_project_names.call_count)
 
     @patch("aind_data_transfer_service.server.get_airflow_jobs")
