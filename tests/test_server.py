@@ -39,7 +39,10 @@ from aind_data_transfer_service.models.core import (
     Task,
     UploadJobConfigsV2,
 )
-from aind_data_transfer_service.models.internal import JobParamInfo
+from aind_data_transfer_service.models.internal import (
+    AirflowDagRunsRequestParameters,
+    JobParamInfo,
+)
 from aind_data_transfer_service.server import (
     app,
     get_job_types,
@@ -2101,26 +2104,28 @@ class TestServer(unittest.TestCase):
         mock_get_job_types.assert_called_once_with("v2")
         self.assertEqual(2, mock_get_project_names.call_count)
 
+    @patch("aind_data_transfer_service.server.get_airflow_jobs")
     @patch("aind_data_transfer_service.server.get_job_types")
     @patch("aind_data_transfer_service.server.get_project_names")
     def test_validate_json(
         self,
         mock_get_project_names: MagicMock,
         mock_get_job_types: MagicMock,
+        mock_get_airflow_jobs: MagicMock,
     ):
         """Tests validate_json when json is valid."""
 
         mock_get_project_names.return_value = ["Ephys Platform"]
         mock_get_job_types.return_value = ["ecephys"]
+        mock_get_airflow_jobs.return_value = (0, [])
 
-        # shared
+        # v1
         ephys_source_dir = PurePosixPath("shared_drive/ephys_data/690165")
         s3_bucket = "private"
         subject_id = "690165"
         acq_datetime = datetime(2024, 2, 19, 11, 25, 17)
         platform = Platform.ECEPHYS
         project_name = "Ephys Platform"
-        # v1
         ephys_config = ModalityConfigs(
             modality=Modality.ECEPHYS,
             source=ephys_source_dir,
@@ -2162,21 +2167,30 @@ class TestServer(unittest.TestCase):
                 post_request_content, response_json["data"]["model_json"]
             )
             self.assertEqual(job["version"], response_json["data"]["version"])
+        expected_airflow_params = AirflowDagRunsRequestParameters(
+            dag_ids=["transform_and_upload_v2"], states=["running", "queued"]
+        )
+        mock_get_airflow_jobs.assert_called_once_with(
+            params=expected_airflow_params, get_confs=True
+        )
         mock_get_job_types.assert_called_once_with("v2")
         self.assertEqual(2, mock_get_project_names.call_count)
 
     @patch("logging.Logger.warning")
+    @patch("aind_data_transfer_service.server.get_airflow_jobs")
     @patch("aind_data_transfer_service.server.get_project_names")
     @patch("aind_data_transfer_service.server.get_job_types")
     def test_validate_json_invalid(
         self,
         mock_get_job_types: MagicMock,
         mock_get_project_names: MagicMock,
+        mock_get_airflow_jobs: MagicMock,
         mock_log_warning: MagicMock,
     ):
         """Tests validate_json when json is invalid."""
         mock_get_job_types.return_value = ["ecephys"]
         mock_get_project_names.return_value = ["Ephys Platform"]
+        mock_get_airflow_jobs.return_value = (0, [])
         content = {"foo": "bar"}
         versions = {
             "v1": aind_data_transfer_models_version,
@@ -2199,17 +2213,65 @@ class TestServer(unittest.TestCase):
             mock_log_warning.assert_called_with(
                 f"There were validation errors processing {content}"
             )
+        mock_get_airflow_jobs.assert_called_once()
         mock_get_job_types.assert_called_once_with("v2")
         self.assertEqual(2, mock_get_project_names.call_count)
 
+    @patch("logging.Logger.warning")
+    @patch("httpx.AsyncClient.post")
+    @patch("aind_data_transfer_service.server.get_project_names")
+    @patch("aind_data_transfer_service.server.get_job_types")
+    def test_validate_json_v2_invalid_current_jobs(
+        self,
+        mock_get_job_types: MagicMock,
+        mock_get_project_names: MagicMock,
+        mock_post: MagicMock,
+        mock_log_warning: MagicMock,
+    ):
+        """Tests validate_json_v2 when there is a duplicate job running."""
+
+        mock_get_project_names.return_value = ["Ephys Platform"]
+        mock_get_job_types.return_value = ["ecephys"]
+        # assume a job is already running
+        job_request = SubmitJobRequestV2(
+            upload_jobs=[self.example_configs_v2]
+        ).model_dump(mode="json", exclude_none=True)
+        current_job = job_request["upload_jobs"][0]
+        airflow_response = {
+            "dag_runs": [{**self.get_dag_run_response, "conf": current_job}],
+            "total_entries": 1,
+        }
+        mock_dag_runs_response = Response()
+        mock_dag_runs_response.status_code = 200
+        mock_dag_runs_response._content = json.dumps(airflow_response).encode(
+            "utf-8"
+        )
+        mock_post.return_value = mock_dag_runs_response
+        # now submit same job again
+        with TestClient(app) as client:
+            resp = client.post("/api/v2/validate_json", json=job_request)
+            resp_json = resp.json()
+        self.assertEqual(406, resp.status_code)
+        self.assertEqual("There were validation errors", resp_json["message"])
+        self.assertIn(
+            "Job is already running/queued for "
+            "ecephys_690165_2024-02-19_11-25-17",
+            resp_json["data"]["errors"],
+        )
+        mock_log_warning.assert_called_once_with(
+            f"There were validation errors processing {job_request}"
+        )
+
     @patch("logging.Logger.exception")
     @patch("pydantic.BaseModel.model_validate_json")
+    @patch("aind_data_transfer_service.server.get_airflow_jobs")
     @patch("aind_data_transfer_service.server.get_project_names")
     @patch("aind_data_transfer_service.server.get_job_types")
     def test_validate_json_error(
         self,
         mock_get_job_types: MagicMock,
         mock_get_project_names: MagicMock,
+        mock_get_airflow_jobs: MagicMock,
         mock_model_validate_json: MagicMock,
         mock_log_error: MagicMock,
     ):
@@ -2217,6 +2279,7 @@ class TestServer(unittest.TestCase):
 
         mock_get_job_types.return_value = ["ecephys"]
         mock_get_project_names.return_value = ["Ephys Platform"]
+        mock_get_airflow_jobs.return_value = (0, [])
         mock_model_validate_json.side_effect = Exception("Unknown error")
         versions = {
             "v1": aind_data_transfer_models_version,
@@ -2244,6 +2307,7 @@ class TestServer(unittest.TestCase):
             )
             mock_model_validate_json.assert_called()
             mock_log_error.assert_called_with("Internal Server Error.")
+        mock_get_airflow_jobs.assert_called_once()
         mock_get_job_types.assert_called_once_with("v2")
         self.assertEqual(2, mock_get_project_names.call_count)
 

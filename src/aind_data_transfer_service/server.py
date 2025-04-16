@@ -143,13 +143,14 @@ def get_parameter_value(param_name: str) -> dict:
 
 
 async def get_airflow_jobs(
-    params: AirflowDagRunsRequestParameters,
-) -> tuple[int, List[JobStatus]]:
-    """Get Airflow jobs using input query params"""
+    params: AirflowDagRunsRequestParameters, get_confs: bool = False
+) -> tuple[int, List[JobStatus] | List[dict]]:
+    """Get Airflow jobs using input query params. If get_confs is true,
+    only the job conf dictionaries are returned."""
 
     async def fetch_jobs(
         client: AsyncClient, url: str, request_body: dict
-    ) -> tuple[int, List[JobStatus]]:
+    ) -> tuple[int, List[JobStatus] | List[dict]]:
         """Helper method to fetch jobs using httpx async client"""
         response = await client.post(url, json=request_body)
         response.raise_for_status()
@@ -157,9 +158,12 @@ async def get_airflow_jobs(
         dag_runs = AirflowDagRunsResponse.model_validate_json(
             json.dumps(response_jobs)
         )
-        jobs_list = [
-            JobStatus.from_airflow_dag_run(d) for d in dag_runs.dag_runs
-        ]
+        if get_confs:
+            jobs_list = [d.conf for d in dag_runs.dag_runs if d.conf]
+        else:
+            jobs_list = [
+                JobStatus.from_airflow_dag_run(d) for d in dag_runs.dag_runs
+            ]
         total_entries = dag_runs.total_entries
         return (total_entries, jobs_list)
 
@@ -308,9 +312,14 @@ async def validate_json_v2(request: Request):
     logger.info("Received request to validate json v2")
     content = await request.json()
     try:
+        params = AirflowDagRunsRequestParameters(
+            dag_ids=["transform_and_upload_v2"], states=["running", "queued"]
+        )
+        _, current_jobs = await get_airflow_jobs(params=params, get_confs=True)
         context = {
             "job_types": get_job_types("v2"),
             "project_names": get_project_names(),
+            "current_jobs": current_jobs,
         }
         with validation_context_v2(context):
             validated_model = SubmitJobRequestV2.model_validate_json(
