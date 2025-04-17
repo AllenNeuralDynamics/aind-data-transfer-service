@@ -7,7 +7,7 @@ import os
 import re
 from asyncio import gather, sleep
 from pathlib import PurePosixPath
-from typing import List, Optional
+from typing import List, Optional, Union
 
 import boto3
 import requests
@@ -144,13 +144,13 @@ def get_parameter_value(param_name: str) -> dict:
 
 async def get_airflow_jobs(
     params: AirflowDagRunsRequestParameters, get_confs: bool = False
-) -> tuple[int, List[JobStatus] | List[dict]]:
+) -> tuple[int, Union[List[JobStatus], List[dict]]]:
     """Get Airflow jobs using input query params. If get_confs is true,
     only the job conf dictionaries are returned."""
 
     async def fetch_jobs(
         client: AsyncClient, url: str, request_body: dict
-    ) -> tuple[int, List[JobStatus] | List[dict]]:
+    ) -> tuple[int, Union[List[JobStatus], List[dict]]]:
         """Helper method to fetch jobs using httpx async client"""
         response = await client.post(url, json=request_body)
         response.raise_for_status()
