@@ -2233,6 +2233,7 @@ class TestServer(unittest.TestCase):
         mock_get_job_types.assert_called_once_with("v2")
         self.assertEqual(2, mock_get_project_names.call_count)
 
+    @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch("logging.Logger.warning")
     @patch("httpx.AsyncClient.post")
     @patch("aind_data_transfer_service.server.get_project_names")
