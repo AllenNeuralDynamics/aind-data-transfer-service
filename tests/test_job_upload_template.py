@@ -8,7 +8,7 @@ from openpyxl import load_workbook
 from openpyxl.utils import range_boundaries
 
 from aind_data_transfer_service.configs.job_upload_template import (
-    JobUploadTemplate,
+    JobUploadTemplateV1,
 )
 
 TEST_DIRECTORY = Path(os.path.dirname(os.path.realpath(__file__)))
@@ -47,7 +47,7 @@ class TestJobUploadTemplate(unittest.TestCase):
     def setUpClass(cls):
         """Set up test class"""
         expected_lines = cls._read_xl_helper(SAMPLE_JOB_TEMPLATE)
-        job_template = JobUploadTemplate()
+        job_template = JobUploadTemplateV1()
         (template_lines, template_validators) = cls._read_xl_helper(
             job_template.excel_sheet_filestream, True
         )
@@ -67,7 +67,7 @@ class TestJobUploadTemplate(unittest.TestCase):
             for r in validator["ranges"]:
                 rb = (col, *_) = range_boundaries(r)
                 self.assertTupleEqual(
-                    (col, 2, col, JobUploadTemplate.NUM_TEMPLATE_ROWS), rb
+                    (col, 2, col, JobUploadTemplateV1.NUM_TEMPLATE_ROWS), rb
                 )
                 validator["column_indexes"].append(col - 1)
             del validator["ranges"]
