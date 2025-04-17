@@ -37,7 +37,20 @@
         <a title="For more information click here" href="https://aind-data-transfer-service.readthedocs.io"  target="_blank" >Help</a>
     </nav>
     <div class="content">
-        <h4 class="mb-2">Job Parameters</h4>
+        <h4 class="mb-2">
+            <!-- dropdown to switch version -->
+            <div id="version-dropdown" class="btn-group mb-2">
+                <button id="version-button" type="button" class="btn btn-primary dropdown-toggle" data-bs-toggle="dropdown">
+                    {{default_version}}
+                </button>
+                <ul class="dropdown-menu">
+                    {% for v in versions %}
+                    <button class="dropdown-item" type="button">{{ v }}</button>
+                    {% endfor %}
+                </ul>
+            </div>
+            <span>Job Parameters</span>
+        </h4>
         <!-- job params table -->
         <div>
             <table id="job-params-table" class="display compact table table-bordered table-sm" style="font-size: small">
@@ -45,6 +58,7 @@
                     <tr>
                         <th>Job Type</th>
                         <th>Task ID</th>
+                        <th>Modality</th>
                         <th>Parameter Name</th>
                         <th>Last Modified</th>
                     </tr>
@@ -75,12 +89,17 @@
                 var paramName = button.data('bs-param-name');
                 var jobType = button.data('bs-job-type');
                 var taskId = button.data('bs-task-id');
+                var modality = button.data('bs-modality');
                 // update the modal label and contents
                 var modal = $(this);
                 modal.find('#param-modal-label').text(paramName);
-                var get_parameter_url = `/api/v1/parameters/job_types/${jobType}/tasks/${taskId}`;
+                var version = $('#version-button').text().trim();
+                var getParameterUrl = `/api/${version}/parameters/job_types/${jobType}/tasks/${taskId}`;
+                if (modality) {
+                    getParameterUrl += `/${modality}`;
+                }
                 $.ajax({
-                    url: get_parameter_url,
+                    url: getParameterUrl,
                     type: 'GET',
                     success: function(response) {
                         jsonStr = JSON.stringify(response.data, null, 3);
@@ -95,22 +114,35 @@
                 $(this).find('#param-modal-label').text('');
                 $(this).find('#param-modal-content').text('');
             });
+            // Event listener for version dropdown
+            $('#version-dropdown .dropdown-item').on('click', function() {
+                var version = $(this).text();
+                if (version != $('#version-button').text().trim()) {
+                    $('#version-button').text(version);
+                    $('#job-params-table').DataTable().ajax.url(`/api/${version}/parameters`).load();
+                }
+            });
         });
         // Create DataTable for job params table
         function createJobParamsTable() {
             $('#job-params-table').DataTable({
                 ajax: {
-                    url: "{{ url_for('list_parameters') }}",
+                    url: "/api/{{default_version}}/parameters",
                     dataSrc: 'data'
                 },
                 processing: true,
                 columns: [
                     { data: 'job_type', searchPanes: {show: true} },
                     { data: 'task_id', searchPanes: {show: true} },
+                    { data: 'modality', searchPanes: {show: false} },
                     { data: 'name', render: renderParameterButton },
                     { data: 'last_modified', render: renderDatetime },
                 ],
                 order: [0, 'asc'],
+                // preselect "default" job_type
+                searchPanes: {
+                    preSelect: [ { rows: ['default'], column: 0 } ],
+                },
                 // options to match default jobs table
                 pageLength: 25,
                 layout: {
@@ -150,6 +182,7 @@
                         data-bs-param-name=${data} 
                         data-bs-job-type=${row.job_type} 
                         data-bs-task-id=${row.task_id}
+                        data-bs-modality=${row.modality}
                     >${data}
                     </button>`
                 );

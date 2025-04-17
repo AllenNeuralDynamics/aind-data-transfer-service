@@ -1,2 +1,2 @@
 project_name, modality0, modality0.source, s3-bucket, subject-id, platform, acq-datetime
-Ephys Platform, ECEPHYS, dir/data_set_1, some_bucket, 123454, ecephys, 2020-10-10
+Ephys Platform, ECEPHYS, dir/data_set_1, some_bucket, 123454, ecephys, 2020-10-10ABC

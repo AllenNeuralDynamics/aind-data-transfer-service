@@ -29,10 +29,23 @@ from fastapi.testclient import TestClient
 from pydantic import SecretStr
 from requests import Response
 
+from aind_data_transfer_service import (
+    __version__ as aind_data_transfer_service_version,
+)
 from aind_data_transfer_service.configs.job_upload_template import (
     JobUploadTemplate,
 )
-from aind_data_transfer_service.server import app, get_project_names
+from aind_data_transfer_service.models.core import (
+    SubmitJobRequestV2,
+    Task,
+    UploadJobConfigsV2,
+)
+from aind_data_transfer_service.models.internal import JobParamInfo
+from aind_data_transfer_service.server import (
+    app,
+    get_job_types,
+    get_project_names,
+)
 from tests.test_configs import TestJobConfigs
 
 TEST_DIRECTORY = Path(os.path.dirname(os.path.realpath(__file__)))
@@ -118,6 +131,33 @@ class TestServer(unittest.TestCase):
     expected_job_configs = deepcopy(TestJobConfigs.expected_job_configs)
     for config in expected_job_configs:
         config.aws_param_store_name = None
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        """Set up test class"""
+        # create example UploadJobConfigsV2
+        job_type = "ecephys"
+        project_name = "Ephys Platform"
+        platform = Platform.ECEPHYS
+        subject_id = "690165"
+        acq_datetime = datetime(2024, 2, 19, 11, 25, 17)
+        ephys_source_dir = PurePosixPath("shared_drive/ephys_data/690165")
+        ephys_config = Task(
+            dynamic_parameters_settings={
+                "modality": Modality.ECEPHYS.model_dump(mode="json"),
+                "source": ephys_source_dir.as_posix(),
+            }
+        )
+        example_configs_v2 = UploadJobConfigsV2(
+            job_type=job_type,
+            project_name=project_name,
+            platform=platform,
+            subject_id=subject_id,
+            acq_datetime=acq_datetime,
+            modalities=[Modality.ECEPHYS],
+            tasks={"make_modality_list": ephys_config},
+        )
+        cls.example_configs_v2 = example_configs_v2
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     def test_validate_csv(self):
@@ -570,11 +610,33 @@ class TestServer(unittest.TestCase):
         project_names = get_project_names()
         self.assertEqual(["project_name_0", "project_name_1"], project_names)
 
+    @patch("aind_data_transfer_service.server.get_parameter_infos")
+    def test_get_job_types(self, mock_get_parameter_infos: MagicMock):
+        """Tests get_job_types method"""
+        tasks = [
+            ("job1", "task1", None),
+            ("job1", "task2", None),
+            ("job2", "task1", "modality1"),
+        ]
+        mock_get_parameter_infos.return_value = [
+            JobParamInfo(
+                name=f"/param_prefix/v2/{t[0]}/tasks/{t[1]}",
+                job_type=t[0],
+                task_id=t[1],
+                modality=t[2],
+                last_modified=None,
+            )
+            for t in tasks
+        ]
+        job_types = get_job_types("v2")
+        mock_get_parameter_infos.assert_called_once_with("v2")
+        self.assertCountEqual(["job1", "job2"], job_types)
+
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
-    @patch("httpx.AsyncClient.get")
+    @patch("httpx.AsyncClient.post")
     def test_get_job_status_list_default(
         self,
-        mock_get,
+        mock_post,
     ):
         """Tests get_job_status_list gets paginated dagRuns from airflow using
         default limit and offset."""
@@ -583,57 +645,68 @@ class TestServer(unittest.TestCase):
         mock_dag_runs_response._content = json.dumps(
             self.list_dag_runs_response
         ).encode("utf-8")
-        mock_get.return_value = mock_dag_runs_response
+        mock_post.return_value = mock_dag_runs_response
         expected_message = "Retrieved job status list from airflow"
         expected_default_params = {
-            "limit": 25,
-            "offset": 0,
-            "state": [],
+            "dag_ids": ["transform_and_upload", "transform_and_upload_v2"],
+            "page_limit": 100,
+            "page_offset": 0,
+            "states": [],
             "execution_date_gte": "mock_execution_date_gte",
             "order_by": "-execution_date",
         }
         expected_job_status_list = [
             {
+                "dag_id": "transform_and_upload",
                 "end_time": "2024-05-18T22:09:28.530534Z",
                 "job_id": "manual__2024-05-18T22:08:52.286765+00:00",
                 "job_state": "failed",
                 "name": "",
+                "job_type": "",
                 "comment": None,
                 "start_time": "2024-05-18T22:08:52.637098Z",
                 "submit_time": "2024-05-18T22:08:52.286765Z",
             },
             {
+                "dag_id": "transform_and_upload",
                 "end_time": "2024-05-18T22:09:38.581375Z",
                 "job_id": "manual__2024-05-18T22:08:53.931985+00:00",
                 "job_state": "failed",
                 "name": "",
+                "job_type": "",
                 "comment": None,
                 "start_time": "2024-05-18T22:08:54.712420Z",
                 "submit_time": "2024-05-18T22:08:53.931985Z",
             },
             {
+                "dag_id": "transform_and_upload",
                 "end_time": "2024-05-18T22:47:49.080108Z",
                 "job_id": "manual__2024-05-18T22:32:50.569083+00:00",
                 "job_state": "success",
                 "name": "ecephys_655019_2000-01-01_01-40-03",
+                "job_type": "",
                 "comment": None,
                 "start_time": "2024-05-18T22:32:50.996318Z",
                 "submit_time": "2024-05-18T22:32:50.569083Z",
             },
             {
+                "dag_id": "transform_and_upload",
                 "end_time": "2024-05-18T22:47:58.559508Z",
                 "job_id": "manual__2024-05-18T22:32:52.804228+00:00",
                 "job_state": "success",
                 "name": "ecephys_655019_2000-01-01_01-40-04",
+                "job_type": "",
                 "comment": None,
                 "start_time": "2024-05-18T22:32:53.493901Z",
                 "submit_time": "2024-05-18T22:32:52.804228Z",
             },
             {
+                "dag_id": "transform_and_upload",
                 "end_time": "2024-05-18T23:51:17.716003Z",
                 "job_id": "manual__2024-05-18T23:43:19.184853+00:00",
                 "job_state": "failed",
                 "name": "ecephys_655019_2000-10-10_01-00-24",
+                "job_type": "",
                 "comment": None,
                 "start_time": "2024-05-18T23:43:19.428659Z",
                 "submit_time": "2024-05-18T23:43:19.184853Z",
@@ -660,12 +733,17 @@ class TestServer(unittest.TestCase):
                 },
             },
         )
+        mock_post.assert_called_once()
+        self.assertEqual(
+            mock_post.call_args_list[0][0][0],
+            "airflow_jobs_url/~/dagRuns/list",
+        )
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
-    @patch("httpx.AsyncClient.get")
+    @patch("httpx.AsyncClient.post")
     def test_get_job_status_list_query_params(
         self,
-        mock_get,
+        mock_post,
     ):
         """Tests get_job_status_list gets paginated dagRuns from airflow using
         query_params."""
@@ -674,14 +752,14 @@ class TestServer(unittest.TestCase):
         mock_dag_runs_response._content = json.dumps(
             self.list_dag_runs_response
         ).encode("utf-8")
-        mock_get.return_value = mock_dag_runs_response
+        mock_post.return_value = mock_dag_runs_response
         expected_message = "Retrieved job status list from airflow"
         with TestClient(app) as client:
             response = client.get(
                 "/api/v1/get_job_status_list",
                 params={
-                    "limit": 10,
-                    "offset": 5,
+                    "page_limit": 10,
+                    "page_offset": 5,
                     "execution_date_gte": (
                         datetime.now(timezone.utc) - timedelta(days=2)
                     ).strftime("%Y-%m-%dT%H:%M:%SZ"),
@@ -690,21 +768,26 @@ class TestServer(unittest.TestCase):
         response_content = response.json()
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response_content["message"], expected_message)
-        self.assertEqual(response_content["data"]["params"]["limit"], 10)
-        self.assertEqual(response_content["data"]["params"]["offset"], 5)
+        self.assertEqual(response_content["data"]["params"]["page_limit"], 10)
+        self.assertEqual(response_content["data"]["params"]["page_offset"], 5)
+        mock_post.assert_called_once()
+        self.assertEqual(
+            mock_post.call_args_list[0][0][0],
+            "airflow_jobs_url/~/dagRuns/list",
+        )
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
-    @patch("httpx.AsyncClient.get")
+    @patch("httpx.AsyncClient.post")
     @patch("logging.Logger.warning")
     def test_get_job_status_list_validation_error(
         self,
         mock_log_warning: MagicMock,
-        mock_get,
+        mock_post,
     ):
         """Tests get_job_status_list when query_params are invalid."""
         invalid_queries = [
-            {"limit": "invalid", "offset": 5},
-            {"limit": 5, "offset": "invalid"},
+            {"page_limit": "invalid", "page_offset": 5},
+            {"page_limit": 5, "page_offset": "invalid"},
             {
                 "execution_date_gte": (
                     datetime.now(timezone.utc)
@@ -725,24 +808,24 @@ class TestServer(unittest.TestCase):
                 "Error validating request parameters",
             )
         mock_log_warning.assert_called()
-        mock_get.assert_not_called()
+        mock_post.assert_not_called()
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
-    @patch("httpx.AsyncClient.get")
+    @patch("httpx.AsyncClient.post")
     def test_get_job_status_list_get_all_jobs(
         self,
-        mock_get,
+        mock_post,
     ):
-        """Tests get_job_status_list when get_all_jobs is True."""
+        """Tests get_job_status_list when there are many jobs."""
 
-        def mock_airflow_dags(url, params):
+        def mock_airflow_dags(url, **kwargs):
             """Mocks the response from airflow."""
-            limit = int(params.get("limit"))
+            limit = int(kwargs["json"].get("page_limit"))
             mock_dag_runs_response = Response()
             mock_dag_runs_response.status_code = 200
             mock_dag_runs_response._content = json.dumps(
                 {
-                    "total_entries": 325,
+                    "total_entries": 300,
                     "dag_runs": [
                         self.get_dag_run_response for _ in range(limit)
                     ],
@@ -750,28 +833,26 @@ class TestServer(unittest.TestCase):
             ).encode("utf-8")
             return mock_dag_runs_response
 
-        mock_get.side_effect = mock_airflow_dags
+        mock_post.side_effect = mock_airflow_dags
         expected_message = "Retrieved job status list from airflow"
         with TestClient(app) as client:
-            response = client.get(
-                "/api/v1/get_job_status_list", params={"get_all_jobs": True}
-            )
+            response = client.get("/api/v1/get_job_status_list")
         response_content = response.json()
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response_content["message"], expected_message)
-        self.assertEqual(response_content["data"]["total_entries"], 325)
-        self.assertEqual(len(response_content["data"]["job_status_list"]), 325)
+        self.assertEqual(response_content["data"]["total_entries"], 300)
+        self.assertEqual(len(response_content["data"]["job_status_list"]), 300)
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch("logging.Logger.exception")
-    @patch("requests.get")
+    @patch("httpx.AsyncClient.post")
     def test_get_job_status_list_error(
         self,
-        mock_get: MagicMock,
+        mock_post: MagicMock,
         mock_log_error: MagicMock,
     ):
         """Tests get_job_status_list when there is an error sending request."""
-        mock_get.side_effect = Exception("mock error")
+        mock_post.side_effect = Exception("mock error")
         with TestClient(app) as client:
             response = client.get("/api/v1/get_job_status_list")
         response_content = response.json()
@@ -781,6 +862,11 @@ class TestServer(unittest.TestCase):
             "Unable to retrieve job status list from airflow",
         )
         mock_log_error.assert_called_once()
+        mock_post.assert_called_once()
+        self.assertEqual(
+            mock_post.call_args_list[0][0][0],
+            "airflow_jobs_url/~/dagRuns/list",
+        )
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch("requests.get")
@@ -797,10 +883,12 @@ class TestServer(unittest.TestCase):
         mock_get.return_value = mock_task_instances_response
         expected_message = "Retrieved job tasks list from airflow"
         expected_params = {
+            "dag_id": "transform_and_upload",
             "dag_run_id": "mock_dag_run_id",
         }
         expected_task_list = [
             {
+                "dag_id": "transform_and_upload",
                 "job_id": "manual__2024-08-21T16:16:54.302335+00:00",
                 "task_id": "send_job_start_email",
                 "try_number": 1,
@@ -814,6 +902,7 @@ class TestServer(unittest.TestCase):
                 "comment": None,
             },
             {
+                "dag_id": "transform_and_upload",
                 "job_id": "manual__2024-08-21T16:16:54.302335+00:00",
                 "task_id": "create_default_settings",
                 "try_number": 1,
@@ -827,6 +916,7 @@ class TestServer(unittest.TestCase):
                 "comment": None,
             },
             {
+                "dag_id": "transform_and_upload",
                 "job_id": "manual__2024-08-21T16:16:54.302335+00:00",
                 "task_id": "check_s3_folder_exist",
                 "try_number": 1,
@@ -840,6 +930,7 @@ class TestServer(unittest.TestCase):
                 "comment": None,
             },
             {
+                "dag_id": "transform_and_upload",
                 "job_id": "manual__2024-08-21T16:16:54.302335+00:00",
                 "task_id": "create_default_slurm_environment",
                 "try_number": 1,
@@ -853,6 +944,7 @@ class TestServer(unittest.TestCase):
                 "comment": None,
             },
             {
+                "dag_id": "transform_and_upload",
                 "job_id": "manual__2024-08-21T16:16:54.302335+00:00",
                 "task_id": "check_source_folders_exist",
                 "try_number": 1,
@@ -866,6 +958,7 @@ class TestServer(unittest.TestCase):
                 "comment": None,
             },
             {
+                "dag_id": "transform_and_upload",
                 "job_id": "manual__2024-08-21T16:16:54.302335+00:00",
                 "task_id": "create_folder",
                 "try_number": 1,
@@ -879,6 +972,7 @@ class TestServer(unittest.TestCase):
                 "comment": None,
             },
             {
+                "dag_id": "transform_and_upload",
                 "job_id": "manual__2024-08-21T16:16:54.302335+00:00",
                 "task_id": "make_modality_list",
                 "try_number": 1,
@@ -892,6 +986,7 @@ class TestServer(unittest.TestCase):
                 "comment": None,
             },
             {
+                "dag_id": "transform_and_upload",
                 "job_id": "manual__2024-08-21T16:16:54.302335+00:00",
                 "task_id": "gather_preliminary_metadata",
                 "try_number": 1,
@@ -905,6 +1000,7 @@ class TestServer(unittest.TestCase):
                 "comment": None,
             },
             {
+                "dag_id": "transform_and_upload",
                 "job_id": "manual__2024-08-21T16:16:54.302335+00:00",
                 "task_id": "compress_data",
                 "try_number": 1,
@@ -918,6 +1014,7 @@ class TestServer(unittest.TestCase):
                 "comment": None,
             },
             {
+                "dag_id": "transform_and_upload",
                 "job_id": "manual__2024-08-21T16:16:54.302335+00:00",
                 "task_id": "gather_final_metadata",
                 "try_number": 1,
@@ -931,6 +1028,7 @@ class TestServer(unittest.TestCase):
                 "comment": None,
             },
             {
+                "dag_id": "transform_and_upload",
                 "job_id": "manual__2024-08-21T16:16:54.302335+00:00",
                 "task_id": "upload_data_to_s3",
                 "try_number": 1,
@@ -944,6 +1042,7 @@ class TestServer(unittest.TestCase):
                 "comment": None,
             },
             {
+                "dag_id": "transform_and_upload",
                 "job_id": "manual__2024-08-21T16:16:54.302335+00:00",
                 "task_id": "send_codeocean_request",
                 "try_number": 1,
@@ -957,6 +1056,7 @@ class TestServer(unittest.TestCase):
                 "comment": None,
             },
             {
+                "dag_id": "transform_and_upload",
                 "job_id": "manual__2024-08-21T16:16:54.302335+00:00",
                 "task_id": "remove_folder",
                 "try_number": 1,
@@ -970,6 +1070,7 @@ class TestServer(unittest.TestCase):
                 "comment": None,
             },
             {
+                "dag_id": "transform_and_upload",
                 "job_id": "manual__2024-08-21T16:16:54.302335+00:00",
                 "task_id": "send_job_end_email",
                 "try_number": 1,
@@ -987,6 +1088,7 @@ class TestServer(unittest.TestCase):
             response = client.get(
                 "/api/v1/get_tasks_list",
                 params={
+                    "dag_id": "transform_and_upload",
                     "dag_run_id": "mock_dag_run_id",
                 },
             )
@@ -1045,6 +1147,7 @@ class TestServer(unittest.TestCase):
             response = client.get(
                 "/api/v1/get_tasks_list",
                 params={
+                    "dag_id": "transform_and_upload",
                     "dag_run_id": "mock_dag_run_id",
                 },
             )
@@ -1069,18 +1172,22 @@ class TestServer(unittest.TestCase):
         mock_get.return_value = mock_logs_response
         expected_message = "Retrieved task logs from airflow"
         expected_default_params = {
+            "dag_id": "mock_dag_id",
             "dag_run_id": "mock_dag_run_id",
             "task_id": "mock_task_id",
             "try_number": 1,
+            "map_index": -1,
             "full_content": True,
         }
         with TestClient(app) as client:
             response = client.get(
                 "/api/v1/get_task_logs",
                 params={
+                    "dag_id": "mock_dag_id",
                     "dag_run_id": "mock_dag_run_id",
                     "task_id": "mock_task_id",
                     "try_number": 1,
+                    "map_index": -1,
                 },
             )
         response_content = response.json()
@@ -1106,6 +1213,7 @@ class TestServer(unittest.TestCase):
     ):
         """Tests get_task_logs when query_params are invalid."""
         invalid_params = {
+            "dag_id": "mock_dag_id",
             "dag_run_id": "mock_dag_run_id",
             "task_id": "mock_task_id",
             "try_number": "invalid",
@@ -1137,9 +1245,11 @@ class TestServer(unittest.TestCase):
             response = client.get(
                 "/api/v1/get_task_logs",
                 params={
+                    "dag_id": "transform_and_upload",
                     "dag_run_id": "mock_dag_run_id",
                     "task_id": "mock_task_id",
                     "try_number": 1,
+                    "map_index": -1,
                 },
             )
         response_content = response.json()
@@ -1166,48 +1276,73 @@ class TestServer(unittest.TestCase):
         mock_ssm_client.return_value.get_paginator.return_value = (
             mock_paginator
         )
-        expected_params_list = [
-            {
-                "job_type": "job1",
-                "last_modified": "2025-01-23T11:50:04.535000-08:00",
-                "name": "/param_prefix/job1/tasks/task1",
-                "task_id": "task1",
-            },
-            {
-                "job_type": "job2",
-                "last_modified": "2025-01-23T11:50:04.605000-08:00",
-                "name": "/param_prefix/job2/tasks/task2",
-                "task_id": "task2",
-            },
-        ]
-        with TestClient(app) as client:
-            response = client.get("/api/v1/parameters")
-        mock_ssm_client.assert_called_once_with("ssm")
-        mock_ssm_client.return_value.get_paginator.assert_called_once_with(
-            "describe_parameters"
-        )
-        mock_paginator.paginate.assert_called_once_with(
-            ParameterFilters=[
+        expected_params = {
+            "v1": [
                 {
-                    "Key": "Path",
-                    "Option": "Recursive",
-                    "Values": ["/param_prefix"],
-                }
-            ]
-        )
-        response_content = response.json()
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(
-            response_content,
-            {
-                "message": "Retrieved job parameters",
-                "data": expected_params_list,
-            },
-        )
-        # params that do not match expected format are ignored
-        mock_log_info.assert_any_call(
-            "Ignoring /param_prefix/unexpected_param"
-        )
+                    "job_type": "job1",
+                    "last_modified": "2025-01-23T11:50:04.535000-08:00",
+                    "name": "/param_prefix/job1/tasks/task1",
+                    "task_id": "task1",
+                    "modality": None,
+                },
+                {
+                    "job_type": "job2",
+                    "last_modified": "2025-01-23T11:50:04.605000-08:00",
+                    "name": "/param_prefix/job2/tasks/task2",
+                    "task_id": "task2",
+                    "modality": None,
+                },
+            ],
+            "v2": [
+                {
+                    "job_type": "job1",
+                    "last_modified": "2025-01-23T11:50:04.605000-08:00",
+                    "name": "/param_prefix/v2/job1/tasks/task1",
+                    "task_id": "task1",
+                    "modality": None,
+                },
+                {
+                    "job_type": "job1",
+                    "last_modified": "2025-01-23T11:50:04.605000-08:00",
+                    "name": "/param_prefix/v2/job1/tasks/task2/modality1",
+                    "task_id": "task2",
+                    "modality": "modality1",
+                },
+            ],
+        }
+        for version, params_list in expected_params.items():
+            with TestClient(app) as client:
+                response = client.get(f"/api/{version}/parameters")
+            mock_ssm_client.assert_called_with("ssm")
+            mock_ssm_client.return_value.get_paginator.assert_called_with(
+                "describe_parameters"
+            )
+            if version == "v1":
+                expected_filter = "/param_prefix"
+            else:
+                expected_filter = f"/param_prefix/{version}"
+            mock_paginator.paginate.assert_called_with(
+                ParameterFilters=[
+                    {
+                        "Key": "Path",
+                        "Option": "Recursive",
+                        "Values": [expected_filter],
+                    }
+                ]
+            )
+            response_content = response.json()
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(
+                response_content,
+                {
+                    "message": "Retrieved job parameters",
+                    "data": params_list,
+                },
+            )
+            # params that do not match expected format are ignored
+            mock_log_info.assert_any_call(
+                "Ignoring /param_prefix/unexpected_param"
+            )
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch("boto3.client")
@@ -1219,24 +1354,28 @@ class TestServer(unittest.TestCase):
         mock_ssm_client.return_value.get_parameter.return_value = (
             self.get_parameter_response
         )
-        expected_param_name = "/param_prefix/ecephys/tasks/task1"
-        with TestClient(app) as client:
-            response = client.get(
-                "/api/v1/parameters/job_types/ecephys/tasks/task1"
+        expected_params = {
+            "v1": "/param_prefix/ecephys/tasks/task1",
+            "v2": "/param_prefix/v2/ecephys/tasks/task1",
+        }
+        for version, param_name in expected_params.items():
+            with TestClient(app) as client:
+                response = client.get(
+                    f"/api/{version}/parameters/job_types/ecephys/tasks/task1"
+                )
+            mock_ssm_client.assert_called_with("ssm")
+            mock_ssm_client.return_value.get_parameter.assert_called_with(
+                Name=param_name, WithDecryption=True
             )
-        mock_ssm_client.assert_called_once_with("ssm")
-        mock_ssm_client.return_value.get_parameter.assert_called_once_with(
-            Name=expected_param_name, WithDecryption=True
-        )
-        response_content = response.json()
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(
-            response_content,
-            {
-                "message": f"Retrieved parameter for {expected_param_name}",
-                "data": {"foo": "bar"},
-            },
-        )
+            response_content = response.json()
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(
+                response_content,
+                {
+                    "message": f"Retrieved parameter for {param_name}",
+                    "data": {"foo": "bar"},
+                },
+            )
 
     @patch("logging.Logger.exception")
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
@@ -1256,15 +1395,22 @@ class TestServer(unittest.TestCase):
             },
             "GetParameter",
         )
-        with TestClient(app) as client:
-            response = client.get("/api/v1/parameters/job_types/foo/tasks/bar")
-        response_content = response.json()
-        self.assertEqual(response.status_code, 500)
-        self.assertEqual(
-            response_content["message"],
-            "Error retrieving parameter /param_prefix/foo/tasks/bar",
-        )
-        mock_log_error.assert_called_once()
+        expected_params = {
+            "v1": "/param_prefix/foo/tasks/bar",
+            "v2": "/param_prefix/v2/foo/tasks/bar",
+        }
+        for version, param_name in expected_params.items():
+            with TestClient(app) as client:
+                response = client.get(
+                    f"/api/{version}/parameters/job_types/foo/tasks/bar"
+                )
+            response_content = response.json()
+            self.assertEqual(response.status_code, 500)
+            self.assertEqual(
+                response_content["message"],
+                f"Error retrieving parameter {param_name}",
+            )
+            mock_log_error.assert_called()
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     def test_index(self):
@@ -1282,41 +1428,6 @@ class TestServer(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn("Jobs Submitted:", response.text)
 
-    @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
-    @patch("httpx.AsyncClient.get")
-    def test_jobs_table_success(self, mock_get: MagicMock):
-        """Tests that job status table renders as expected."""
-        mock_response = Response()
-        mock_response.status_code = 200
-        mock_response._content = json.dumps(
-            self.list_dag_runs_response
-        ).encode("utf-8")
-        mock_get.return_value = mock_response
-        with TestClient(app) as client:
-            response = client.get("/job_status_table")
-        self.assertEqual(response.status_code, 200)
-        self.assertIn("Asset Name", response.text)
-
-    @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
-    @patch("logging.Logger.error")
-    @patch("httpx.AsyncClient.get")
-    def test_jobs_table_failure(
-        self, mock_get: MagicMock, mock_log_error: MagicMock
-    ):
-        """Tests that job status table renders error message from airflow."""
-        mock_response = Response()
-        mock_response.status_code = 500
-        mock_get.return_value = mock_response
-        with TestClient(app) as client:
-            response = client.get("/job_status_table")
-        self.assertEqual(response.status_code, 200)
-        self.assertIn("Asset Name", response.text)
-        self.assertIn(
-            "Unable to retrieve job status list from airflow", response.text
-        )
-        self.assertIn("500 Server Error", response.text)
-        mock_log_error.assert_called_once()
-
     @patch("requests.get")
     def test_tasks_table_success(self, mock_get: MagicMock):
         """Tests that job tasks table renders as expected."""
@@ -1328,7 +1439,8 @@ class TestServer(unittest.TestCase):
         mock_get.return_value = mock_response
         with TestClient(app) as client:
             response = client.get(
-                "/job_tasks_table", params={"dag_run_id": "dag_run_id"}
+                "/job_tasks_table",
+                params={"dag_id": "dag_id", "dag_run_id": "dag_run_id"},
             )
         self.assertEqual(response.status_code, 200)
         self.assertIn("Task ID", response.text)
@@ -1346,7 +1458,11 @@ class TestServer(unittest.TestCase):
         mock_get.return_value = mock_response
         with TestClient(app) as client:
             response = client.get(
-                "/job_tasks_table", params={"dag_run_id": "dag_run_id"}
+                "/job_tasks_table",
+                params={
+                    "dag_id": "transform_and_upload",
+                    "dag_run_id": "dag_run_id",
+                },
             )
         self.assertEqual(response.status_code, 200)
         self.assertIn("Task ID", response.text)
@@ -1367,9 +1483,11 @@ class TestServer(unittest.TestCase):
             response = client.get(
                 "/task_logs",
                 params={
+                    "dag_id": "transform_and_upload",
                     "dag_run_id": "dag_run_id",
                     "task_id": "task_id",
                     "try_number": 1,
+                    "map_index": -1,
                 },
             )
         self.assertEqual(response.status_code, 200)
@@ -1389,9 +1507,11 @@ class TestServer(unittest.TestCase):
             response = client.get(
                 "/task_logs",
                 params={
+                    "dag_id": "transform_and_upload",
                     "dag_run_id": "dag_run_id",
                     "task_id": "task_id",
                     "try_number": 1,
+                    "map_index": -1,
                 },
             )
         self.assertEqual(response.status_code, 200)
@@ -1572,41 +1692,50 @@ class TestServer(unittest.TestCase):
     @patch("logging.Logger.warning")
     @patch("requests.post")
     @patch("aind_data_transfer_service.server.get_project_names")
-    def test_submit_v1_jobs_406(
+    @patch("aind_data_transfer_service.server.get_job_types")
+    def test_submit_v1_v2_jobs_406(
         self,
+        mock_get_job_types: MagicMock,
         mock_get_project_names: MagicMock,
         mock_post: MagicMock,
         mock_log_warning: MagicMock,
     ):
         """Tests submit jobs 406 response."""
+        mock_get_job_types.return_value = ["ecephys"]
         mock_get_project_names.return_value = ["Ephys Platform"]
-        with TestClient(app) as client:
-            submit_job_response = client.post(
-                url="/api/v1/submit_jobs", json={}
+        for version in ["v1", "v2"]:
+            with TestClient(app) as client:
+                submit_job_response = client.post(
+                    url=f"/api/{version}/submit_jobs", json={}
+                )
+            self.assertEqual(406, submit_job_response.status_code)
+            mock_post.assert_not_called()
+            mock_log_warning.assert_called_with(
+                "There were validation errors processing {}"
             )
-        self.assertEqual(406, submit_job_response.status_code)
-        mock_post.assert_not_called()
-        mock_log_warning.assert_called_once_with(
-            "There were validation errors processing {}"
-        )
+        mock_get_job_types.assert_called_once_with("v2")
+        self.assertEqual(2, mock_get_project_names.call_count)
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch("requests.post")
     @patch("aind_data_transfer_service.server.get_project_names")
-    def test_submit_v1_jobs_200(
+    @patch("aind_data_transfer_service.server.get_job_types")
+    def test_submit_v1_v2_jobs_200(
         self,
+        mock_get_job_types: MagicMock,
         mock_get_project_names: MagicMock,
         mock_post: MagicMock,
     ):
         """Tests submit jobs success."""
         mock_get_project_names.return_value = ["Ephys Platform"]
+        mock_get_job_types.return_value = ["ecephys"]
         mock_response = Response()
         mock_response.status_code = 200
         mock_response._content = json.dumps({"message": "sent"}).encode(
             "utf-8"
         )
         mock_post.return_value = mock_response
-        request_json = {
+        request_json_v1 = {
             "user_email": None,
             "email_notification_types": ["fail"],
             "upload_jobs": [
@@ -1638,26 +1767,40 @@ class TestServer(unittest.TestCase):
                 },
             ],
         }
-        with TestClient(app) as client:
-            submit_job_response = client.post(
-                url="/api/v1/submit_jobs", json=request_json
-            )
-        self.assertEqual(200, submit_job_response.status_code)
+        job_request_v2 = SubmitJobRequestV2(
+            upload_jobs=[self.example_configs_v2]
+        )
+        request_json_v2 = job_request_v2.model_dump(mode="json")
+        jobs = {
+            "v1": request_json_v1,
+            "v2": request_json_v2,
+        }
+        for version, request_json in jobs.items():
+            with TestClient(app) as client:
+                submit_job_response = client.post(
+                    url=f"/api/{version}/submit_jobs", json=request_json
+                )
+            self.assertEqual(200, submit_job_response.status_code)
+        mock_get_job_types.assert_called_once_with("v2")
+        self.assertEqual(2, mock_get_project_names.call_count)
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch("requests.post")
     @patch("logging.Logger.exception")
     @patch("aind_data_transfer_service.server.get_project_names")
-    def test_submit_v1_jobs_500(
+    @patch("aind_data_transfer_service.server.get_job_types")
+    def test_submit_v1_v2_jobs_500(
         self,
+        mock_get_job_types: MagicMock,
         mock_get_project_names: MagicMock,
         mock_log_exception: MagicMock,
         mock_post: MagicMock,
     ):
         """Tests submit jobs 500 response."""
+        mock_get_job_types.return_value = ["ecephys"]
         mock_get_project_names.return_value = ["Ephys Platform"]
         mock_post.side_effect = Exception("Something went wrong")
-        request_json = {
+        request_json_v1 = {
             "user_email": None,
             "email_notification_types": ["fail"],
             "upload_jobs": [
@@ -1689,12 +1832,49 @@ class TestServer(unittest.TestCase):
                 },
             ],
         }
-        with TestClient(app) as client:
-            submit_job_response = client.post(
-                url="/api/v1/submit_jobs", json=request_json
-            )
-        self.assertEqual(500, submit_job_response.status_code)
-        mock_log_exception.assert_called()
+        request_json_v2 = {
+            "user_email": None,
+            "email_notification_types": ["fail"],
+            "upload_jobs": [
+                {
+                    "job_type": "ecephys",
+                    "project_name": "Ephys Platform",
+                    "platform": {
+                        "name": "Electrophysiology platform",
+                        "abbreviation": "ecephys",
+                    },
+                    "modalities": [
+                        {
+                            "name": "Extracellular electrophysiology",
+                            "abbreviation": "ecephys",
+                        }
+                    ],
+                    "subject_id": "655019",
+                    "acq_datetime": "2000-01-01T01:40:04",
+                    "tasks": {
+                        "make_modality_list": {
+                            "dynamic_parameters_settings": {
+                                "modality": "ecephys",
+                                "source": "dir/source1",
+                            },
+                        }
+                    },
+                },
+            ],
+        }
+        jobs = {
+            "v1": request_json_v1,
+            "v2": request_json_v2,
+        }
+        for version, request_json in jobs.items():
+            with TestClient(app) as client:
+                submit_job_response = client.post(
+                    url=f"/api/{version}/submit_jobs", json=request_json
+                )
+            self.assertEqual(500, submit_job_response.status_code)
+            mock_log_exception.assert_called()
+        mock_get_job_types.assert_called_once_with("v2")
+        self.assertEqual(2, mock_get_project_names.call_count)
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch("requests.post")
@@ -1882,14 +2062,17 @@ class TestServer(unittest.TestCase):
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch("requests.post")
     @patch("aind_data_transfer_service.server.get_project_names")
-    def test_submit_v1_jobs_200_basic_serialization(
+    @patch("aind_data_transfer_service.server.get_job_types")
+    def test_submit_v2_jobs_200_basic_serialization(
         self,
+        mock_get_job_types: MagicMock,
         mock_get_project_names: MagicMock,
         mock_post: MagicMock,
     ):
         """Tests submission when user posts standard pydantic json"""
 
         mock_get_project_names.return_value = ["Ephys Platform"]
+        mock_get_job_types.return_value = ["ecephys"]
 
         mock_response = Response()
         mock_response.status_code = 200
@@ -1922,34 +2105,50 @@ class TestServer(unittest.TestCase):
         upload_jobs = [upload_job_configs]
         submit_request = SubmitJobRequest(upload_jobs=upload_jobs)
 
-        post_request_content = json.loads(submit_request.model_dump_json())
+        post_request_content_v1 = json.loads(submit_request.model_dump_json())
+        job_request_v2 = SubmitJobRequestV2(
+            upload_jobs=[self.example_configs_v2]
+        )
+        post_request_content_v2 = job_request_v2.model_dump(mode="json")
+        jobs = {
+            "v1": post_request_content_v1,
+            "v2": post_request_content_v2,
+        }
 
-        with TestClient(app) as client:
-            submit_job_response = client.post(
-                url="/api/v1/submit_jobs", json=post_request_content
-            )
-        self.assertEqual(200, submit_job_response.status_code)
+        for version, request_json in jobs.items():
+            with TestClient(app) as client:
+                submit_job_response = client.post(
+                    url=f"/api/{version}/submit_jobs", json=request_json
+                )
+            self.assertEqual(200, submit_job_response.status_code)
+        mock_get_job_types.assert_called_once_with("v2")
+        self.assertEqual(2, mock_get_project_names.call_count)
 
+    @patch("aind_data_transfer_service.server.get_job_types")
     @patch("aind_data_transfer_service.server.get_project_names")
-    def test_validate_json(self, mock_get_project_names: MagicMock):
+    def test_validate_json(
+        self,
+        mock_get_project_names: MagicMock,
+        mock_get_job_types: MagicMock,
+    ):
         """Tests validate_json when json is valid."""
 
         mock_get_project_names.return_value = ["Ephys Platform"]
+        mock_get_job_types.return_value = ["ecephys"]
 
+        # shared
         ephys_source_dir = PurePosixPath("shared_drive/ephys_data/690165")
-
         s3_bucket = "private"
         subject_id = "690165"
         acq_datetime = datetime(2024, 2, 19, 11, 25, 17)
         platform = Platform.ECEPHYS
-
+        project_name = "Ephys Platform"
+        # v1
         ephys_config = ModalityConfigs(
             modality=Modality.ECEPHYS,
             source=ephys_source_dir,
         )
-        project_name = "Ephys Platform"
-
-        upload_job_configs = BasicUploadJobConfigs(
+        upload_job = BasicUploadJobConfigs(
             project_name=project_name,
             s3_bucket=s3_bucket,
             platform=platform,
@@ -1957,79 +2156,119 @@ class TestServer(unittest.TestCase):
             acq_datetime=acq_datetime,
             modalities=[ephys_config],
         )
-        submit_job_request = SubmitJobRequest(upload_jobs=[upload_job_configs])
-        post_request_content = json.loads(submit_job_request.model_dump_json())
-        with TestClient(app) as client:
-            response = client.post(
-                "/api/v1/validate_json",
-                json=post_request_content,
+        submit_job_request_v1 = SubmitJobRequest(upload_jobs=[upload_job])
+        # v2
+        upload_job = self.example_configs_v2
+        submit_job_request_v2 = SubmitJobRequestV2(upload_jobs=[upload_job])
+
+        expected_jobs = {
+            "v1": {
+                "request": submit_job_request_v1,
+                "version": aind_data_transfer_models_version,
+            },
+            "v2": {
+                "request": submit_job_request_v2,
+                "version": aind_data_transfer_service_version,
+            },
+        }
+        for version, job in expected_jobs.items():
+            post_request_content = json.loads(job["request"].model_dump_json())
+            with TestClient(app) as client:
+                response = client.post(
+                    f"/api/{version}/validate_json",
+                    json=post_request_content,
+                )
+                response_json = response.json()
+            self.assertEqual(200, response.status_code)
+            self.assertEqual("Valid model", response_json["message"])
+            self.assertEqual(
+                post_request_content, response_json["data"]["model_json"]
             )
-            response_json = response.json()
-        self.assertEqual(200, response.status_code)
-        self.assertEqual("Valid model", response_json["message"])
-        self.assertEqual(
-            post_request_content, response_json["data"]["model_json"]
-        )
-        self.assertEqual(
-            aind_data_transfer_models_version, response_json["data"]["version"]
-        )
+            self.assertEqual(job["version"], response_json["data"]["version"])
+        mock_get_job_types.assert_called_once_with("v2")
+        self.assertEqual(2, mock_get_project_names.call_count)
 
     @patch("logging.Logger.warning")
     @patch("aind_data_transfer_service.server.get_project_names")
+    @patch("aind_data_transfer_service.server.get_job_types")
     def test_validate_json_invalid(
-        self, mock_get_project_names: MagicMock, mock_log_warning: MagicMock
+        self,
+        mock_get_job_types: MagicMock,
+        mock_get_project_names: MagicMock,
+        mock_log_warning: MagicMock,
     ):
         """Tests validate_json when json is invalid."""
+        mock_get_job_types.return_value = ["ecephys"]
         mock_get_project_names.return_value = ["Ephys Platform"]
         content = {"foo": "bar"}
-        with TestClient(app) as client:
-            response = client.post(
-                "/api/v1/validate_json",
-                json=content,
+        versions = {
+            "v1": aind_data_transfer_models_version,
+            "v2": aind_data_transfer_service_version,
+        }
+        for version, response_version in versions.items():
+            with TestClient(app) as client:
+                response = client.post(
+                    f"/api/{version}/validate_json", json=content
+                )
+            response_json = response.json()
+            self.assertEqual(406, response.status_code)
+            self.assertEqual(
+                "There were validation errors", response_json["message"]
             )
-        response_json = response.json()
-        self.assertEqual(406, response.status_code)
-        self.assertEqual(
-            "There were validation errors", response_json["message"]
-        )
-        self.assertEqual(content, response_json["data"]["model_json"])
-        self.assertEqual(
-            aind_data_transfer_models_version, response_json["data"]["version"]
-        )
-        mock_log_warning.assert_called_once_with(
-            f"There were validation errors processing {content}"
-        )
+            self.assertEqual(content, response_json["data"]["model_json"])
+            self.assertEqual(
+                response_version, response_json["data"]["version"]
+            )
+            mock_log_warning.assert_called_with(
+                f"There were validation errors processing {content}"
+            )
+        mock_get_job_types.assert_called_once_with("v2")
+        self.assertEqual(2, mock_get_project_names.call_count)
 
     @patch("logging.Logger.exception")
     @patch("pydantic.BaseModel.model_validate_json")
     @patch("aind_data_transfer_service.server.get_project_names")
+    @patch("aind_data_transfer_service.server.get_job_types")
     def test_validate_json_error(
         self,
+        mock_get_job_types: MagicMock,
         mock_get_project_names: MagicMock,
         mock_model_validate_json: MagicMock,
         mock_log_error: MagicMock,
     ):
         """Tests validate_json when there is an unknown error."""
 
+        mock_get_job_types.return_value = ["ecephys"]
         mock_get_project_names.return_value = ["Ephys Platform"]
         mock_model_validate_json.side_effect = Exception("Unknown error")
-        with TestClient(app) as client:
-            response = client.post(
-                "/api/v1/validate_json",
-                json={"foo": "bar"},
+        versions = {
+            "v1": aind_data_transfer_models_version,
+            "v2": aind_data_transfer_service_version,
+        }
+        for version, response_version in versions.items():
+            with TestClient(app) as client:
+                response = client.post(
+                    f"/api/{version}/validate_json",
+                    json={"foo": "bar"},
+                )
+            response_json = response.json()
+            self.assertEqual(500, response.status_code)
+            self.assertEqual(
+                "There was an internal server error", response_json["message"]
             )
-        response_json = response.json()
-        self.assertEqual(500, response.status_code)
-        self.assertEqual(
-            "There was an internal server error", response_json["message"]
-        )
-        self.assertEqual({"foo": "bar"}, response_json["data"]["model_json"])
-        self.assertEqual("('Unknown error',)", response_json["data"]["errors"])
-        self.assertEqual(
-            aind_data_transfer_models_version, response_json["data"]["version"]
-        )
-        mock_model_validate_json.assert_called_once()
-        mock_log_error.assert_called_once_with("Internal Server Error.")
+            self.assertEqual(
+                {"foo": "bar"}, response_json["data"]["model_json"]
+            )
+            self.assertEqual(
+                "('Unknown error',)", response_json["data"]["errors"]
+            )
+            self.assertEqual(
+                response_version, response_json["data"]["version"]
+            )
+            mock_model_validate_json.assert_called()
+            mock_log_error.assert_called_with("Internal Server Error.")
+        mock_get_job_types.assert_called_once_with("v2")
+        self.assertEqual(2, mock_get_project_names.call_count)
 
 
 if __name__ == "__main__":

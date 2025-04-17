@@ -5,4 +5,5 @@ exclude =
     build,
     venv,
     .venv
+    env
 max-complexity = 10
