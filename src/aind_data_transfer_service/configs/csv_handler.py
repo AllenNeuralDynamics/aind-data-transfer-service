@@ -44,7 +44,7 @@ def map_csv_row_to_job(row: dict) -> UploadJobConfigsV2:
         if m.get("modality") is not None
     }
     metadata_task = (
-        Task(job_settings={"metadata_dir": job_configs["metadata_dir"]})
+        Task(job_settings={"metadata_dir": job_configs.pop("metadata_dir")})
         if "metadata_dir" in job_configs
         else None
     )
