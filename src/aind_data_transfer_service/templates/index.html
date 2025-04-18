@@ -223,7 +223,7 @@
                 job_settings["email_notification_types"] = mail_type
                 job_settings["upload_jobs"] = jobs
                 $.ajax({
-                    url: "/api/v1/submit_jobs",
+                    url: "/api/v2/submit_jobs",
                     type: "POST",
                     data: JSON.stringify(job_settings),
                     contentType: 'application/json; charset=utf-8',
@@ -240,7 +240,12 @@
                     error: function(data) {
                         jobs = []
                         setMessage(msgTypes.submitError);
-                        parsing_errors = data.responseJSON["data"]["errors"]
+                        let errors = data.responseJSON["data"]["errors"];
+                        try {
+                            parsing_errors = JSON.parse(errors).map((err) => JSON.stringify(err));
+                        } catch (e) {
+                            parsing_errors = (typeof errors == "string") ? [errors] : errors;
+                        }
                         $("#response").html(parsing_errors.map((errStr) => {
                             return `<li>${errStr}</li>`
                         }));
