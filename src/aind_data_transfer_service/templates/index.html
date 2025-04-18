@@ -92,7 +92,7 @@
         var jobs = []
         var parsing_errors = []
         const msgTypes = {
-            "validatePending": "Sending...",
+            "validatePending": "Validating...",
             "validateSuccess": "Successfully validated jobs from file.",
             "validateError": "Error validating jobs from file.",
             "submitPending": "Submitting jobs. Please do not refresh or re-submit...",
@@ -133,7 +133,7 @@
             }
             var formData = new FormData(document.getElementById("file_form"));
             $.ajax({
-                url: "/api/v1/validate_csv",
+                url: "/api/v2/validate_csv",
                 type: "POST",
                 data: formData,
                 cache: false,
@@ -155,8 +155,15 @@
                     );
                     for (row = 0; row < jobsLength; row++) {
                         let job = jobs[row];
-                        let modalities = job.modalities;
-                        let modalitiesLength = modalities.length;
+                        let modalities = job.tasks?.modality_transformation_settings;
+                        if (modalities) {
+                            modalities = Object.entries(modalities).map(([key, value]) => ({
+                                abbreviation: key,
+                                source: value.job_settings?.source
+                            }))
+                        }
+                        let modalitiesLength = modalities ? modalities.length: 0;
+                        let metadata_dir = job.tasks?.gather_preliminary_metadata?.job_settings?.metadata_dir
                         addTableRow(
                             [   { value: job.project_name,             rowspan: modalitiesLength },
                                 { value: job.process_capsule_id ?? "", rowspan: modalitiesLength },
@@ -165,15 +172,15 @@
                                 { value: job.platform.abbreviation,    rowspan: modalitiesLength },
                                 { value: job.subject_id,               rowspan: modalitiesLength },
                                 { value: job.acq_datetime,             rowspan: modalitiesLength },
-                                { value: job.metadata_dir ?? "",       rowspan: modalitiesLength },
-                                modalities ? modalities[0].modality.abbreviation : "",
+                                { value: metadata_dir ?? "",           rowspan: modalitiesLength },
+                                modalities ? modalities[0].abbreviation : "",
                                 modalities ? modalities[0].source : ""
                             ], table, tr, td, false
                         );
                         for (mRow = 1; mRow < modalitiesLength; mRow++) {
                             let modality = modalities[mRow]
                             addTableRow(
-                                [ modality.modality.abbreviation, modality.source ],
+                                [ modality.abbreviation, modality.source ],
                                 table, tr, td, false
                             );
                         }
