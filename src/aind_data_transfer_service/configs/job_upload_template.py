@@ -20,6 +20,7 @@ class JobUploadTemplate:
     NUM_TEMPLATE_ROWS = 20
     XLSX_DATETIME_FORMAT = "YYYY-MM-DDTHH:mm:ss"
     HEADERS = [
+        "job_type",
         "project_name",
         "platform",
         "acq_datetime",
@@ -32,6 +33,7 @@ class JobUploadTemplate:
     ]
     SAMPLE_JOBS = [
         [
+            "default",
             "Behavior Platform",
             Platform.BEHAVIOR.abbreviation,
             datetime.datetime(2023, 10, 4, 4, 0, 0),
@@ -43,6 +45,7 @@ class JobUploadTemplate:
             "/allen/aind/stage/fake/dir",
         ],
         [
+            "default",
             "Ophys Platform - SLAP2",
             Platform.SMARTSPIM.abbreviation,
             datetime.datetime(2023, 3, 4, 16, 30, 0),
@@ -52,6 +55,7 @@ class JobUploadTemplate:
             "/allen/aind/stage/fake/dir",
         ],
         [
+            "default",
             "Ephys Platform",
             Platform.ECEPHYS.abbreviation,
             datetime.datetime(2023, 1, 30, 19, 1, 0),

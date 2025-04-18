@@ -150,7 +150,7 @@
                     let jobsLength = jobs.length;
                     var table = document.createElement('table'), tr, td, row;
                     addTableRow(
-                        [ "project_name", "s3_bucket", "platform", "subject_id", "acq_datetime", "metadata_dir", "modality", "modality.source" ],
+                        [ "job_type", "project_name", "s3_bucket", "platform", "subject_id", "acq_datetime", "metadata_dir", "modality", "modality.source" ],
                         table, tr, td, true
                     );
                     for (row = 0; row < jobsLength; row++) {
@@ -165,7 +165,9 @@
                         let modalitiesLength = modalities ? modalities.length: 0;
                         let metadata_dir = job.tasks?.gather_preliminary_metadata?.job_settings?.metadata_dir
                         addTableRow(
-                            [   { value: job.project_name,             rowspan: modalitiesLength },
+                            [
+                                { value: job.job_type,                 rowspan: modalitiesLength },
+                                { value: job.project_name,             rowspan: modalitiesLength },
                                 { value: job.s3_bucket,                rowspan: modalitiesLength },
                                 { value: job.platform.abbreviation,    rowspan: modalitiesLength },
                                 { value: job.subject_id,               rowspan: modalitiesLength },
