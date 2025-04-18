@@ -27,9 +27,11 @@ class JobUploadTemplate:
         "subject_id",
         "metadata_dir",
         "modality0",
-        "modality0.source",
+        "modality0.input_source",
         "modality1",
-        "modality1.source",
+        "modality1.input_source",
+        "modality2",
+        "modality2.input_source",
     ]
     SAMPLE_JOBS = [
         [

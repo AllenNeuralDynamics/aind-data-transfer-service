@@ -150,7 +150,7 @@
                     let jobsLength = jobs.length;
                     var table = document.createElement('table'), tr, td, row;
                     addTableRow(
-                        [ "job_type", "project_name", "s3_bucket", "platform", "subject_id", "acq_datetime", "metadata_dir", "modality", "modality.source" ],
+                        [ "job_type", "project_name", "s3_bucket", "platform", "subject_id", "acq_datetime", "metadata_dir", "modality", "modality.input_source" ],
                         table, tr, td, true
                     );
                     for (row = 0; row < jobsLength; row++) {
@@ -159,7 +159,7 @@
                         if (modalities) {
                             modalities = Object.entries(modalities).map(([key, value]) => ({
                                 abbreviation: key,
-                                source: value.job_settings?.source
+                                input_source: value.job_settings?.input_source
                             }))
                         }
                         let modalitiesLength = modalities ? modalities.length: 0;
@@ -174,13 +174,13 @@
                                 { value: job.acq_datetime,             rowspan: modalitiesLength },
                                 { value: metadata_dir ?? "",           rowspan: modalitiesLength },
                                 modalities ? modalities[0].abbreviation : "",
-                                modalities ? modalities[0].source : ""
+                                modalities ? modalities[0].input_source : ""
                             ], table, tr, td, false
                         );
                         for (mRow = 1; mRow < modalitiesLength; mRow++) {
                             let modality = modalities[mRow]
                             addTableRow(
-                                [ modality.abbreviation, modality.source ],
+                                [ modality.abbreviation, modality.input_source ],
                                 table, tr, td, false
                             );
                         }
