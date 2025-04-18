@@ -32,7 +32,7 @@ from aind_data_transfer_service import (
     __version__ as aind_data_transfer_service_version,
 )
 from aind_data_transfer_service.configs.job_upload_template import (
-    JobUploadTemplateV1,
+    JobUploadTemplate,
 )
 from aind_data_transfer_service.models.core import (
     SubmitJobRequestV2,
@@ -1526,7 +1526,7 @@ class TestServer(unittest.TestCase):
         with TestClient(app) as client:
             response = client.get("/api/job_upload_template")
 
-        expected_job_template = JobUploadTemplateV1()
+        expected_job_template = JobUploadTemplate()
         expected_file_stream = expected_job_template.excel_sheet_filestream
         expected_streaming_response = StreamingResponse(
             BytesIO(expected_file_stream.getvalue()),

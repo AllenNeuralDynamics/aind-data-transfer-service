@@ -29,13 +29,12 @@ from aind_data_transfer_service import OPEN_DATA_BUCKET_NAME
 from aind_data_transfer_service import (
     __version__ as aind_data_transfer_service_version,
 )
-from aind_data_transfer_service.configs.csv_handler import map_csv_row_to_job_v1, map_csv_row_to_job
+from aind_data_transfer_service.configs.csv_handler import map_csv_row_to_job
 from aind_data_transfer_service.configs.job_configs import (
     BasicUploadJobConfigs as LegacyBasicUploadJobConfigs,
 )
 from aind_data_transfer_service.configs.job_configs import HpcJobConfigs
 from aind_data_transfer_service.configs.job_upload_template import (
-    JobUploadTemplateV1,
     JobUploadTemplate,
 )
 from aind_data_transfer_service.hpc.client import HpcClient, HpcClientConfigs
@@ -230,9 +229,12 @@ async def validate_csv(request: Request):
             csv_reader = csv.DictReader(io.StringIO(data))
             # validation context
             params = AirflowDagRunsRequestParameters(
-                dag_ids=["transform_and_upload_v2"], states=["running", "queued"]
+                dag_ids=["transform_and_upload_v2"],
+                states=["running", "queued"],
             )
-            _, current_jobs = await get_airflow_jobs(params=params, get_confs=True)
+            _, current_jobs = await get_airflow_jobs(
+                params=params, get_confs=True
+            )
             context = {
                 "job_types": get_job_types("v2"),
                 "project_names": get_project_names(),
@@ -244,65 +246,6 @@ async def validate_csv(request: Request):
                 try:
                     with validation_context_v2(context):
                         job = map_csv_row_to_job(row=row)
-                    # Construct hpc job setting most of the vars from the env
-                    basic_jobs.append(
-                        json.loads(
-                            job.model_dump_json(
-                                round_trip=True,
-                                exclude_none=True,
-                                warnings=False,
-                            )
-                        )
-                    )
-                except ValidationError as e:
-                    errors.append(e.json())
-                except Exception as e:
-                    errors.append(f"{str(e.args)}")
-        message = "There were errors" if len(errors) > 0 else "Valid Data"
-        status_code = 406 if len(errors) > 0 else 200
-        content = {
-            "message": message,
-            "data": {"jobs": basic_jobs, "errors": errors},
-        }
-        return JSONResponse(
-            content=content,
-            status_code=status_code,
-        )
-
-
-# TEMP for testing:
-async def validate_csv_v1(request: Request):
-    """Validate a csv or xlsx file. Return parsed contents as json."""
-    logger.info("Received request to validate csv v1")
-    async with request.form() as form:
-        basic_jobs = []
-        errors = []
-        if not form["file"].filename.endswith((".csv", ".xlsx")):
-            errors.append("Invalid input file type")
-        else:
-            content = await form["file"].read()
-            if form["file"].filename.endswith(".csv"):
-                # A few csv files created from excel have extra unicode
-                # byte chars. Adding "utf-8-sig" should remove them.
-                data = content.decode("utf-8-sig")
-            else:
-                xlsx_book = load_workbook(io.BytesIO(content), read_only=True)
-                xlsx_sheet = xlsx_book.active
-                csv_io = io.StringIO()
-                csv_writer = csv.writer(csv_io)
-                for r in xlsx_sheet.iter_rows(values_only=True):
-                    if any(r):
-                        csv_writer.writerow(r)
-                xlsx_book.close()
-                data = csv_io.getvalue()
-            csv_reader = csv.DictReader(io.StringIO(data))
-            for row in csv_reader:
-                if not any(row.values()):
-                    continue
-                try:
-                    project_names = get_project_names()
-                    with validation_context({"project_names": project_names}):
-                        job = map_csv_row_to_job_v1(row=row)
                     # Construct hpc job setting most of the vars from the env
                     basic_jobs.append(
                         json.loads(
@@ -969,19 +912,6 @@ async def index(request: Request):
         ),
     )
 
-# TEMP for testing:
-async def index_v1(request: Request):
-    """GET|POST /: form handler"""
-    return templates.TemplateResponse(
-        name="index_v1.html",
-        context=(
-            {
-                "request": request,
-                "project_names_url": project_names_url,
-            }
-        ),
-    )
-
 
 async def job_tasks_table(request: Request):
     """Get Job Tasks table given a job id"""
@@ -1083,35 +1013,6 @@ async def download_job_template(_: Request):
             status_code=500,
         )
 
-# TEMP for testing:
-async def download_job_template_v1(_: Request):
-    """Get job template as xlsx filestream for download"""
-
-    try:
-        job_template = JobUploadTemplateV1()
-        xl_io = job_template.excel_sheet_filestream
-        return StreamingResponse(
-            io.BytesIO(xl_io.getvalue()),
-            media_type=(
-                "application/"
-                "vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            ),
-            headers={
-                "Content-Disposition": (
-                    f"attachment; filename={job_template.FILE_NAME}"
-                )
-            },
-            status_code=200,
-        )
-    except Exception as e:
-        logger.exception("Error creating job template")
-        return JSONResponse(
-            content={
-                "message": "Error creating job template",
-                "data": {"error": f"{e.__class__.__name__}{e.args}"},
-            },
-            status_code=500,
-        )
 
 def list_parameters_v2(_: Request):
     """List v2 job type parameters"""
@@ -1191,16 +1092,12 @@ def get_parameter(request: Request):
 
 routes = [
     Route("/", endpoint=index, methods=["GET", "POST"]),
-    # TEMP for testing:
-    Route("/v1", endpoint=index_v1, methods=["GET"]),
     Route("/api/validate_csv", endpoint=validate_csv_legacy, methods=["POST"]),
     Route(
         "/api/submit_basic_jobs", endpoint=submit_basic_jobs, methods=["POST"]
     ),
     Route("/api/submit_hpc_jobs", endpoint=submit_hpc_jobs, methods=["POST"]),
     Route("/api/v1/validate_json", endpoint=validate_json, methods=["POST"]),
-    # TEMP for testing:
-    Route("/api/v1/validate_csv", endpoint=validate_csv_v1, methods=["POST"]),
     Route("/api/v1/submit_jobs", endpoint=submit_jobs, methods=["POST"]),
     Route(
         "/api/v1/get_job_status_list",
@@ -1233,12 +1130,6 @@ routes = [
     Route(
         "/api/job_upload_template",
         endpoint=download_job_template,
-        methods=["GET"],
-    ),
-    # TEMP for testing:
-    Route(
-        "/api/job_upload_template_v1",
-        endpoint=download_job_template_v1,
         methods=["GET"],
     ),
 ]

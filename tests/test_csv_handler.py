@@ -1,4 +1,5 @@
 """Tests methods in csv_handler module"""
+
 import csv
 import os
 import unittest
@@ -13,7 +14,7 @@ from aind_data_transfer_models.core import (
     ModalityConfigs,
 )
 
-from aind_data_transfer_service.configs.csv_handler import map_csv_row_to_job_v1
+from aind_data_transfer_service.configs.csv_handler import map_csv_row_to_job
 
 RESOURCES_DIR = Path(os.path.dirname(os.path.realpath(__file__))) / "resources"
 SAMPLE_FILE = RESOURCES_DIR / "new_sample.csv"
@@ -29,7 +30,7 @@ class TestCsvHandler(unittest.TestCase):
         with open(SAMPLE_FILE, newline="") as csvfile:
             reader = csv.DictReader(csvfile, skipinitialspace=True)
             for row in reader:
-                jobs.append(map_csv_row_to_job_v1(row))
+                jobs.append(map_csv_row_to_job(row))
 
         expected_jobs = [
             BasicUploadJobConfigs(
