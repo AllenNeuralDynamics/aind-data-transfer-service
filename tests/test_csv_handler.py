@@ -4,17 +4,13 @@ import csv
 import os
 import unittest
 from datetime import datetime
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 
 from aind_data_schema_models.modalities import Modality
 from aind_data_schema_models.platforms import Platform
-from aind_data_transfer_models.core import (
-    BasicUploadJobConfigs,
-    CodeOceanPipelineMonitorConfigs,
-    ModalityConfigs,
-)
 
 from aind_data_transfer_service.configs.csv_handler import map_csv_row_to_job
+from aind_data_transfer_service.models.core import Task, UploadJobConfigsV2
 
 RESOURCES_DIR = Path(os.path.dirname(os.path.realpath(__file__))) / "resources"
 SAMPLE_FILE = RESOURCES_DIR / "new_sample.csv"
@@ -33,75 +29,56 @@ class TestCsvHandler(unittest.TestCase):
                 jobs.append(map_csv_row_to_job(row))
 
         expected_jobs = [
-            BasicUploadJobConfigs(
+            UploadJobConfigsV2(
                 project_name="Ephys Platform",
-                process_capsule_id=None,
                 s3_bucket="default",
                 platform=Platform.ECEPHYS,
-                modalities=[
-                    ModalityConfigs(
-                        modality=Modality.ECEPHYS,
-                        source=PurePosixPath("dir/data_set_1"),
-                        compress_raw_data=True,
-                        extra_configs=None,
-                        slurm_settings=None,
-                    )
-                ],
+                modalities=[Modality.ECEPHYS],
+                tasks={
+                    "gather_preliminary_metadata": Task(
+                        job_settings={"metadata_dir": "dir/metadata"}
+                    ),
+                    "modality_transformation_settings": {
+                        Modality.ECEPHYS.abbreviation: Task(
+                            job_settings={"input_source": "dir/data_set_1"}
+                        )
+                    },
+                },
                 subject_id="123454",
                 acq_datetime=datetime(2020, 10, 10, 14, 10, 10),
-                metadata_dir=None,
-                metadata_dir_force=None,
-                force_cloud_sync=False,
             ),
-            BasicUploadJobConfigs(
+            UploadJobConfigsV2(
                 project_name="Behavior Platform",
-                process_capsule_id="1f999652-00a0-4c4b-99b5-64c2985ad070",
                 s3_bucket="open",
                 platform=Platform.BEHAVIOR,
-                modalities=[
-                    ModalityConfigs(
-                        modality=Modality.BEHAVIOR_VIDEOS,
-                        source=PurePosixPath("dir/data_set_2"),
-                        compress_raw_data=False,
-                        extra_configs=None,
-                        slurm_settings=None,
-                    ),
-                    ModalityConfigs(
-                        modality=Modality.MRI,
-                        source=PurePosixPath("dir/data_set_3"),
-                        compress_raw_data=False,
-                        extra_configs=None,
-                        slurm_settings=None,
-                    ),
-                ],
+                modalities=[Modality.BEHAVIOR_VIDEOS, Modality.MRI],
+                tasks={
+                    "modality_transformation_settings": {
+                        Modality.BEHAVIOR_VIDEOS.abbreviation: Task(
+                            job_settings={"input_source": "dir/data_set_2"}
+                        ),
+                        Modality.MRI.abbreviation: Task(
+                            job_settings={"input_source": "dir/data_set_3"}
+                        ),
+                    }
+                },
                 subject_id="123456",
                 acq_datetime=datetime(2020, 10, 13, 13, 10, 10),
-                metadata_dir=None,
-                metadata_dir_force=None,
-                force_cloud_sync=False,
-                codeocean_configs=CodeOceanPipelineMonitorConfigs(
-                    job_type="custom"
-                ),
+                job_type="custom",
             ),
-            BasicUploadJobConfigs(
+            UploadJobConfigsV2(
                 project_name="Behavior Platform",
-                process_capsule_id=None,
-                s3_bucket="scratch",
                 platform=Platform.BEHAVIOR,
-                modalities=[
-                    ModalityConfigs(
-                        modality=Modality.BEHAVIOR_VIDEOS,
-                        source=PurePosixPath("dir/data_set_2"),
-                        compress_raw_data=False,
-                        extra_configs=None,
-                        slurm_settings=None,
-                    )
-                ],
+                modalities=[Modality.BEHAVIOR_VIDEOS],
+                tasks={
+                    "modality_transformation_settings": {
+                        Modality.BEHAVIOR_VIDEOS.abbreviation: Task(
+                            job_settings={"input_source": "dir/data_set_2"}
+                        )
+                    }
+                },
                 subject_id="123456",
                 acq_datetime=datetime(2020, 10, 13, 13, 10, 10),
-                metadata_dir=None,
-                metadata_dir_force=None,
-                force_cloud_sync=False,
             ),
         ]
         self.assertEqual(expected_jobs, jobs)

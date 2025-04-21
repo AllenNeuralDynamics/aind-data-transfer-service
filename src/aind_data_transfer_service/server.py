@@ -227,21 +227,18 @@ async def validate_csv(request: Request):
                 xlsx_book.close()
                 data = csv_io.getvalue()
             csv_reader = csv.DictReader(io.StringIO(data))
-            try:
-                params = AirflowDagRunsRequestParameters(
-                    dag_ids=["transform_and_upload_v2"],
-                    states=["running", "queued"],
-                )
-                _, current_jobs = await get_airflow_jobs(
-                    params=params, get_confs=True
-                )
-                context = {
-                    "job_types": get_job_types(),
-                    "project_names": get_project_names(),
-                    "current_jobs": current_jobs,
-                }
-            except Exception as e:
-                context = dict()
+            params = AirflowDagRunsRequestParameters(
+                dag_ids=["transform_and_upload_v2"],
+                states=["running", "queued"],
+            )
+            _, current_jobs = await get_airflow_jobs(
+                params=params, get_confs=True
+            )
+            context = {
+                "job_types": get_job_types("v2"),
+                "project_names": get_project_names(),
+                "current_jobs": current_jobs,
+            }
             for row in csv_reader:
                 if not any(row.values()):
                     continue

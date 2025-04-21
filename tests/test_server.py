@@ -63,7 +63,12 @@ MALFORMED_SAMPLE_XLSX = TEST_DIRECTORY / "resources" / "sample_malformed.xlsx"
 MOCK_DB_FILE = TEST_DIRECTORY / "test_server" / "db.json"
 
 NEW_SAMPLE_CSV = TEST_DIRECTORY / "resources" / "new_sample.csv"
-MALFORMED_SAMPLE2_CSV = TEST_DIRECTORY / "resources" / "sample_malformed_2.csv"
+MALFORMED_SAMPLE_CSV_2 = (
+    TEST_DIRECTORY / "resources" / "sample_malformed_2.csv"
+)
+SAMPLE_CSV_EMPTY_ROWS_2 = (
+    TEST_DIRECTORY / "resources" / "sample_empty_rows_2.csv"
+)
 
 LIST_DAG_RUNS_RESPONSE = (
     TEST_DIRECTORY / "resources" / "airflow_dag_runs_response.json"
@@ -1574,25 +1579,34 @@ class TestServer(unittest.TestCase):
         mock_log_error.assert_called_once()
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
+    @patch("aind_data_transfer_service.server.get_airflow_jobs")
+    @patch("aind_data_transfer_service.server.get_job_types")
     @patch("aind_data_transfer_service.server.get_project_names")
-    def test_validate_v1_csv(self, mock_get_project_names: MagicMock):
+    def test_validate_v2_csv(
+        self,
+        mock_get_project_names: MagicMock,
+        mock_get_job_types: MagicMock,
+        mock_get_airflow_jobs: MagicMock,
+    ):
         """Tests that valid csv file is returned."""
         mock_get_project_names.return_value = [
             "Ephys Platform",
             "Behavior Platform",
         ]
+        mock_get_job_types.return_value = ["default", "custom"]
+        mock_get_airflow_jobs.return_value = (0, list())
         with TestClient(app) as client:
             with open(NEW_SAMPLE_CSV, "rb") as f:
                 files = {
                     "file": f,
                 }
-                response = client.post(url="/api/v1/validate_csv", files=files)
+                response = client.post(url="/api/v2/validate_csv", files=files)
 
         self.assertEqual(200, response.status_code)
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch("aind_data_transfer_service.server.get_project_names")
-    def test_validate_v1_null_csv(self, mock_get_project_names: MagicMock):
+    def test_validate_v2_null_csv(self, mock_get_project_names: MagicMock):
         """Tests that invalid file type returns FileNotFoundError"""
         mock_get_project_names.return_value = [
             "Ephys Platform",
@@ -1603,7 +1617,7 @@ class TestServer(unittest.TestCase):
                 files = {
                     "file": f,
                 }
-                response = client.post(url="/api/v1/validate_csv", files=files)
+                response = client.post(url="/api/v2/validate_csv", files=files)
         self.assertEqual(response.status_code, 406)
         self.assertEqual(
             ["Invalid input file type"],
@@ -1611,61 +1625,76 @@ class TestServer(unittest.TestCase):
         )
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
+    @patch("aind_data_transfer_service.server.get_airflow_jobs")
+    @patch("aind_data_transfer_service.server.get_job_types")
     @patch("aind_data_transfer_service.server.get_project_names")
-    def test_validate_v1_malformed_xlsx(
-        self, mock_get_project_names: MagicMock
+    def test_validate_v2_malformed_xlsx(
+        self,
+        mock_get_project_names: MagicMock,
+        mock_get_job_types: MagicMock,
+        mock_get_airflow_jobs: MagicMock,
     ):
         """Tests that invalid xlsx returns errors"""
         mock_get_project_names.return_value = [
             "Ephys Platform",
             "Behavior Platform",
         ]
+        mock_get_job_types.return_value = ["default", "custom"]
+        mock_get_airflow_jobs.return_value = (0, list())
         with TestClient(app) as client:
             with open(MALFORMED_SAMPLE_XLSX, "rb") as f:
                 files = {
                     "file": f,
                 }
-                response = client.post(url="/api/v1/validate_csv", files=files)
+                response = client.post(url="/api/v2/validate_csv", files=files)
         self.assertEqual(response.status_code, 406)
-        self.assertEqual(
-            ["('Unknown Modality: WRONG_MODALITY_HERE',)"],
-            response.json()["data"]["errors"],
-        )
+        self.assertEqual(3, len(response.json()["data"]["errors"]))
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
+    @patch("aind_data_transfer_service.server.get_airflow_jobs")
+    @patch("aind_data_transfer_service.server.get_job_types")
     @patch("aind_data_transfer_service.server.get_project_names")
-    def test_validate_v1_csv_xlsx_empty_rows(
-        self, mock_get_project_names: MagicMock
+    def test_validate_v2_csv_empty_rows(
+        self,
+        mock_get_project_names: MagicMock,
+        mock_get_job_types: MagicMock,
+        mock_get_airflow_jobs: MagicMock,
     ):
         """Tests that empty rows are ignored from valid csv and xlsx files."""
         mock_get_project_names.return_value = [
             "Ephys Platform",
             "Behavior Platform",
         ]
-        for file_path in [SAMPLE_CSV_EMPTY_ROWS, SAMPLE_XLSX_EMPTY_ROWS]:
-            with TestClient(app) as client:
-                with open(file_path, "rb") as f:
-                    files = {
-                        "file": f,
-                    }
-                    response = client.post(
-                        url="/api/v1/validate_csv", files=files
-                    )
-            self.assertEqual(200, response.status_code)
-
-    @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
-    @patch("aind_data_transfer_service.server.get_project_names")
-    def test_validate_v1_malformed_csv2(
-        self, mock_get_project_names: MagicMock
-    ):
-        """Tests that invalid csv returns errors"""
-        mock_get_project_names.return_value = ["Ephys Platform"]
+        mock_get_job_types.return_value = ["default", "custom"]
+        mock_get_airflow_jobs.return_value = (0, list())
         with TestClient(app) as client:
-            with open(MALFORMED_SAMPLE2_CSV, "rb") as f:
+            with open(SAMPLE_CSV_EMPTY_ROWS_2, "rb") as f:
                 files = {
                     "file": f,
                 }
-                response = client.post(url="/api/v1/validate_csv", files=files)
+                response = client.post(url="/api/v2/validate_csv", files=files)
+        self.assertEqual(200, response.status_code)
+
+    @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
+    @patch("aind_data_transfer_service.server.get_airflow_jobs")
+    @patch("aind_data_transfer_service.server.get_job_types")
+    @patch("aind_data_transfer_service.server.get_project_names")
+    def test_validate_v2_malformed_csv2(
+        self,
+        mock_get_project_names: MagicMock,
+        mock_get_job_types: MagicMock,
+        mock_get_airflow_jobs: MagicMock,
+    ):
+        """Tests that invalid csv returns errors"""
+        mock_get_project_names.return_value = ["Ephys Platform"]
+        mock_get_job_types.return_value = ["default"]
+        mock_get_airflow_jobs.return_value = (0, list())
+        with TestClient(app) as client:
+            with open(MALFORMED_SAMPLE_CSV_2, "rb") as f:
+                files = {
+                    "file": f,
+                }
+                response = client.post(url="/api/v2/validate_csv", files=files)
         self.assertEqual(response.status_code, 406)
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
