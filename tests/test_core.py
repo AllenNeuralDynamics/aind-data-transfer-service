@@ -362,6 +362,86 @@ class TestSubmitJobRequestV2(unittest.TestCase):
             job_settings.upload_jobs[1].email_notification_types,
         )
 
+    def test_check_duplicate_upload_jobs(self):
+        """Tests that duplicate upload jobs are not allowed."""
+        job_configs = self.example_upload_config.model_dump(
+            mode="json", exclude={"subject_id"}
+        )
+        upload_jobs = [
+            UploadJobConfigsV2(**job_configs, subject_id=subject_id)
+            for subject_id in ["123456", "123457", "123458", "123456"]
+        ]
+        with self.assertRaises(ValidationError) as e:
+            SubmitJobRequestV2(upload_jobs=upload_jobs)
+        errors = json.loads(e.exception.json())
+        self.assertEqual(1, len(errors))
+        self.assertIn(
+            "Duplicate jobs found for behavior_123456_2020-10-13_13-10-10",
+            errors[0]["msg"],
+        )
+
+    def test_check_duplicate_upload_jobs_same_prefix(self):
+        """Tests that upload_jobs with same s3_prefix but different configs
+        are allowed"""
+        job_configs = self.example_upload_config.model_dump(
+            mode="json", exclude={"tasks"}
+        )
+        upload_jobs = list()
+        for i in range(10):
+            tasks = {
+                "modality_transformation_settings": Task(
+                    job_settings={"input_source": "dir/data", "chunk": str(i)}
+                )
+            }
+            upload_jobs.append(UploadJobConfigsV2(**job_configs, tasks=tasks))
+        submit_job_request = SubmitJobRequestV2(upload_jobs=upload_jobs)
+        self.assertEqual(10, len(submit_job_request.upload_jobs))
+
+    def test_current_jobs_validation(self):
+        """Tests job validation against current_jobs provided in context."""
+        job_configs = self.example_upload_config.model_dump(
+            mode="json", exclude={"subject_id"}
+        )
+        submitted_job_request = SubmitJobRequestV2(
+            upload_jobs=[
+                UploadJobConfigsV2(**job_configs, subject_id=subject_id)
+                for subject_id in ["123456", "123457", "123458"]
+            ]
+        )
+        current_jobs = [
+            j.model_dump(mode="json", exclude_none=True)
+            for j in submitted_job_request.upload_jobs
+        ]
+        new_job = UploadJobConfigsV2(**job_configs, subject_id="123459")
+        with validation_context({"current_jobs": current_jobs}):
+            submit_job_request = SubmitJobRequestV2(upload_jobs=[new_job])
+        self.assertEqual(1, len(submit_job_request.upload_jobs))
+        self.assertEqual(
+            "behavior_123459_2020-10-13_13-10-10",
+            submit_job_request.upload_jobs[0].s3_prefix,
+        )
+
+    def test_current_jobs_validation_fail(self):
+        """Tests job validation when an upload_job is already running."""
+        submitted_job_request = SubmitJobRequestV2(
+            upload_jobs=[self.example_upload_config]
+        )
+        current_jobs = [
+            j.model_dump(mode="json", exclude_none=True)
+            for j in submitted_job_request.upload_jobs
+        ]
+        with self.assertRaises(ValidationError) as err:
+            with validation_context({"current_jobs": current_jobs}):
+                SubmitJobRequestV2(upload_jobs=[self.example_upload_config])
+        err_msg = json.loads(err.exception.json())[0]["msg"]
+        self.assertEqual(
+            (
+                "Value error, Job is already running/queued for "
+                "behavior_123456_2020-10-13_13-10-10"
+            ),
+            err_msg,
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

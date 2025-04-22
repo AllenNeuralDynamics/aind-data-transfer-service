@@ -41,3 +41,16 @@ jobs:
         tags: |
           ghcr.io/allenneuraldynamics/aind-data-transfer-service:${{ env.docker_tag }}
           ghcr.io/allenneuraldynamics/aind-data-transfer-service:latest
+    - name: Set up Python 3.10
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+    - name: Install dependencies
+      run: |
+        pip install --upgrade setuptools wheel twine build
+        python -m build
+        twine check dist/*
+    - name: Publish on PyPI
+      uses: pypa/gh-action-pypi-publish@release/v1.12
+      with:
+        password: ${{ secrets.AIND_PYPI_TOKEN }}
