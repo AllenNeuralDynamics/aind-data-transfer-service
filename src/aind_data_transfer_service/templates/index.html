@@ -88,7 +88,7 @@
         var jobs = []
         var parsing_errors = []
         const msgTypes = {
-            "validatePending": "Sending...",
+            "validatePending": "Validating...",
             "validateSuccess": "Successfully validated jobs from file.",
             "validateError": "Error validating jobs from file.",
             "submitPending": "Submitting jobs. Please do not refresh or re-submit...",
@@ -129,7 +129,7 @@
             }
             var formData = new FormData(document.getElementById("file_form"));
             $.ajax({
-                url: "/api/v1/validate_csv",
+                url: "/api/v2/validate_csv",
                 type: "POST",
                 data: formData,
                 cache: false,
@@ -146,30 +146,37 @@
                     let jobsLength = jobs.length;
                     var table = document.createElement('table'), tr, td, row;
                     addTableRow(
-                        [ "project_name", "process_capsule_id", "input_data_mount", "s3_bucket", "platform", "subject_id", "acq_datetime", "metadata_dir", "modality", "modality.source" ],
+                        [ "job_type", "project_name", "s3_bucket", "platform", "subject_id", "acq_datetime", "metadata_dir", "modality", "modality.input_source" ],
                         table, tr, td, true
                     );
                     for (row = 0; row < jobsLength; row++) {
                         let job = jobs[row];
-                        let modalities = job.modalities;
-                        let modalitiesLength = modalities.length;
+                        let modalities = job.tasks?.modality_transformation_settings;
+                        if (modalities) {
+                            modalities = Object.entries(modalities).map(([key, value]) => ({
+                                abbreviation: key,
+                                input_source: value.job_settings?.input_source
+                            }))
+                        }
+                        let modalitiesLength = modalities ? modalities.length: 0;
+                        let metadata_dir = job.tasks?.gather_preliminary_metadata?.job_settings?.metadata_dir
                         addTableRow(
-                            [   { value: job.project_name,             rowspan: modalitiesLength },
-                                { value: job.process_capsule_id ?? "", rowspan: modalitiesLength },
-                                { value: job.input_data_mount ?? "",   rowspan: modalitiesLength },
+                            [
+                                { value: job.job_type,                 rowspan: modalitiesLength },
+                                { value: job.project_name,             rowspan: modalitiesLength },
                                 { value: job.s3_bucket,                rowspan: modalitiesLength },
                                 { value: job.platform.abbreviation,    rowspan: modalitiesLength },
                                 { value: job.subject_id,               rowspan: modalitiesLength },
                                 { value: job.acq_datetime,             rowspan: modalitiesLength },
-                                { value: job.metadata_dir ?? "",       rowspan: modalitiesLength },
-                                modalities ? modalities[0].modality.abbreviation : "",
-                                modalities ? modalities[0].source : ""
+                                { value: metadata_dir ?? "",           rowspan: modalitiesLength },
+                                modalities ? modalities[0].abbreviation : "",
+                                modalities ? modalities[0].input_source : ""
                             ], table, tr, td, false
                         );
                         for (mRow = 1; mRow < modalitiesLength; mRow++) {
                             let modality = modalities[mRow]
                             addTableRow(
-                                [ modality.modality.abbreviation, modality.source ],
+                                [ modality.abbreviation, modality.input_source ],
                                 table, tr, td, false
                             );
                         }
@@ -212,7 +219,7 @@
                 job_settings["email_notification_types"] = mail_type
                 job_settings["upload_jobs"] = jobs
                 $.ajax({
-                    url: "/api/v1/submit_jobs",
+                    url: "/api/v2/submit_jobs",
                     type: "POST",
                     data: JSON.stringify(job_settings),
                     contentType: 'application/json; charset=utf-8',
@@ -229,7 +236,12 @@
                     error: function(data) {
                         jobs = []
                         setMessage(msgTypes.submitError);
-                        parsing_errors = data.responseJSON["data"]["errors"]
+                        let errors = data.responseJSON["data"]["errors"];
+                        try {
+                            parsing_errors = JSON.parse(errors).map((err) => JSON.stringify(err));
+                        } catch (e) {
+                            parsing_errors = (typeof errors == "string") ? [errors] : errors;
+                        }
                         $("#response").html(parsing_errors.map((errStr) => {
                             return `<li>${errStr}</li>`
                         }));
