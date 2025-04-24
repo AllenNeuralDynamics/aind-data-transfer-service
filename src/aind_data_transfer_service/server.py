@@ -88,7 +88,6 @@ templates = Jinja2Templates(directory=template_directory)
 
 logger = get_logger(log_configs=LoggingConfigs())
 project_names_url = os.getenv("AIND_METADATA_SERVICE_PROJECT_NAMES_URL")
-AIND_SSO_SECRET_NAME = os.getenv('AIND_SSO_SECRET_NAME')
 
 
 def get_project_names() -> List[str]:
@@ -103,13 +102,10 @@ def get_project_names() -> List[str]:
 def set_oauth() -> OAuth:
     """Set up OAuth for the service"""
     secrets_client = boto3.client('secretsmanager')
-    try:
-        secret_response = secrets_client.get_secret_value(
-            SecretId=AIND_SSO_SECRET_NAME
-        )
-        secret_value = json.loads(secret_response["SecretString"])
-    except ClientError as e:
-        return {"error": f"{e.__class__.__name__}{e.args}"}
+    secret_response = secrets_client.get_secret_value(
+        SecretId=os.getenv('AIND_SSO_SECRET_NAME')
+    )
+    secret_value = json.loads(secret_response["SecretString"])
     for secrets in secret_value:
         os.environ[secrets] = secret_value[secrets]
     config = Config()
@@ -124,6 +120,8 @@ def set_oauth() -> OAuth:
         }
     )
     return oauth
+
+
 def get_job_types(version: Optional[str] = None) -> List[str]:
     """Get a list of job_types"""
     params = get_parameter_infos(version)
@@ -1086,9 +1084,9 @@ def get_parameter(request: Request):
 async def login(request: Request):
     """Redirect to Azure login page"""
     oauth = set_oauth()
-    print(oauth)
     redirect_uri = request.url_for('auth')
-    return await oauth.azure.authorize_redirect(request, redirect_uri)
+    response = await oauth.azure.authorize_redirect(request, redirect_uri)
+    return response
 
 
 async def auth(request: Request):

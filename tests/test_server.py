@@ -8,7 +8,7 @@ from copy import deepcopy
 from datetime import datetime, timedelta, timezone
 from io import BytesIO
 from pathlib import Path, PurePosixPath
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch, AsyncMock
 
 from aind_data_schema_models.modalities import Modality
 from aind_data_schema_models.platforms import Platform
@@ -22,10 +22,10 @@ from aind_data_transfer_models.core import (
     V0036JobProperties,
 )
 from aind_data_transfer_models.trigger import TriggerConfigModel, ValidJobType
+from authlib.integrations.starlette_client import OAuthError
 from botocore.exceptions import ClientError
-from fastapi.responses import StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.testclient import TestClient
-# from starlette.responses import RedirectResponse
 from pydantic import SecretStr
 from requests import Response
 
@@ -78,6 +78,9 @@ DESCRIBE_PARAMETERS_RESPONSE = (
 GET_PARAMETER_RESPONSE = (
     TEST_DIRECTORY / "resources" / "get_parameter_response.json"
 )
+GET_SECRETS_RESPONSE = (
+    TEST_DIRECTORY / "resources" / "get_secrets_response.json"
+)
 
 
 class TestServer(unittest.TestCase):
@@ -105,6 +108,7 @@ class TestServer(unittest.TestCase):
         "AIND_AIRFLOW_SERVICE_USER": "airflow_user",
         "AIND_AIRFLOW_SERVICE_PASSWORD": "airflow_password",
         "AIND_AIRFLOW_PARAM_PREFIX": "/param_prefix",
+        "AIND_SSO_SECRET_NAME": "/secret/name"
     }
 
     with open(SAMPLE_CSV, "r") as file:
@@ -127,6 +131,9 @@ class TestServer(unittest.TestCase):
 
     with open(GET_PARAMETER_RESPONSE) as f:
         get_parameter_response = json.load(f)
+
+    with open(GET_SECRETS_RESPONSE) as f:
+        get_secrets_response = json.load(f)
 
     expected_job_configs = deepcopy(TestJobConfigs.expected_job_configs)
     for config in expected_job_configs:
@@ -1558,23 +1565,27 @@ class TestServer(unittest.TestCase):
         mock_session.get.assert_called_once_with("user")
         self.assertEqual(response.status_code, 200)
         self.assertIn("Job Parameters", response.text)
-    
+
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch("fastapi.Request.session")
-    @patch("starlette.responses.RedirectResponse")
-    def test_job_params_unauthenticated(self, mock_redirect_response: MagicMock, mock_session: MagicMock):
+    @patch("aind_data_transfer_service.server.RedirectResponse")
+    def test_job_params_unauthenticated(self,
+                                        mock_redirect_response: MagicMock,
+                                        mock_session: MagicMock):
         """Tests that job params page renders at startup as expected."""
         expected_user = None
         mock_session.get.return_value = expected_user
-        mock_redirect_response.return_value = None
+        mock_redirect_response.return_value = JSONResponse(
+            content={
+                "message": "Redirecting to login page",
+                "data": None,
+            },
+            status_code=307
+        )
         with TestClient(app) as client:
             response = client.get("/job_params")
-        mock_session.get.assert_called_once_with("user")
-        self.assertEqual(response.status_code, 307)
-        self.assertEqual(response.headers["location"], "/login")
-        # self.assertEqual("redirected", response)
         mock_redirect_response.assert_called_once_with(url="/login")
-
+        self.assertEqual(response.status_code, 307)
 
     @patch("aind_data_transfer_service.server.JobUploadTemplate")
     @patch("logging.Logger.exception")
@@ -2269,6 +2280,87 @@ class TestServer(unittest.TestCase):
             mock_log_error.assert_called_with("Internal Server Error.")
         mock_get_job_types.assert_called_once_with("v2")
         self.assertEqual(2, mock_get_project_names.call_count)
+
+    @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
+    @patch("boto3.client")
+    @patch("aind_data_transfer_service.server.OAuth")
+    def test_login(self,
+                   mock_set_oauth: MagicMock,
+                   mock_secrets_client: MagicMock
+                   ):
+        """Tests the login function."""
+        mock_set_oauth.return_value.azure.authorize_redirect = AsyncMock(
+            return_value=JSONResponse(
+                content={
+                    "message": "mock_redirect_url",
+                    },
+                status_code=200,
+                ))
+        mock_secrets_client.return_value.get_secret_value.return_value = (
+            self.get_secrets_response
+        )
+        with TestClient(app) as client:
+            response = client.get("/login")
+        mock_secrets_client.assert_called_with("secretsmanager")
+        mock_secrets_client.return_value.get_secret_value.assert_called_with(
+            SecretId="/secret/name"
+        )
+        mock_set_oauth.return_value.register.assert_called_with(
+            name="azure",
+            client_id="client_id",
+            client_secret="client_secret",
+            server_metadata_url="https://authority",
+            client_kwargs={
+                'scope': 'openid email profile'
+            },
+        )
+        mock_oauth = mock_set_oauth.return_value
+        mock_azure = mock_oauth.azure
+        mock_azure.authorize_redirect.assert_called_once()
+        self.assertEqual(response.status_code, 200)
+
+    @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
+    @patch("boto3.client")
+    @patch("aind_data_transfer_service.server.OAuth")
+    def test_auth(self,
+                  mock_set_oauth: MagicMock,
+                  mock_secrets_client: MagicMock
+                  ):
+        """Tests the set_oauth function."""
+        mock_set_oauth.return_value.azure.authorize_access_token = AsyncMock(
+            return_value={"userinfo": {"some_user": "info"}}
+        )
+        mock_secrets_client.return_value.get_secret_value.return_value = (
+            self.get_secrets_response
+        )
+        with TestClient(app) as client:
+            response = client.get("/auth")
+        mock_oauth = mock_set_oauth.return_value
+        mock_azure = mock_oauth.azure
+        mock_azure.authorize_access_token.assert_called_once()
+        self.assertEqual(response.status_code, 200)
+
+    @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
+    @patch("boto3.client")
+    @patch("aind_data_transfer_service.server.OAuth")
+    def test_auth_error(self,
+                        mock_set_oauth: MagicMock,
+                        mock_secrets_client: MagicMock
+                        ):
+        """Tests an error in the set_oauth function."""
+        mock_set_oauth.return_value.azure.authorize_access_token = AsyncMock(
+            side_effect=OAuthError("Error Logging In"))
+        mock_secrets_client.return_value.get_secret_value.return_value = (
+            self.get_secrets_response
+        )
+        with TestClient(app) as client:
+            response = client.get("/auth")
+        expected_response = {
+            "message": "Error Logging In",
+            "data": {"error": "OAuthError('Error Logging In: ',)"},
+        }
+        self.assertEqual(response.status_code, 500)
+        self.assertEqual(response.json(), expected_response)
 
 
 if __name__ == "__main__":
