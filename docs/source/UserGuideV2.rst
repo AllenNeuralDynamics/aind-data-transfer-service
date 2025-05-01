@@ -1,9 +1,77 @@
-User Guide
-==========
+User Guide V2
+=============
 
 Thank you for using ``aind-data-transfer-service``! This guide is
 intended for scientists and engineers in AIND that wish to upload data
 from our shared network drives (e.g., VAST) to the cloud.
+
+Concepts
+--------
+
+There are two important concepts that should be highlighted: Tasks and
+job_types.
+
+-  The Task model can be imported from
+aind_data_transfer_service.models.core.Task; however, it is simple to build
+it as a python dictionary too. It has the following fields:
+
+   -  skip_task: Whether or not to skip a Task such as checking if the
+      s3_folder already exists.
+   -  image: A docker image to run for a particular task
+   -  image_version: The version of the docker image to run
+   -  image_resources: The HPC resources that are being requested.
+   -  job_settings: A dictionary that can be passed into the command script.
+   -  command_script: The command to run in the docker image.
+
+-  The following Tasks are being run during the transform and upload pipeline.
+   The more important ones are highlighted with a *.
+
+   -  send_job_start_email: sends an optional email to signal that a workflow
+      has started.
+   -  check_s3_folder_exists: Raises an error if an s3_folder already exists.
+      Set skip_task to True to skip this check.
+   -  check_source_folders_exist: Checks that the source folders exist. This
+      raises and error earlier in the workflow if the source folders were
+      configured incorrectly.
+   -  create_staging_folder: Creates a temporary folder on VAST to store some
+      temporary files for staging.
+   -  * gather_preliminary_metadata: Automatically gathers metadata for
+      subject, procedures, and data_description. Will also gather metadata for
+      aind-metadata-mapper if options are set.
+   -  * modality_transformation_settings: This creates the settings for
+      transforming the modality folders.
+   -  compress_data: This is a mapped task. Each Task in the
+      modality_transformation_settings will run in parallel in a separate
+      container here.
+   -  gather_final_metadata: Automatically generates a processing.json and
+      metadata.nd.json file.
+   -  final_check_s3_folder_exist: The current behavior is to upload data to
+      the private data bucket if the metadata is invalid and the s3_bucket is
+      set to default. If the metadata is valid and the s3_bucket is set to
+      default, then the data is uploaded to the open bucket. Hence, another
+      check is added once the final s3_location is resolved. We plan to change
+      this behavior soon to just raise an error if the metadata is incomplete
+      and upload to the open bucket by default.
+   -  upload_data_to_s3: Uploads the data to S3.
+   -  register_data_asset_to_codeocean: Registers the data asset to Code Ocean.
+   -  update_docdb_record: Updates the DocDB record with the Code Ocean Data
+      Asset ID.
+   -  * codeocean_pipeline_settings: As with the
+      modality_transformation_settings, the parameters to send to the
+      codeocean pipeline monitor capsule.
+   -  run_codeocean_pipeline: This is a mapped task that will run each task in
+      the codeocean_pipeline_settings dictionary in an individual container.
+   -  remove_staging_folder: Removes the staging folder created above.
+   -  remove_source_folders: Optionally remove the source folders from VAST.
+      As default, this is turned off. Please be careful running this task.
+   -  send_job_end_email: sends an optional email to signal that a workflow
+      has ended.
+
+-  job_type: Since the majority of workflows may use the same parameters
+   repeatedly, the Tasks can be stored in AWS Parameter Store. A user will
+   only need to define a job_type, and the presets will be used. This is the
+   recommended way of using aind-data-transfer-service. Please reach out to a
+   member of Scientific Computing for help with defining a job_type.
 
 Prerequisites
 -------------
@@ -91,7 +159,13 @@ Using the REST API
 For more granular configuration, jobs can be submitted via a REST API at the
 endpoint:
 
-``http://aind-data-transfer-service/api/v1/submit_jobs``
+``http://aind-data-transfer-service/api/v2/submit_jobs``
+
+You may pip install aind-data-transfer-service for access to the Task model;
+however, the current version of aind-data-transfer-service depends on
+aind-data-schema. To avoid dependency conflicts, we provide examples that do
+not require installing aind-data-transfer-service directly. Model validation
+can be performed by submitting a request to the service.
 
 .. code-block:: python
 
