@@ -24,6 +24,10 @@ from openpyxl import load_workbook
 from pydantic import SecretStr, ValidationError
 from starlette.applications import Starlette
 from starlette.routing import Route
+from starlette.middleware.sessions import SessionMiddleware
+from starlette.config import Config
+from starlette.responses import RedirectResponse
+from authlib.integrations.starlette_client import OAuth, OAuthError
 
 from aind_data_transfer_service import OPEN_DATA_BUCKET_NAME
 from aind_data_transfer_service import (
@@ -93,6 +97,29 @@ def get_project_names() -> List[str]:
     response.raise_for_status()
     project_names = response.json()["data"]
     return project_names
+
+
+def set_oauth() -> OAuth:
+    """Set up OAuth for the service"""
+    secrets_client = boto3.client('secretsmanager')
+    secret_response = secrets_client.get_secret_value(
+        SecretId=os.getenv('AIND_SSO_SECRET_NAME')
+    )
+    secret_value = json.loads(secret_response["SecretString"])
+    for secrets in secret_value:
+        os.environ[secrets] = secret_value[secrets]
+    config = Config()
+    oauth = OAuth(config)
+    oauth.register(
+        name='azure',
+        client_id=config("CLIENT_ID"),
+        client_secret=config("CLIENT_SECRET"),
+        server_metadata_url=config("AUTHORITY"),
+        client_kwargs={
+            'scope': 'openid email profile'
+        }
+    )
+    return oauth
 
 
 def get_job_types(version: Optional[str] = None) -> List[str]:
@@ -968,19 +995,22 @@ async def jobs(request: Request):
 
 async def job_params(request: Request):
     """Get Job Parameters page"""
-    return templates.TemplateResponse(
-        name="job_params.html",
-        context=(
-            {
-                "request": request,
-                "project_names_url": os.getenv(
-                    "AIND_METADATA_SERVICE_PROJECT_NAMES_URL"
-                ),
-                "versions": ["v1", "v2"],
-                "default_version": "v1",
-            }
-        ),
-    )
+    user = request.session.get('user')
+    if user:
+        return templates.TemplateResponse(
+            name="job_params.html",
+            context=(
+                {
+                    "request": request,
+                    "project_names_url": os.getenv(
+                        "AIND_METADATA_SERVICE_PROJECT_NAMES_URL"
+                    ),
+                    "versions": ["v1", "v2"],
+                    "default_version": "v1",
+                }
+            ),
+        )
+    return RedirectResponse(url='/login')
 
 
 async def download_job_template(_: Request):
@@ -1089,6 +1119,40 @@ def get_parameter(request: Request):
         )
 
 
+async def login(request: Request):
+    """Redirect to Azure login page"""
+    oauth = set_oauth()
+    redirect_uri = request.url_for('auth')
+    response = await oauth.azure.authorize_redirect(request, redirect_uri)
+    return response
+
+
+async def auth(request: Request):
+    """Authenticate user and store user info in session"""
+    oauth = set_oauth()
+    try:
+        token = await oauth.azure.authorize_access_token(request)
+    except OAuthError as error:
+        return JSONResponse(
+            content={
+                "message": "Error Logging In",
+                "data": {"error": f"{error.__class__.__name__}{error.args}"},
+            },
+            status_code=500,
+        )
+    user = token.get('userinfo')
+    if user:
+        request.session['user'] = dict(user)
+    return templates.TemplateResponse(
+        name="admin.html",
+        context=(
+            {
+                "request": request
+            }
+        )
+    )
+
+
 routes = [
     Route("/", endpoint=index, methods=["GET", "POST"]),
     Route("/api/validate_csv", endpoint=validate_csv_legacy, methods=["POST"]),
@@ -1131,6 +1195,9 @@ routes = [
         endpoint=download_job_template,
         methods=["GET"],
     ),
+    Route("/login", login, methods=["GET"]),
+    Route("/auth", auth, methods=["GET"])
 ]
 
 app = Starlette(routes=routes)
+app.add_middleware(SessionMiddleware, secret_key=None)
