@@ -15,7 +15,8 @@ DATETIME_PATTERN2 = re.compile(
 
 def map_csv_row_to_job(row: dict) -> UploadJobConfigsV2:
     """
-    Maps csv row into a UploadJobConfigsV2 model
+    Maps csv row into a UploadJobConfigsV2 model. This attempts to be somewhat
+    backwards compatible with previous csv files.
     Parameters
     ----------
     row : dict
@@ -29,6 +30,7 @@ def map_csv_row_to_job(row: dict) -> UploadJobConfigsV2:
     job_configs = dict()
     check_s3_folder_exists_task = None
     final_check_s3_folder_exist = None
+    codeocean_tasks = dict()
     for key, value in row.items():
         # Strip white spaces and replace dashes with underscores
         clean_key = str(key).strip(" ").replace("-", "_")
@@ -46,7 +48,25 @@ def map_csv_row_to_job(row: dict) -> UploadJobConfigsV2:
             # Temp backwards compatibility check
             if sub_key == "source":
                 sub_key = "input_source"
-            modality_configs[modality_key].update({sub_key: clean_val})
+            if sub_key in ["process_capsule_id", "capsule_id", "pipeline_id"]:
+                if sub_key == "pipeline_id":
+                    codeocean_pipeline_monitor_settings = {
+                        "pipeline_monitor_settings": {
+                            "run_params": {"pipeline_id": clean_val}
+                        }
+                    }
+                else:
+                    codeocean_pipeline_monitor_settings = {
+                        "pipeline_monitor_settings": {
+                            "run_params": {"capsule_id": clean_val}
+                        }
+                    }
+                codeocean_tasks[modality_key] = Task(
+                    skip_task=False,
+                    job_settings=codeocean_pipeline_monitor_settings,
+                )
+            else:
+                modality_configs[modality_key].update({sub_key: clean_val})
         elif clean_key == "force_cloud_sync" and clean_val.upper() in [
             "TRUE",
             "T",
@@ -55,6 +75,11 @@ def map_csv_row_to_job(row: dict) -> UploadJobConfigsV2:
             final_check_s3_folder_exist = {"skip_task": True}
         else:
             job_configs[clean_key] = clean_val
+    # Rename codeocean config keys with correct modality
+    keys = list(codeocean_tasks.keys())
+    for key in keys:
+        modality_abbreviation = modality_configs[key]["modality"]
+        codeocean_tasks[modality_abbreviation] = codeocean_tasks.pop(key)
     # Create Tasks from parsed configs
     modality_tasks = {
         m.pop("modality"): Task(job_settings=m)
@@ -71,6 +96,9 @@ def map_csv_row_to_job(row: dict) -> UploadJobConfigsV2:
         "check_s3_folder_exists_task": check_s3_folder_exists_task,
         "final_check_s3_folder_exist": final_check_s3_folder_exist,
         "modality_transformation_settings": modality_tasks,
+        "codeocean_pipeline_settings": None
+        if codeocean_tasks == dict()
+        else codeocean_tasks,
     }
     job_configs.update(
         {

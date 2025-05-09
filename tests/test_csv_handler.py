@@ -15,6 +15,7 @@ from aind_data_transfer_service.models.core import Task, UploadJobConfigsV2
 RESOURCES_DIR = Path(os.path.dirname(os.path.realpath(__file__))) / "resources"
 SAMPLE_FILE = RESOURCES_DIR / "new_sample.csv"
 LEGACY_FILE = RESOURCES_DIR / "legacy_sample.csv"
+LEGACY_FILE_2 = RESOURCES_DIR / "legacy_sample2.csv"
 
 
 class TestCsvHandler(unittest.TestCase):
@@ -102,8 +103,12 @@ class TestCsvHandler(unittest.TestCase):
                 subject_id="123454",
                 acq_datetime=datetime(2020, 10, 10, 14, 10, 10),
                 tasks={
-                    "check_s3_folder_exists_task": Task(skip_task=True),
-                    "final_check_s3_folder_exist": Task(skip_task=True),
+                    "check_s3_folder_exists_task": Task(
+                        skip_task=True,
+                    ),
+                    "final_check_s3_folder_exist": Task(
+                        skip_task=True,
+                    ),
                     "modality_transformation_settings": {
                         "ecephys": Task(
                             skip_task=False,
@@ -118,10 +123,7 @@ class TestCsvHandler(unittest.TestCase):
                 s3_bucket="open",
                 project_name="Behavior Platform",
                 platform=Platform.BEHAVIOR,
-                modalities=[
-                    Modality.BEHAVIOR_VIDEOS,
-                    Modality.MRI,
-                ],
+                modalities=[Modality.BEHAVIOR_VIDEOS, Modality.MRI],
                 subject_id="123456",
                 acq_datetime=datetime(2020, 10, 13, 13, 10, 10),
                 tasks={
@@ -134,7 +136,22 @@ class TestCsvHandler(unittest.TestCase):
                             skip_task=False,
                             job_settings={"input_source": "dir/data_set_3"},
                         ),
-                    }
+                    },
+                    "codeocean_pipeline_settings": {
+                        "behavior-videos": Task(
+                            skip_task=False,
+                            job_settings={
+                                "pipeline_monitor_settings": {
+                                    "run_params": {
+                                        "capsule_id": (
+                                            "1f999652-00a0-4c4b-99b5-"
+                                            "64c2985ad070"
+                                        )
+                                    }
+                                }
+                            },
+                        )
+                    },
                 },
                 s3_prefix="behavior_123456_2020-10-13_13-10-10",
             ),
@@ -157,6 +174,60 @@ class TestCsvHandler(unittest.TestCase):
                 s3_prefix="behavior_123456_2020-10-13_13-10-10",
             ),
         ]
+
+        self.assertEqual(expected_jobs, jobs)
+
+    def test_map_old_csv_row_to_job(self):
+        """Tests map_csv_row_to_job method"""
+
+        jobs = []
+        with open(LEGACY_FILE_2, newline="") as csvfile:
+            reader = csv.DictReader(csvfile, skipinitialspace=True)
+            for row in reader:
+                jobs.append(map_csv_row_to_job(row))
+        expected_jobs = [
+            UploadJobConfigsV2(
+                job_type="default",
+                s3_bucket="open",
+                project_name="Behavior Platform",
+                platform=Platform.BEHAVIOR,
+                modalities=[
+                    Modality.BEHAVIOR_VIDEOS,
+                    Modality.MRI,
+                ],
+                subject_id="123456",
+                acq_datetime=datetime(2020, 10, 13, 13, 10, 10),
+                tasks={
+                    "modality_transformation_settings": {
+                        "behavior-videos": Task(
+                            skip_task=False,
+                            job_settings={"input_source": "dir/data_set_2"},
+                        ),
+                        "MRI": Task(
+                            skip_task=False,
+                            job_settings={"input_source": "dir/data_set_3"},
+                        ),
+                    },
+                    "codeocean_pipeline_settings": {
+                        "behavior-videos": Task(
+                            skip_task=False,
+                            job_settings={
+                                "pipeline_monitor_settings": {
+                                    "run_params": {
+                                        "pipeline_id": (
+                                            "1f999652-00a0-4c4b-99b5-"
+                                            "64c2985ad070"
+                                        )
+                                    }
+                                }
+                            },
+                        )
+                    },
+                },
+                s3_prefix="behavior_123456_2020-10-13_13-10-10",
+            )
+        ]
+
         self.assertEqual(expected_jobs, jobs)
 
 
