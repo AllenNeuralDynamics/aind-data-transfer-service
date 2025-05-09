@@ -162,10 +162,10 @@ endpoint:
 ``http://aind-data-transfer-service/api/v2/submit_jobs``
 
 You may pip install aind-data-transfer-service for access to the Task model;
-however, the current version of aind-data-transfer-service depends on
-aind-data-schema. To avoid dependency conflicts, we provide examples that do
-not require installing aind-data-transfer-service directly. Model validation
-can be performed by submitting a request to the service.
+however, this isn't strictly necessary. You can form the post request as a
+dictionary. The service will perform validation. We strongly recommend using
+customized job_types to simplify the requests. We have multiple example scripts
+in
 
 .. code-block:: python
 
