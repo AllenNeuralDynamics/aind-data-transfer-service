@@ -5,24 +5,23 @@ package. If there are dependency conflicts it may also be possible to use raw
 dictionaries.
 """
 
-import requests
-
-from aind_data_schema_models.modalities import Modality
-from aind_data_schema_models.platforms import Platform
 from datetime import datetime
 
-from aind_data_transfer_service.models.core import (
-    Task,
-    UploadJobConfigsV2,
-    SubmitJobRequestV2,
-)
-
-from aind_metadata_mapper.models import (
-    SessionSettings,
-    JobSettings as GatherMetadataJobSettings,
-)
+import requests
+from aind_data_schema_models.modalities import Modality
+from aind_data_schema_models.platforms import Platform
 from aind_metadata_mapper.bergamo.models import (
     JobSettings as BergamoSessionSettings,
+)
+from aind_metadata_mapper.models import (
+    JobSettings as GatherMetadataJobSettings,
+)
+from aind_metadata_mapper.models import SessionSettings
+
+from aind_data_transfer_service.models.core import (
+    SubmitJobRequestV2,
+    Task,
+    UploadJobConfigsV2,
 )
 
 # This job_type contains the default settings for compression and Code Ocean
@@ -91,10 +90,14 @@ submit_request_v2 = SubmitJobRequestV2(
 post_request_content = submit_request_v2.model_dump(
     mode="json", exclude_none=True
 )
-# Please use the production endpoint for submitting jobs.
-# This is the dev endpoint for testing.
+
+# Please use the production endpoint for submitting jobs and the dev endpoint
+# for running tests.
+# endpoint = "http://aind-data-transfer-service"
+endpoint = "http://aind-data-transfer-service-dev"  # For testing
+
 submit_job_response = requests.post(
-    url="http://aind-data-transfer-service-dev/api/v2/submit_jobs",
+    url=f"{endpoint}/api/v2/submit_jobs",
     json=post_request_content,
 )
 print(submit_job_response.status_code)

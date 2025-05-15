@@ -4,20 +4,19 @@ predefined job_type is not available. However, it might be better to request a
 job_type to be stored.
 """
 
-import requests
-
-from aind_data_schema_models.modalities import Modality
-from aind_data_schema_models.platforms import Platform
 from datetime import datetime
 
+import requests
+from aind_data_schema_models.modalities import Modality
+from aind_data_schema_models.platforms import Platform
+
 from aind_data_transfer_service.models.core import (
+    SubmitJobRequestV2,
     Task,
     UploadJobConfigsV2,
-    SubmitJobRequestV2,
 )
 
-# The job_type contains the default settings for compression and Code Ocean
-# pipelines. As default, behavior videos are not compressed during upload.
+# As default, behavior videos are not compressed during upload.
 # This example demonstrates how to override the default behavior.
 job_type = "default"
 
@@ -33,6 +32,8 @@ behavior_task = Task(
 )
 
 # Using a predefined job_type would simplify this model greatly.
+# Alternatively, this model can be validated against the JobSettings
+# pydantic class in the aind-behavior-video-transformation package.
 behavior_video_job_settings = {
     "input_source": (
         "/allen/aind/scratch/svc_aind_upload/test_data_sets/"
@@ -64,10 +65,7 @@ behavior_videos_task = {
         ],
         "current_working_directory": ".",
     },
-    "job_settings": {
-        "output_directory": "%OUTPUT_LOCATION",
-        "compression_requested": {"compression_enum": "gamma fix colorspace"},
-    },
+    "job_settings": behavior_video_job_settings,
     "command_script": (
         "#!/bin/bash \nsingularity exec --cleanenv "
         "docker://%IMAGE:%IMAGE_VERSION python -m "
@@ -93,7 +91,7 @@ gather_preliminary_metadata = Task(
 
 upload_job_configs_v2 = UploadJobConfigsV2(
     job_type=job_type,
-    project_name="Behavior platform",
+    project_name="Behavior Platform",
     platform=Platform.BEHAVIOR,
     modalities=[Modality.BEHAVIOR, Modality.BEHAVIOR_VIDEOS],
     subject_id="711256",
@@ -111,10 +109,14 @@ submit_request_v2 = SubmitJobRequestV2(
 post_request_content = submit_request_v2.model_dump(
     mode="json", exclude_none=True
 )
-# Please use the production endpoint for submitting jobs.
-# This is the dev endpoint for testing.
+
+# Please use the production endpoint for submitting jobs and the dev endpoint
+# for running tests.
+# endpoint = "http://aind-data-transfer-service"
+endpoint = "http://aind-data-transfer-service-dev"  # For testing
+
 submit_job_response = requests.post(
-    url="http://aind-data-transfer-service-dev/api/v2/submit_jobs",
+    url=f"{endpoint}/api/v2/submit_jobs",
     json=post_request_content,
 )
 print(submit_job_response.status_code)
