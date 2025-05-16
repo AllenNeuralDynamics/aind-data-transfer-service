@@ -57,6 +57,7 @@ ecephys_codeocean_pipeline_settings = Task(
                 "capsule_id": "87cbe6ce-9b38-4266-8d4a-62f0e23ba2d6",
             },
             "capture_settings": {
+                "permissions": {"everyone": "viewer"},
                 "tags": ["derived", "test"],
                 "custom_metadata": {
                     "data level": "derived",
