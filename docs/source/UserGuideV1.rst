@@ -1,5 +1,8 @@
-User Guide
-==========
+User Guide V1
+=============
+
+We recommend using V2 and referencing the User Guide V2 documentation. We will
+be deprecating the V1 endpoint in a future release.
 
 Thank you for using ``aind-data-transfer-service``! This guide is
 intended for scientists and engineers in AIND that wish to upload data
@@ -415,20 +418,22 @@ Submitting SmartSPIM jobs
 -------------------------
 
 SmartSPIM jobs are unique in that the compression step will be performed as a job array. If the directory structure looks like:
-```
-SmartSPIM/
-  - Ex_488_Em_525/
-    - 471320/
-      - 471320_701490
+
+.. code-block:: bash
+
+  SmartSPIM/
+    - Ex_488_Em_525/
+      - 471320/
+        - 471320_701490
+        ...
+        - 471320_831090
       ...
-      - 471320_831090
+      - 568520/
+        ...
     ...
-    - 568520/
-      ...
-  ...
-  - Ex_639_Em_680/
-   ...
-```
+    - Ex_639_Em_680/
+     ...
+
 Then each "stack" (e.g., 471320_701490) will be processed individually.
 If there are 60 stacks, then a good number_of_partitions will be 20.
 In this case, the total time for the job will be around 3 times it takes to process one stack.

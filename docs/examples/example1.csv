@@ -1,4 +1,4 @@
-project_name, process_capsule_id, modality0, modality0.source, modality1, modality1.source, s3-bucket, subject-id, platform, acq-datetime, job_type
-Ephys Platform, , ECEPHYS, dir/data_set_1, ,, some_bucket, 123454, ecephys, 2020-10-10 14:10:10, ecephys_opto
-Behavior Platform, 1f999652-00a0-4c4b-99b5-64c2985ad070, BEHAVIOR_VIDEOS, dir/data_set_2, MRI, dir/data_set_3, open, 123456, BEHAVIOR, 10/13/2020 1:10:10 PM,
-Behavior Platform, , BEHAVIOR_VIDEOS, dir/data_set_2, BEHAVIOR_VIDEOS, dir/data_set_3, scratch, 123456, BEHAVIOR, 10/13/2020 1:10:10 PM,
+project_name, modality0.capsule_id, modality0, modality0.input_source, modality1, modality1.input_source, s3_bucket, subject_id, platform, acq_datetime, job_type
+Ephys Platform, , ecephys, dir/data_set_1, ,, default, 123454, ecephys, 2020-10-10 14:10:10, ecephys
+Behavior Platform, 1f999652-00a0-4c4b-99b5-64c2985ad070, behavior-videos, dir/data_set_2, MRI, dir/data_set_3, open, 123456, behavior, 10/13/2020 1:10:10 PM,
+Behavior Platform, , behavior-videos, dir/data_set_2, behavior, dir/data_set_3, private, 123456, behavior, 10/13/2020 1:10:10 PM,
