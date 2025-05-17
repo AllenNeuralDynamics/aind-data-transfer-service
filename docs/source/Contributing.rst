@@ -53,6 +53,7 @@ account.
 To mock airflow responses for job status list:
 
 .. code:: bash
+
    cd tests/test_server
    docker build -t json_server .
    docker run -p 8080:3000 json_server

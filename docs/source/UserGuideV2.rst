@@ -12,8 +12,8 @@ There are two important concepts that should be highlighted: Tasks and
 job_types.
 
 -  The Task model can be imported from
-aind_data_transfer_service.models.core.Task; however, it is simple to build
-it as a python dictionary too. It has the following fields:
+   aind_data_transfer_service.models.core.Task; however, it is simple to build
+   it as a python dictionary too. It has the following fields:
 
    -  skip_task: Whether or not to skip a Task such as checking if the
       s3_folder already exists.
@@ -24,7 +24,7 @@ it as a python dictionary too. It has the following fields:
    -  command_script: The command to run in the docker image.
 
 -  The following Tasks are being run during the transform and upload pipeline.
-   The more important ones are highlighted with a *.
+   The more important ones are in bold.
 
    -  send_job_start_email: sends an optional email to signal that a workflow
       has started.
@@ -35,10 +35,10 @@ it as a python dictionary too. It has the following fields:
       configured incorrectly.
    -  create_staging_folder: Creates a temporary folder on VAST to store some
       temporary files for staging.
-   -  * gather_preliminary_metadata: Automatically gathers metadata for
+   -  **gather_preliminary_metadata**: Automatically gathers metadata for
       subject, procedures, and data_description. Will also gather metadata from
       aind-metadata-mapper if options are set.
-   -  * modality_transformation_settings: This creates the settings for
+   -  **modality_transformation_settings**: This creates the settings for
       transforming the modality folders.
    -  compress_data: This is a mapped task. Each Task in the
       modality_transformation_settings will run in parallel in a separate
@@ -56,7 +56,7 @@ it as a python dictionary too. It has the following fields:
    -  register_data_asset_to_codeocean: Registers the data asset to Code Ocean.
    -  update_docdb_record: Updates the DocDB record with the Code Ocean Data
       Asset ID.
-   -  * codeocean_pipeline_settings: As with the
+   -  **codeocean_pipeline_settings**: As with the
       modality_transformation_settings, the parameters to send to the
       codeocean pipeline monitor capsule.
    -  run_codeocean_pipeline: This is a mapped task that will run each task in
@@ -175,7 +175,7 @@ You may pip install aind-data-transfer-service for access to the Task model;
 however, this isn't strictly necessary. You can form the post request as a
 dictionary. The service will perform validation. We strongly recommend using
 customized job_types to simplify the requests. For more detailed examples please
-check the scripts in `examples<https://github.com/AllenNeuralDynamics/aind-data-transfer-service/tree/dev/docs/examples>__`.
+check the scripts in `examples <https://github.com/AllenNeuralDynamics/aind-data-transfer-service/tree/main/docs/examples>`__.
 
 
 Viewing the status of submitted jobs

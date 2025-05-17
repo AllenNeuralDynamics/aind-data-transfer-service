@@ -418,20 +418,22 @@ Submitting SmartSPIM jobs
 -------------------------
 
 SmartSPIM jobs are unique in that the compression step will be performed as a job array. If the directory structure looks like:
-```
-SmartSPIM/
-  - Ex_488_Em_525/
-    - 471320/
-      - 471320_701490
+
+.. code-block:: bash
+
+  SmartSPIM/
+    - Ex_488_Em_525/
+      - 471320/
+        - 471320_701490
+        ...
+        - 471320_831090
       ...
-      - 471320_831090
+      - 568520/
+        ...
     ...
-    - 568520/
-      ...
-  ...
-  - Ex_639_Em_680/
-   ...
-```
+    - Ex_639_Em_680/
+     ...
+
 Then each "stack" (e.g., 471320_701490) will be processed individually.
 If there are 60 stacks, then a good number_of_partitions will be 20.
 In this case, the total time for the job will be around 3 times it takes to process one stack.
