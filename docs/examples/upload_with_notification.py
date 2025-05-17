@@ -1,6 +1,6 @@
 """
-This example demonstrates how to set custom Slurm settings to request
-additional time for the compression step and additional memory.
+This example demonstrates how to set add a user email that will be used for
+notifications.
 """
 
 from datetime import datetime
@@ -15,29 +15,17 @@ from aind_data_transfer_service.models.core import (
     UploadJobConfigsV2,
 )
 
-# The job_type contains the default settings for compression and Code Ocean
-# pipelines.
 job_type = "ecephys"
 
 acq_datetime = datetime(2023, 4, 3, 18, 17, 7)
 
-# If a job is special and requires more slurm resources, then they can be
-# defined here. For extra validation, you can pip install aind-slurm-rest-v2
-# and import it as:
-# from aind_slurm_rest_v2.models.v0040_job_desc_msg import V0040JobDescMsg
-
 ecephys_task = Task(
-    image_resources={
-        "memory_per_cpu": {"set": True, "number": 6000},  # In MB
-        "minimum_cpus_per_node": 6,
-        "time_limit": {"set": True, "number": 240},  # In minutes
-    },
     job_settings={
         "input_source": (
             "/allen/aind/scratch/svc_aind_upload/test_data_sets/"
             "ecephys/655019_2023-04-03_18-17-07"
         )
-    },
+    }
 )
 
 modality_transformation_settings = {"ecephys": ecephys_task}
@@ -50,7 +38,6 @@ gather_preliminary_metadata = Task(
         )
     }
 )
-
 
 upload_job_configs_v2 = UploadJobConfigsV2(
     job_type=job_type,
@@ -65,7 +52,13 @@ upload_job_configs_v2 = UploadJobConfigsV2(
     },
 )
 
+user_email = "user@example.com"
+# Subset of {"begin", "end", "fail", "retry", "all"}
+notification_types = {"begin", "fail"}
+
 submit_request_v2 = SubmitJobRequestV2(
+    user_email=user_email,
+    email_notification_types=notification_types,
     upload_jobs=[upload_job_configs_v2],
 )
 
