@@ -1,16 +1,20 @@
 """This example demonstrates how to submit an HCR job."""
 
-import requests
-
-from aind_data_schema_models.modalities import Modality
-from aind_data_schema_models.platforms import Platform
 from datetime import datetime
 
+import requests
+from aind_data_schema_models.modalities import Modality
+from aind_data_schema_models.platforms import Platform
+
 from aind_data_transfer_service.models.core import (
+    SubmitJobRequestV2,
     Task,
     UploadJobConfigsV2,
-    SubmitJobRequestV2,
 )
+
+job_type = "HCR"
+
+acq_datetime = datetime(2025, 3, 10, 12, 0, 9)
 
 num_of_partitions: int = 4
 
@@ -41,13 +45,13 @@ gather_preliminary_metadata = Task(
 
 # The job_type loads defaults settings from AWS Parameter Store
 upload_job_configs_v2 = UploadJobConfigsV2(
-    job_type="HCR",
+    job_type=job_type,
     s3_bucket="open",
     project_name="MSMA Platform",
     platform=Platform.HCR,
     modalities=[Modality.SPIM],
     subject_id="772646",
-    acq_datetime=datetime(2025, 3, 10, 12, 0, 0),
+    acq_datetime=acq_datetime,
     tasks={
         "modality_transformation_settings": modality_settings,
         "gather_preliminary_metadata": gather_preliminary_metadata,
@@ -64,10 +68,13 @@ post_request_content = submit_request.model_dump(
     mode="json", exclude_none=True
 )
 
-# Please use the production endpoint for submitting jobs.
-# This is the dev endpoint for testing.
+# Please use the production endpoint for submitting jobs and the dev endpoint
+# for running tests.
+# endpoint = "http://aind-data-transfer-service"
+endpoint = "http://aind-data-transfer-service-dev"  # For testing
+
 submit_job_response = requests.post(
-    url="http://aind-data-transfer-service-dev/api/v2/submit_jobs",
+    url=f"{endpoint}/api/v2/submit_jobs",
     json=post_request_content,
 )
 print(submit_job_response.status_code)

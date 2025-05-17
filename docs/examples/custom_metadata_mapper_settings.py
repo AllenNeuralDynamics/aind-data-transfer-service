@@ -29,12 +29,16 @@ from aind_data_transfer_service.models.core import (
 # out to Scientific Computing for more information.
 job_type = "default"
 
-acq_datetime = datetime(2025, 4, 25, 16, 41, 23)
+# acq_datetime = datetime(2025, 4, 25, 16, 41, 23)
+acq_datetime = datetime(2020, 4, 25, 16, 41, 0)
 
 # Compression settings. As job_type default, no compression will be performed.
 pophys_task = Task(
     job_settings={
-        "input_source": "/allen/aind/scratch/BCI/2p-raw/BCI111/042525/pophys"
+        "input_source": (
+            "/allen/aind/scratch/svc_aind_upload/test_data_sets/bci/"
+            "042525/042525/pophys"
+        )
     }
 )
 
@@ -42,7 +46,10 @@ modality_transformation_settings = {"pophys": pophys_task}
 
 # 1. Define the JobSettings for the GatherMetadataJob in aind-metadata-mapper
 bergamo_session_settings = BergamoSessionSettings(
-    input_source="/allen/aind/scratch/BCI/2p-raw/BCI111/042525/pophys",
+    input_source=(
+        "/allen/aind/scratch/svc_aind_upload/test_data_sets/bci/"
+        "042525/042525/pophys"
+    ),
     experimenter_full_name=["John Apple"],
     subject_id="784746",
     imaging_laser_wavelength=920,
@@ -60,7 +67,9 @@ session_settings = SessionSettings(job_settings=bergamo_session_settings)
 metadata_job_settings = GatherMetadataJobSettings(
     directory_to_write_to="%OUTPUT_LOCATION",
     session_settings=session_settings,
-    metadata_dir="/allen/aind/scratch/BCI/2p-raw/BCI111/042525",
+    metadata_dir=(
+        "/allen/aind/scratch/svc_aind_upload/test_data_sets/bci/042525/042525"
+    ),
 )
 
 gather_preliminary_metadata = Task(
