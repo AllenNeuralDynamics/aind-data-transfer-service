@@ -227,12 +227,23 @@ async def validate_csv(request: Request):
                 xlsx_book.close()
                 data = csv_io.getvalue()
             csv_reader = csv.DictReader(io.StringIO(data))
+            params = AirflowDagRunsRequestParameters(
+                dag_ids=["transform_and_upload_v2"],
+                states=["running", "queued"],
+            )
+            _, current_jobs = await get_airflow_jobs(
+                params=params, get_confs=True
+            )
+            context = {
+                "job_types": get_job_types("v2"),
+                "project_names": get_project_names(),
+                "current_jobs": current_jobs,
+            }
             for row in csv_reader:
                 if not any(row.values()):
                     continue
                 try:
-                    project_names = get_project_names()
-                    with validation_context({"project_names": project_names}):
+                    with validation_context_v2(context):
                         job = map_csv_row_to_job(row=row)
                     # Construct hpc job setting most of the vars from the env
                     basic_jobs.append(
@@ -1086,7 +1097,6 @@ routes = [
     ),
     Route("/api/submit_hpc_jobs", endpoint=submit_hpc_jobs, methods=["POST"]),
     Route("/api/v1/validate_json", endpoint=validate_json, methods=["POST"]),
-    Route("/api/v1/validate_csv", endpoint=validate_csv, methods=["POST"]),
     Route("/api/v1/submit_jobs", endpoint=submit_jobs, methods=["POST"]),
     Route(
         "/api/v1/get_job_status_list",
@@ -1101,6 +1111,7 @@ routes = [
         endpoint=get_parameter,
         methods=["GET"],
     ),
+    Route("/api/v2/validate_csv", endpoint=validate_csv, methods=["POST"]),
     Route(
         "/api/v2/validate_json", endpoint=validate_json_v2, methods=["POST"]
     ),

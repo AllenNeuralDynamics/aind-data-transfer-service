@@ -1,5 +1,8 @@
-User Guide
-==========
+User Guide V1
+=============
+
+We recommend using V2 and referencing the User Guide V2 documentation. We will
+be deprecating the V1 endpoint in a future release.
 
 Thank you for using ``aind-data-transfer-service``! This guide is
 intended for scientists and engineers in AIND that wish to upload data
@@ -62,35 +65,28 @@ portal can accessed at
       to the data source. For example,
 
       -  modality0 (e.g., ecephys)
-      -  modaltity0.source (e.g.,
+      -  modaltity0.input_source (e.g.,
          /allen/aind/scratch/working_group/session_123456_2024-06-19/ecephys_data)
       -  modality1 (e.g, behavior)
-      -  modality1.source (e.g.,
+      -  modality1.input_source (e.g.,
          /allen/aind/scratch/working_group/session_123456_2024-06-19/behavior_data)
       -  modality2 (e.g, behavior_videos)
-      -  modality2.source (e.g.,
+      -  modality2.input_source (e.g.,
          /allen/aind/scratch/working_group/session_123456_2024-06-19/behavior_videos)
 
 -  Optional fields
 
+   -  job_type: We store pre-compiled default configurations in AWS Parameter
+      Store (e.g. modality transformation settings, Code Ocean pipeline
+      settings). If you set this field, then we will use this preset when
+      running the upload job. A list of job types can be seen by clicking the
+      ``Job Parameters`` link.
    -  metadata_dir: If metadata files are pre-compiled and saved to a
       directory, you can add the Posix style path to the directory under
       this column
-   -  process_capsule_id: If you wish to trigger a custom Code Ocean
-      Capsule or pipeline, you can add the capsule_id here
-   -  input_data_mount: If you wish to trigger a custom Code Ocean
-      Pipeline that has been configured with a specific data mount, you
-      can add that here
    -  s3_bucket: As default, data will be uploaded to a default bucket
       in S3 managed by AIND. Please reach out to the Scientific
       Computing department if you wish to upload to a different bucket.
-   -  force_cloud_sync: We run a check to verify whether there is
-      already a data asset with this name saved in our S3 bucket. If
-      this field is set to ``True``, we will sync the data to the
-      bucket/folder even if it already exists
-   -  job_type: We store pre-compiled default Code Ocean pipeline
-      configurations in AWS Parameter Store. If you set this field, then we
-      will use this preset when running a Code Ocean pipeline.
 
 Using the REST API
 ------------------
@@ -422,20 +418,22 @@ Submitting SmartSPIM jobs
 -------------------------
 
 SmartSPIM jobs are unique in that the compression step will be performed as a job array. If the directory structure looks like:
-```
-SmartSPIM/
-  - Ex_488_Em_525/
-    - 471320/
-      - 471320_701490
+
+.. code-block:: bash
+
+  SmartSPIM/
+    - Ex_488_Em_525/
+      - 471320/
+        - 471320_701490
+        ...
+        - 471320_831090
       ...
-      - 471320_831090
+      - 568520/
+        ...
     ...
-    - 568520/
-      ...
-  ...
-  - Ex_639_Em_680/
-   ...
-```
+    - Ex_639_Em_680/
+     ...
+
 Then each "stack" (e.g., 471320_701490) will be processed individually.
 If there are 60 stacks, then a good number_of_partitions will be 20.
 In this case, the total time for the job will be around 3 times it takes to process one stack.
