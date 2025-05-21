@@ -129,7 +129,6 @@ class UploadJobConfigsV2(BaseSettings):
     model_config = ConfigDict(use_enum_values=True, extra="ignore")
 
     job_type: str = Field(
-        default="default",
         description=(
             "Job type for the upload job. Tasks will be run based on the "
             "job_type unless otherwise specified in task_overrides."

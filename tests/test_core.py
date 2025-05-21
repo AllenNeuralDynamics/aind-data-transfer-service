@@ -86,6 +86,7 @@ class TestUploadJobConfigsV2(unittest.TestCase):
     def setUpClass(cls) -> None:
         """Set up test class"""
         example_configs = UploadJobConfigsV2(
+            job_type="default",
             project_name="Behavior Platform",
             platform=Platform.BEHAVIOR,
             modalities=[Modality.BEHAVIOR_VIDEOS],
@@ -102,7 +103,7 @@ class TestUploadJobConfigsV2(unittest.TestCase):
 
         cls.example_configs = example_configs
         cls.base_configs = example_configs.model_dump(
-            exclude={"job_type": True, "s3_bucket": True, "s3_prefix": True}
+            exclude={"s3_bucket": True, "s3_prefix": True}
         )
 
     def test_s3_prefix(self):
@@ -118,21 +119,27 @@ class TestUploadJobConfigsV2(unittest.TestCase):
 
     def test_job_type_validation(self):
         """Test job_type is validated against list context provided."""
+        base_configs = self.example_configs.model_dump(
+            exclude={"job_type": True, "s3_bucket": True, "s3_prefix": True}
+        )
         with validation_context({"job_types": ["default", "ecephys"]}):
             round_trip_model = UploadJobConfigsV2(
                 job_type="ecephys",
-                **self.base_configs,
+                **base_configs,
             )
         self.assertEqual("ecephys", round_trip_model.job_type)
 
     def test_job_type_validation_fail(self):
         """Test job_type is validated against list context provided and
         fails validation."""
+        base_configs = self.example_configs.model_dump(
+            exclude={"job_type": True, "s3_bucket": True, "s3_prefix": True}
+        )
         with self.assertRaises(ValidationError) as err:
             with validation_context({"job_types": ["default", "ecephys"]}):
                 UploadJobConfigsV2(
                     job_type="random_string",
-                    **self.base_configs,
+                    **base_configs,
                 )
         err_msg = json.loads(err.exception.json())[0]["msg"]
         self.assertEqual(
@@ -244,6 +251,7 @@ class TestSubmitJobRequestV2(unittest.TestCase):
     def setUpClass(cls) -> None:
         """Set up example configs to be used in tests"""
         example_upload_config = UploadJobConfigsV2(
+            job_type="default",
             project_name="Behavior Platform",
             platform=Platform.BEHAVIOR,
             modalities=[

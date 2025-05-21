@@ -1,4 +1,4 @@
 project_name, modality0, modality0.input_source, modality1, modality1.input_source, s3-bucket, subject-id, platform, acq-datetime, job_type, metadata_dir
-Ephys Platform, ecephys, dir/data_set_1, , , default,123454, ecephys, 2020-10-10 14:10:10, , dir/metadata
+Ephys Platform, ecephys, dir/data_set_1, , , default,123454, ecephys, 2020-10-10 14:10:10, ecephys, dir/metadata
 Behavior Platform, behavior-videos, dir/data_set_2, MRI, dir/data_set_3, open,123456, behavior, 2020-10-13T13:10:10, custom,
-Behavior Platform, behavior-videos, dir/data_set_2, , , ,123456, behavior, 2020-10-13 13:10:10, ,
+Behavior Platform, behavior-videos, dir/data_set_2, , , ,123456, behavior, 2020-10-13 13:10:10, default,

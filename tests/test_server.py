@@ -1593,7 +1593,7 @@ class TestServer(unittest.TestCase):
             "Ephys Platform",
             "Behavior Platform",
         ]
-        mock_get_job_types.return_value = ["default", "custom"]
+        mock_get_job_types.return_value = ["default", "ecephys", "custom"]
         mock_get_airflow_jobs.return_value = (0, list())
         with TestClient(app) as client:
             with open(NEW_SAMPLE_CSV, "rb") as f:
@@ -1665,7 +1665,7 @@ class TestServer(unittest.TestCase):
             "Ephys Platform",
             "Behavior Platform",
         ]
-        mock_get_job_types.return_value = ["default", "custom"]
+        mock_get_job_types.return_value = ["default", "ecephys", "custom"]
         mock_get_airflow_jobs.return_value = (0, list())
         with TestClient(app) as client:
             with open(SAMPLE_CSV_EMPTY_ROWS_2, "rb") as f:
