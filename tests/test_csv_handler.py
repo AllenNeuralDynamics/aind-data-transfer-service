@@ -48,6 +48,7 @@ class TestCsvHandler(unittest.TestCase):
                 },
                 subject_id="123454",
                 acq_datetime=datetime(2020, 10, 10, 14, 10, 10),
+                job_type="ecephys",
             ),
             UploadJobConfigsV2(
                 project_name="Behavior Platform",
@@ -81,6 +82,7 @@ class TestCsvHandler(unittest.TestCase):
                 },
                 subject_id="123456",
                 acq_datetime=datetime(2020, 10, 13, 13, 10, 10),
+                job_type="default",
             ),
         ]
         self.assertEqual(expected_jobs, jobs)

@@ -118,6 +118,11 @@ portal can accessed at
 
 -  Required fields
 
+   -  job_type: We store pre-compiled default configurations in AWS Parameter
+      Store (e.g. modality transformation settings, Code Ocean pipeline
+      settings). This field determines which preset to use when
+      running the upload job. A list of job types can be seen by clicking the
+      ``Job Parameters`` link.
    -  project_name: A list of project names can be seen by clicking the
       ``Project Names`` link
    -  subject_id: The LabTracks ID of the mouse
@@ -141,11 +146,6 @@ portal can accessed at
 
 -  Optional fields
 
-   -  job_type: We store pre-compiled default configurations in AWS Parameter
-      Store (e.g. modality transformation settings, Code Ocean pipeline
-      settings). If you set this field, then we will use this preset when
-      running the upload job. A list of job types can be seen by clicking the
-      ``Job Parameters`` link.
    -  metadata_dir: If metadata files are pre-compiled and saved to a
       directory, you can add the Posix style path to the directory under
       this column
