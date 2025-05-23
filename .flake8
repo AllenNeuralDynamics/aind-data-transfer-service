@@ -3,5 +3,7 @@ exclude =
     .git,
     __pycache__,
     build,
+    venv,
+    .venv
     env
 max-complexity = 10
