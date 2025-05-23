@@ -26,7 +26,6 @@ from pydantic import SecretStr, ValidationError
 from starlette.applications import Starlette
 from starlette.config import Config
 from starlette.middleware.sessions import SessionMiddleware
-from starlette.responses import RedirectResponse
 from starlette.routing import Route
 
 from aind_data_transfer_service import OPEN_DATA_BUCKET_NAME
@@ -993,22 +992,19 @@ async def jobs(request: Request):
 
 async def job_params(request: Request):
     """Get Job Parameters page"""
-    user = request.session.get("user")
-    if user:
-        return templates.TemplateResponse(
-            name="job_params.html",
-            context=(
-                {
-                    "request": request,
-                    "project_names_url": os.getenv(
-                        "AIND_METADATA_SERVICE_PROJECT_NAMES_URL"
-                    ),
-                    "versions": ["v1", "v2"],
-                    "default_version": "v1",
-                }
-            ),
-        )
-    return RedirectResponse(url="/login")
+    return templates.TemplateResponse(
+        name="job_params.html",
+        context=(
+            {
+                "request": request,
+                "project_names_url": os.getenv(
+                    "AIND_METADATA_SERVICE_PROJECT_NAMES_URL"
+                ),
+                "versions": ["v1", "v2"],
+                "default_version": "v1",
+            }
+        ),
+    )
 
 
 async def download_job_template(_: Request):
