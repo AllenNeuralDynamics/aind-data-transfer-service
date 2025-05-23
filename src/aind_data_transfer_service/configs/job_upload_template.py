@@ -1,4 +1,5 @@
 """Module to configure and create xlsx job upload template"""
+
 import datetime
 from io import BytesIO
 from typing import Any, Dict, List
@@ -19,23 +20,21 @@ class JobUploadTemplate:
     NUM_TEMPLATE_ROWS = 20
     XLSX_DATETIME_FORMAT = "YYYY-MM-DDTHH:mm:ss"
     HEADERS = [
+        "job_type",
         "project_name",
-        "process_capsule_id",
-        "input_data_mount",
         "platform",
         "acq_datetime",
         "subject_id",
         "metadata_dir",
         "modality0",
-        "modality0.source",
+        "modality0.input_source",
         "modality1",
-        "modality1.source",
+        "modality1.input_source",
     ]
     SAMPLE_JOBS = [
         [
+            "default",
             "Behavior Platform",
-            "1f999652-00a0-4c4b-99b5-64c2985ad070",
-            "data_mount",
             Platform.BEHAVIOR.abbreviation,
             datetime.datetime(2023, 10, 4, 4, 0, 0),
             "123456",
@@ -46,9 +45,8 @@ class JobUploadTemplate:
             "/allen/aind/stage/fake/dir",
         ],
         [
+            "default",
             "Ophys Platform - SLAP2",
-            None,
-            None,
             Platform.SMARTSPIM.abbreviation,
             datetime.datetime(2023, 3, 4, 16, 30, 0),
             "654321",
@@ -57,9 +55,8 @@ class JobUploadTemplate:
             "/allen/aind/stage/fake/dir",
         ],
         [
+            "default",
             "Ephys Platform",
-            None,
-            None,
             Platform.ECEPHYS.abbreviation,
             datetime.datetime(2023, 1, 30, 19, 1, 0),
             "654321",

@@ -119,7 +119,7 @@ class UploadJobConfigsV2(BaseSettings):
 
     # noinspection PyMissingConstructor
     def __init__(self, /, **data: Any) -> None:
-        """Add context manager to init for validating project_names."""
+        """Add context manager to init for validating fields."""
         self.__pydantic_validator__.validate_python(
             data,
             self_instance=self,
@@ -129,7 +129,7 @@ class UploadJobConfigsV2(BaseSettings):
     model_config = ConfigDict(use_enum_values=True, extra="ignore")
 
     job_type: str = Field(
-        default="default",
+        ...,
         description=(
             "Job type for the upload job. Tasks will be run based on the "
             "job_type unless otherwise specified in task_overrides."
@@ -224,6 +224,15 @@ class SubmitJobRequestV2(BaseSettings):
     """Main request that will be sent to the backend. Bundles jobs into a list
     and allows a user to add an email address to receive notifications."""
 
+    # noinspection PyMissingConstructor
+    def __init__(self, /, **data: Any) -> None:
+        """Add context manager to init for validating upload_jobs."""
+        self.__pydantic_validator__.validate_python(
+            data,
+            self_instance=self,
+            context=_validation_context.get(),
+        )
+
     model_config = ConfigDict(use_enum_values=True, extra="ignore")
 
     dag_id: Literal["transform_and_upload_v2"] = "transform_and_upload_v2"
@@ -260,4 +269,32 @@ class SubmitJobRequestV2(BaseSettings):
                 upload_job.email_notification_types = (
                     global_email_notification_types
                 )
+        return self
+
+    @model_validator(mode="after")
+    def check_duplicate_upload_jobs(self, info: ValidationInfo):
+        """Validate that there are no duplicate upload jobs. If a list of
+        current jobs is provided in a context manager, jobs are also checked
+        against the list."""
+        jobs_map = dict()
+        # check jobs with the same s3_prefix
+        for job in self.upload_jobs:
+            prefix = job.s3_prefix
+            job_json = json.dumps(
+                job.model_dump(mode="json", exclude_none=True), sort_keys=True
+            )
+            jobs_map.setdefault(prefix, set())
+            if job_json in jobs_map[prefix]:
+                raise ValueError(f"Duplicate jobs found for {prefix}")
+            jobs_map[prefix].add(job_json)
+        # check against any jobs in the context
+        current_jobs = (info.context or dict()).get("current_jobs", list())
+        for job in current_jobs:
+            prefix = job.get("s3_prefix")
+            if (
+                prefix is not None
+                and prefix in jobs_map
+                and json.dumps(job, sort_keys=True) in jobs_map[prefix]
+            ):
+                raise ValueError(f"Job is already running/queued for {prefix}")
         return self

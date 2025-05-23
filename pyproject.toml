@@ -17,13 +17,10 @@ readme = "README.md"
 dynamic = ["version"]
 
 dependencies = [
-    'boto3',
-    'boto3-stubs[ssm]',
-    'pydantic>=2.7,<2.9',
+    'aind-data-schema-models>=0.3.2,<1.0.0',
+    'email-validator',
+    'pydantic>=2.0',
     'pydantic-settings>=2.0',
-    'aind-data-schema>=1.0.0,<2.0',
-    'aind-data-transfer-models==0.17.0',
-    'aind-metadata-mapper==0.23.0'
 ]
 
 [project.optional-dependencies]
@@ -42,6 +39,11 @@ docs = [
 ]
 
 server = [
+    'aind-data-schema>=1.0.0,<2.0',
+    'aind-data-transfer-models==0.17.0',
+    'aind-metadata-mapper==0.23.0',
+    'boto3',
+    'boto3-stubs[ssm]',
     'fastapi',
     'httpx',
     'jinja2',

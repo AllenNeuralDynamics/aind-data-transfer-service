@@ -1,0 +1,2 @@
+project_name, modality0, modality0.source, modality1, modality1.source, s3-bucket, subject-id, platform, acq-datetime, modality0.pipeline_id, job_type
+Behavior Platform, behavior-videos, dir/data_set_2, MRI, dir/data_set_3, open, 123456, behavior, 10/13/2020 1:10:10 PM,1f999652-00a0-4c4b-99b5-64c2985ad070, default
