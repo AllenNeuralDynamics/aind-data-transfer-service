@@ -15,6 +15,7 @@ from aind_data_transfer_models import (
     __version__ as aind_data_transfer_models_version,
 )
 from aind_data_transfer_models.core import SubmitJobRequest, validation_context
+from authlib.integrations.starlette_client import OAuth, OAuthError
 from botocore.exceptions import ClientError
 from fastapi import Request
 from fastapi.responses import JSONResponse, StreamingResponse
@@ -23,11 +24,10 @@ from httpx import AsyncClient
 from openpyxl import load_workbook
 from pydantic import SecretStr, ValidationError
 from starlette.applications import Starlette
-from starlette.routing import Route
-from starlette.middleware.sessions import SessionMiddleware
 from starlette.config import Config
+from starlette.middleware.sessions import SessionMiddleware
 from starlette.responses import RedirectResponse
-from authlib.integrations.starlette_client import OAuth, OAuthError
+from starlette.routing import Route
 
 from aind_data_transfer_service import OPEN_DATA_BUCKET_NAME
 from aind_data_transfer_service import (
@@ -101,9 +101,9 @@ def get_project_names() -> List[str]:
 
 def set_oauth() -> OAuth:
     """Set up OAuth for the service"""
-    secrets_client = boto3.client('secretsmanager')
+    secrets_client = boto3.client("secretsmanager")
     secret_response = secrets_client.get_secret_value(
-        SecretId=os.getenv('AIND_SSO_SECRET_NAME')
+        SecretId=os.getenv("AIND_SSO_SECRET_NAME")
     )
     secret_value = json.loads(secret_response["SecretString"])
     for secrets in secret_value:
@@ -111,13 +111,11 @@ def set_oauth() -> OAuth:
     config = Config()
     oauth = OAuth(config)
     oauth.register(
-        name='azure',
+        name="azure",
         client_id=config("CLIENT_ID"),
         client_secret=config("CLIENT_SECRET"),
         server_metadata_url=config("AUTHORITY"),
-        client_kwargs={
-            'scope': 'openid email profile'
-        }
+        client_kwargs={"scope": "openid email profile"},
     )
     return oauth
 
@@ -995,7 +993,7 @@ async def jobs(request: Request):
 
 async def job_params(request: Request):
     """Get Job Parameters page"""
-    user = request.session.get('user')
+    user = request.session.get("user")
     if user:
         return templates.TemplateResponse(
             name="job_params.html",
@@ -1010,7 +1008,7 @@ async def job_params(request: Request):
                 }
             ),
         )
-    return RedirectResponse(url='/login')
+    return RedirectResponse(url="/login")
 
 
 async def download_job_template(_: Request):
@@ -1122,7 +1120,7 @@ def get_parameter(request: Request):
 async def login(request: Request):
     """Redirect to Azure login page"""
     oauth = set_oauth()
-    redirect_uri = request.url_for('auth')
+    redirect_uri = request.url_for("auth")
     response = await oauth.azure.authorize_redirect(request, redirect_uri)
     return response
 
@@ -1140,16 +1138,11 @@ async def auth(request: Request):
             },
             status_code=500,
         )
-    user = token.get('userinfo')
+    user = token.get("userinfo")
     if user:
-        request.session['user'] = dict(user)
+        request.session["user"] = dict(user)
     return templates.TemplateResponse(
-        name="admin.html",
-        context=(
-            {
-                "request": request
-            }
-        )
+        name="admin.html", context=({"request": request})
     )
 
 
@@ -1196,7 +1189,7 @@ routes = [
         methods=["GET"],
     ),
     Route("/login", login, methods=["GET"]),
-    Route("/auth", auth, methods=["GET"])
+    Route("/auth", auth, methods=["GET"]),
 ]
 
 app = Starlette(routes=routes)
