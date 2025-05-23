@@ -2407,7 +2407,7 @@ class TestServer(unittest.TestCase):
     def test_auth(
         self, mock_set_oauth: MagicMock, mock_secrets_client: MagicMock
     ):
-        """Tests the set_oauth function."""
+        """Tests the auth callback function."""
         mock_set_oauth.return_value.azure.authorize_access_token = AsyncMock(
             return_value={"userinfo": {"some_user": "info"}}
         )
@@ -2427,7 +2427,7 @@ class TestServer(unittest.TestCase):
     def test_auth_error(
         self, mock_set_oauth: MagicMock, mock_secrets_client: MagicMock
     ):
-        """Tests an error in the set_oauth function."""
+        """Tests an error in the auth callback function."""
         mock_set_oauth.return_value.azure.authorize_access_token = AsyncMock(
             side_effect=OAuthError("Error Logging In")
         )
@@ -2439,6 +2439,30 @@ class TestServer(unittest.TestCase):
         expected_response = {
             "message": "Error Logging In",
             "data": {"error": "OAuthError('Error Logging In: ',)"},
+        }
+        self.assertEqual(response.status_code, 500)
+        self.assertEqual(response.json(), expected_response)
+
+    @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
+    @patch("boto3.client")
+    @patch("aind_data_transfer_service.server.OAuth")
+    def test_auth_error_userinfo(
+        self, mock_set_oauth: MagicMock, mock_secrets_client: MagicMock
+    ):
+        """Tests the auth callback function when userinfo is not provided."""
+        mock_set_oauth.return_value.azure.authorize_access_token = AsyncMock(
+            return_value={"invalid": {"some_user": "info"}}
+        )
+        mock_secrets_client.return_value.get_secret_value.return_value = (
+            self.get_secrets_response
+        )
+        with TestClient(app) as client:
+            response = client.get("/auth")
+        expected_response = {
+            "message": "Error Logging In",
+            "data": {
+                "error": "ValueError('User info not found in access token.',)"
+            },
         }
         self.assertEqual(response.status_code, 500)
         self.assertEqual(response.json(), expected_response)

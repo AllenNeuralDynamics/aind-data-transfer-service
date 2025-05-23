@@ -15,7 +15,7 @@ from aind_data_transfer_models import (
     __version__ as aind_data_transfer_models_version,
 )
 from aind_data_transfer_models.core import SubmitJobRequest, validation_context
-from authlib.integrations.starlette_client import OAuth, OAuthError
+from authlib.integrations.starlette_client import OAuth
 from botocore.exceptions import ClientError
 from fastapi import Request
 from fastapi.responses import JSONResponse, StreamingResponse
@@ -1126,7 +1126,11 @@ async def auth(request: Request):
     oauth = set_oauth()
     try:
         token = await oauth.azure.authorize_access_token(request)
-    except OAuthError as error:
+        user = token.get("userinfo")
+        if not user:
+            raise ValueError("User info not found in access token.")
+        request.session["user"] = dict(user)
+    except Exception as error:
         return JSONResponse(
             content={
                 "message": "Error Logging In",
@@ -1134,9 +1138,6 @@ async def auth(request: Request):
             },
             status_code=500,
         )
-    user = token.get("userinfo")
-    if user:
-        request.session["user"] = dict(user)
     return templates.TemplateResponse(
         name="admin.html", context=({"request": request})
     )
