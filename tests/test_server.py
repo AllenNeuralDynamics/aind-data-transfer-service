@@ -1569,6 +1569,40 @@ class TestServer(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn("Job Parameters", response.text)
 
+    @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
+    @patch("fastapi.Request.session")
+    def test_admin(self, mock_session: MagicMock):
+        """Tests that the admin page renders when user is authenticated."""
+        expected_user = {"username": "test_user"}
+        mock_session.get.return_value = expected_user
+        with TestClient(app) as client:
+            response = client.get("/admin")
+        mock_session.get.assert_called_once_with("user")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("Admin", response.text)
+
+    @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
+    @patch("fastapi.Request.session")
+    @patch("aind_data_transfer_service.server.RedirectResponse")
+    def test_admin_unauthenticated(
+        self, mock_redirect_response: MagicMock, mock_session: MagicMock
+    ):
+        """Tests that the admin page redirects to login if user is not
+        authenticated."""
+        expected_user = None
+        mock_session.get.return_value = expected_user
+        mock_redirect_response.return_value = JSONResponse(
+            content={
+                "message": "Redirecting to login page",
+                "data": None,
+            },
+            status_code=307,
+        )
+        with TestClient(app) as client:
+            response = client.get("/admin")
+        mock_redirect_response.assert_called_once_with(url="/login")
+        self.assertEqual(response.status_code, 307)
+
     @patch("aind_data_transfer_service.server.JobUploadTemplate")
     @patch("logging.Logger.exception")
     def test_download_invalid_job_template(

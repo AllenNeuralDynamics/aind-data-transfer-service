@@ -26,6 +26,7 @@ from pydantic import SecretStr, ValidationError
 from starlette.applications import Starlette
 from starlette.config import Config
 from starlette.middleware.sessions import SessionMiddleware
+from starlette.responses import RedirectResponse
 from starlette.routing import Route
 
 from aind_data_transfer_service import OPEN_DATA_BUCKET_NAME
@@ -1113,6 +1114,24 @@ def get_parameter(request: Request):
         )
 
 
+async def admin(request: Request):
+    """Get admin page if authenticated, else redirect to login."""
+    user = request.session.get("user")
+    if user:
+        return templates.TemplateResponse(
+            name="admin.html",
+            context=(
+                {
+                    "request": request,
+                    "project_names_url": project_names_url,
+                    "user_name": user.get("name", "unknown"),
+                    "user_email": user.get("email", "unknown"),
+                }
+            ),
+        )
+    return RedirectResponse(url="/login")
+
+
 async def login(request: Request):
     """Redirect to Azure login page"""
     oauth = set_oauth()
@@ -1138,9 +1157,7 @@ async def auth(request: Request):
             },
             status_code=500,
         )
-    return templates.TemplateResponse(
-        name="admin.html", context=({"request": request})
-    )
+    return RedirectResponse(url="/admin")
 
 
 routes = [
@@ -1187,6 +1204,7 @@ routes = [
     ),
     Route("/login", login, methods=["GET"]),
     Route("/auth", auth, methods=["GET"]),
+    Route("/admin", admin, methods=["GET"]),
 ]
 
 app = Starlette(routes=routes)
