@@ -1573,13 +1573,25 @@ class TestServer(unittest.TestCase):
     @patch("fastapi.Request.session")
     def test_admin(self, mock_session: MagicMock):
         """Tests that the admin page renders when user is authenticated."""
-        expected_user = {"username": "test_user"}
+        expected_user = {"name": "test_user", "email": "test_email"}
         mock_session.get.return_value = expected_user
         with TestClient(app) as client:
             response = client.get("/admin")
         mock_session.get.assert_called_once_with("user")
         self.assertEqual(response.status_code, 200)
         self.assertIn("Admin", response.text)
+        self.assertIn("test_user", response.text)
+
+    @patch.dict(
+        os.environ, {**EXAMPLE_ENV_VAR1, "ENV_NAME": "local"}, clear=True
+    )
+    def test_admin_local(self):
+        """Tests that the admin page renders when user is authenticated."""
+        with TestClient(app) as client:
+            response = client.get("/admin")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("Admin", response.text)
+        self.assertIn("local user", response.text)
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch("fastapi.Request.session")
