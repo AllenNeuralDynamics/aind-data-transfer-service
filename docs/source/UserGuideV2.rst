@@ -45,13 +45,7 @@ job_types.
       container here.
    -  gather_final_metadata: Automatically generates a processing.json and
       metadata.nd.json file.
-   -  final_check_s3_folder_exist: The current behavior is to upload data to
-      the private data bucket if the metadata is invalid and the s3_bucket is
-      set to default. If the metadata is valid and the s3_bucket is set to
-      default, then the data is uploaded to the open bucket. Hence, another
-      check is added once the final s3_location is resolved. We plan to change
-      this behavior soon to just raise an error if the metadata is incomplete
-      and upload to the open bucket by default.
+   -  check_metadata_files: Checks that the metadata files exist and are json.
    -  upload_data_to_s3: Uploads the data to S3.
    -  register_data_asset_to_codeocean: Registers the data asset to Code Ocean.
    -  update_docdb_record: Updates the DocDB record with the Code Ocean Data
