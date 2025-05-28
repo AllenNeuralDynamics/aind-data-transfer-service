@@ -228,7 +228,7 @@ async def validate_csv(request: Request):
                 data = csv_io.getvalue()
             csv_reader = csv.DictReader(io.StringIO(data))
             params = AirflowDagRunsRequestParameters(
-                dag_ids=["transform_and_upload_v2"],
+                dag_ids=["transform_and_upload_v2", "run_list_of_jobs"],
                 states=["running", "queued"],
             )
             _, current_jobs = await get_airflow_jobs(
@@ -324,7 +324,8 @@ async def validate_json_v2(request: Request):
     content = await request.json()
     try:
         params = AirflowDagRunsRequestParameters(
-            dag_ids=["transform_and_upload_v2"], states=["running", "queued"]
+            dag_ids=["transform_and_upload_v2", "run_list_of_jobs"],
+            states=["running", "queued"],
         )
         _, current_jobs = await get_airflow_jobs(params=params, get_confs=True)
         context = {
@@ -439,7 +440,8 @@ async def submit_jobs_v2(request: Request):
     content = await request.json()
     try:
         params = AirflowDagRunsRequestParameters(
-            dag_ids=["transform_and_upload_v2"], states=["running", "queued"]
+            dag_ids=["transform_and_upload_v2", "run_list_of_jobs"],
+            states=["running", "queued"],
         )
         _, current_jobs = await get_airflow_jobs(params=params, get_confs=True)
         context = {
