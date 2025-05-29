@@ -434,21 +434,27 @@ class TestSubmitJobRequestV2(unittest.TestCase):
         submitted_job_request = SubmitJobRequestV2(
             upload_jobs=[self.example_upload_config]
         )
-        current_jobs = [
+        current_jobs_1 = [
             j.model_dump(mode="json", exclude_none=True)
             for j in submitted_job_request.upload_jobs
         ]
-        with self.assertRaises(ValidationError) as err:
-            with validation_context({"current_jobs": current_jobs}):
-                SubmitJobRequestV2(upload_jobs=[self.example_upload_config])
-        err_msg = json.loads(err.exception.json())[0]["msg"]
-        self.assertEqual(
-            (
-                "Value error, Job is already running/queued for "
-                "behavior_123456_2020-10-13_13-10-10"
-            ),
-            err_msg,
-        )
+        current_jobs_2 = [
+            submitted_job_request.model_dump(mode="json", exclude_none=True)
+        ]
+        for current_jobs in [current_jobs_1, current_jobs_2]:
+            with self.assertRaises(ValidationError) as err:
+                with validation_context({"current_jobs": current_jobs}):
+                    SubmitJobRequestV2(
+                        upload_jobs=[self.example_upload_config]
+                    )
+            err_msg = json.loads(err.exception.json())[0]["msg"]
+            self.assertEqual(
+                (
+                    "Value error, Job is already running/queued for "
+                    "behavior_123456_2020-10-13_13-10-10"
+                ),
+                err_msg,
+            )
 
 
 if __name__ == "__main__":
