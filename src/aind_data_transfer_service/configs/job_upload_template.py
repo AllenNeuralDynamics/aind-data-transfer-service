@@ -2,7 +2,7 @@
 
 import datetime
 from io import BytesIO
-from typing import Any, Dict, List
+from typing import Any, ClassVar, Dict, List
 
 from aind_data_schema_models.modalities import Modality
 from aind_data_schema_models.platforms import Platform
@@ -10,16 +10,16 @@ from openpyxl import Workbook
 from openpyxl.styles import Font
 from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.datavalidation import DataValidation
+from pydantic import BaseModel
 
 
-# TODO: convert to pydantic model
-class JobUploadTemplate:
+class JobUploadTemplate(BaseModel):
     """Class to configure and create xlsx job upload template"""
 
-    FILE_NAME = "job_upload_template.xlsx"
-    NUM_TEMPLATE_ROWS = 20
-    XLSX_DATETIME_FORMAT = "YYYY-MM-DDTHH:mm:ss"
-    HEADERS = [
+    FILE_NAME: ClassVar[str] = "job_upload_template.xlsx"
+    _NUM_TEMPLATE_ROWS: ClassVar[int] = 20
+    _XLSX_DATETIME_FORMAT: ClassVar[str] = "YYYY-MM-DDTHH:mm:ss"
+    _HEADERS: ClassVar[List[str]] = [
         "job_type",
         "project_name",
         "platform",
@@ -31,7 +31,7 @@ class JobUploadTemplate:
         "modality1",
         "modality1.input_source",
     ]
-    SAMPLE_JOBS = [
+    _SAMPLE_JOBS: ClassVar[List[List[Any]]] = [
         [
             "default",
             "Behavior Platform",
@@ -82,21 +82,21 @@ class JobUploadTemplate:
                 "name": "platform",
                 "type": "list",
                 "options": list(Platform.abbreviation_map.keys()),
-                "column_indexes": [self.HEADERS.index("platform")],
+                "column_indexes": [JobUploadTemplate._HEADERS.index("platform")],
             },
             {
                 "name": "modality",
                 "type": "list",
                 "options": list(Modality.abbreviation_map.keys()),
                 "column_indexes": [
-                    self.HEADERS.index("modality0"),
-                    self.HEADERS.index("modality1"),
+                    JobUploadTemplate._HEADERS.index("modality0"),
+                    JobUploadTemplate._HEADERS.index("modality1"),
                 ],
             },
             {
                 "name": "datetime",
                 "type": "date",
-                "column_indexes": [self.HEADERS.index("acq_datetime")],
+                "column_indexes": [JobUploadTemplate._HEADERS.index("acq_datetime")],
             },
         ]
 
@@ -107,8 +107,8 @@ class JobUploadTemplate:
         workbook = Workbook()
         workbook.iso_dates = True
         worksheet = workbook.active
-        worksheet.append(self.HEADERS)
-        for job in self.SAMPLE_JOBS:
+        worksheet.append(JobUploadTemplate._HEADERS)
+        for job in JobUploadTemplate._SAMPLE_JOBS:
             worksheet.append(job)
         # data validators
         for validator in self.validators:
@@ -127,17 +127,17 @@ class JobUploadTemplate:
                 dv_params["prompt"] = f"Select a {dv_name} from the dropdown"
             elif dv_type == "date":
                 dv_params["prompt"] = "Provide a {} using {}".format(
-                    dv_name, self.XLSX_DATETIME_FORMAT
+                    dv_name, JobUploadTemplate._XLSX_DATETIME_FORMAT
                 )
             dv = DataValidation(**dv_params)
             for i in validator["column_indexes"]:
                 col = get_column_letter(i + 1)
-                col_range = f"{col}2:{col}{self.NUM_TEMPLATE_ROWS}"
+                col_range = f"{col}2:{col}{JobUploadTemplate._NUM_TEMPLATE_ROWS}"
                 dv.add(col_range)
                 if dv_type != "date":
                     continue
                 for (cell,) in worksheet[col_range]:
-                    cell.number_format = self.XLSX_DATETIME_FORMAT
+                    cell.number_format = JobUploadTemplate._XLSX_DATETIME_FORMAT
             worksheet.add_data_validation(dv)
         # formatting
         bold = Font(bold=True)

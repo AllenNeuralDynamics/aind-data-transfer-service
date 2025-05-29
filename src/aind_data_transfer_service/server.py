@@ -999,7 +999,7 @@ async def download_job_template(_: Request):
             ),
             headers={
                 "Content-Disposition": (
-                    f"attachment; filename={job_template.FILE_NAME}"
+                    f"attachment; filename={JobUploadTemplate.FILE_NAME}"
                 )
             },
             status_code=200,

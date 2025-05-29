@@ -67,7 +67,7 @@ class TestJobUploadTemplate(unittest.TestCase):
             for r in validator["ranges"]:
                 rb = (col, *_) = range_boundaries(r)
                 self.assertTupleEqual(
-                    (col, 2, col, JobUploadTemplate.NUM_TEMPLATE_ROWS), rb
+                    (col, 2, col, JobUploadTemplate._NUM_TEMPLATE_ROWS), rb
                 )
                 validator["column_indexes"].append(col - 1)
             del validator["ranges"]

@@ -1541,7 +1541,7 @@ class TestServer(unittest.TestCase):
             ),
             headers={
                 "Content-Disposition": (
-                    f"attachment; filename={expected_job_template.FILE_NAME}"
+                    f"attachment; filename={JobUploadTemplate.FILE_NAME}"
                 )
             },
             status_code=200,
