@@ -68,8 +68,8 @@ class JobUploadTemplate(BaseModel):
         ],
     ]
 
-    @property
-    def validators(self) -> List[Dict[str, Any]]:
+    @classmethod
+    def _get_validators(cls) -> List[Dict[str, Any]]:
         """
         Returns
         -------
@@ -82,36 +82,36 @@ class JobUploadTemplate(BaseModel):
                 "name": "platform",
                 "type": "list",
                 "options": list(Platform.abbreviation_map.keys()),
-                "column_indexes": [JobUploadTemplate._HEADERS.index("platform")],
+                "column_indexes": [cls._HEADERS.index("platform")],
             },
             {
                 "name": "modality",
                 "type": "list",
                 "options": list(Modality.abbreviation_map.keys()),
                 "column_indexes": [
-                    JobUploadTemplate._HEADERS.index("modality0"),
-                    JobUploadTemplate._HEADERS.index("modality1"),
+                    cls._HEADERS.index("modality0"),
+                    cls._HEADERS.index("modality1"),
                 ],
             },
             {
                 "name": "datetime",
                 "type": "date",
-                "column_indexes": [JobUploadTemplate._HEADERS.index("acq_datetime")],
+                "column_indexes": [cls._HEADERS.index("acq_datetime")],
             },
         ]
 
-    @property
-    def excel_sheet_filestream(self) -> BytesIO:
+    @classmethod
+    def create_excel_sheet_filestream(cls) -> BytesIO:
         """Create job template as xlsx filestream"""
         xl_io = BytesIO()
         workbook = Workbook()
         workbook.iso_dates = True
         worksheet = workbook.active
-        worksheet.append(JobUploadTemplate._HEADERS)
-        for job in JobUploadTemplate._SAMPLE_JOBS:
+        worksheet.append(cls._HEADERS)
+        for job in cls._SAMPLE_JOBS:
             worksheet.append(job)
         # data validators
-        for validator in self.validators:
+        for validator in cls._get_validators():
             dv_type = validator["type"]
             dv_name = validator["name"]
             dv_params = {
@@ -127,17 +127,17 @@ class JobUploadTemplate(BaseModel):
                 dv_params["prompt"] = f"Select a {dv_name} from the dropdown"
             elif dv_type == "date":
                 dv_params["prompt"] = "Provide a {} using {}".format(
-                    dv_name, JobUploadTemplate._XLSX_DATETIME_FORMAT
+                    dv_name, cls._XLSX_DATETIME_FORMAT
                 )
             dv = DataValidation(**dv_params)
             for i in validator["column_indexes"]:
                 col = get_column_letter(i + 1)
-                col_range = f"{col}2:{col}{JobUploadTemplate._NUM_TEMPLATE_ROWS}"
+                col_range = f"{col}2:{col}{cls._NUM_TEMPLATE_ROWS}"
                 dv.add(col_range)
                 if dv_type != "date":
                     continue
                 for (cell,) in worksheet[col_range]:
-                    cell.number_format = JobUploadTemplate._XLSX_DATETIME_FORMAT
+                    cell.number_format = cls._XLSX_DATETIME_FORMAT
             worksheet.add_data_validation(dv)
         # formatting
         bold = Font(bold=True)
