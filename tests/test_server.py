@@ -1531,8 +1531,9 @@ class TestServer(unittest.TestCase):
         with TestClient(app) as client:
             response = client.get("/api/job_upload_template")
 
-        expected_job_template = JobUploadTemplate()
-        expected_file_stream = expected_job_template.excel_sheet_filestream
+        expected_file_stream = (
+            JobUploadTemplate.create_excel_sheet_filestream()
+        )
         expected_streaming_response = StreamingResponse(
             BytesIO(expected_file_stream.getvalue()),
             media_type=(
@@ -1541,7 +1542,7 @@ class TestServer(unittest.TestCase):
             ),
             headers={
                 "Content-Disposition": (
-                    f"attachment; filename={expected_job_template.FILE_NAME}"
+                    f"attachment; filename={JobUploadTemplate.FILE_NAME}"
                 )
             },
             status_code=200,
@@ -1567,7 +1568,9 @@ class TestServer(unittest.TestCase):
         self, mock_log_error: MagicMock, mock_job_template: MagicMock
     ):
         """Tests that download invalid job template returns errors."""
-        mock_job_template.side_effect = Exception("mock invalid job template")
+        mock_job_template.create_excel_sheet_filestream.side_effect = (
+            Exception("mock invalid job template")
+        )
         with TestClient(app) as client:
             response = client.get("/api/job_upload_template")
         expected_response = {

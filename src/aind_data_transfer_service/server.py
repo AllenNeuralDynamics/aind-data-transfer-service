@@ -989,8 +989,7 @@ async def download_job_template(_: Request):
     """Get job template as xlsx filestream for download"""
 
     try:
-        job_template = JobUploadTemplate()
-        xl_io = job_template.excel_sheet_filestream
+        xl_io = JobUploadTemplate.create_excel_sheet_filestream()
         return StreamingResponse(
             io.BytesIO(xl_io.getvalue()),
             media_type=(
@@ -999,7 +998,7 @@ async def download_job_template(_: Request):
             ),
             headers={
                 "Content-Disposition": (
-                    f"attachment; filename={job_template.FILE_NAME}"
+                    f"attachment; filename={JobUploadTemplate.FILE_NAME}"
                 )
             },
             status_code=200,
