@@ -290,11 +290,15 @@ class SubmitJobRequestV2(BaseSettings):
         # check against any jobs in the context
         current_jobs = (info.context or dict()).get("current_jobs", list())
         for job in current_jobs:
-            prefix = job.get("s3_prefix")
-            if (
-                prefix is not None
-                and prefix in jobs_map
-                and json.dumps(job, sort_keys=True) in jobs_map[prefix]
-            ):
-                raise ValueError(f"Job is already running/queued for {prefix}")
+            jobs_to_check = job.get("upload_jobs", [job])
+            for j in jobs_to_check:
+                prefix = j.get("s3_prefix")
+                if (
+                    prefix is not None
+                    and prefix in jobs_map
+                    and json.dumps(j, sort_keys=True) in jobs_map[prefix]
+                ):
+                    raise ValueError(
+                        f"Job is already running/queued for {prefix}"
+                    )
         return self

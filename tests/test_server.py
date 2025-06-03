@@ -1539,8 +1539,9 @@ class TestServer(unittest.TestCase):
         with TestClient(app) as client:
             response = client.get("/api/job_upload_template")
 
-        expected_job_template = JobUploadTemplate()
-        expected_file_stream = expected_job_template.excel_sheet_filestream
+        expected_file_stream = (
+            JobUploadTemplate.create_excel_sheet_filestream()
+        )
         expected_streaming_response = StreamingResponse(
             BytesIO(expected_file_stream.getvalue()),
             media_type=(
@@ -1549,7 +1550,7 @@ class TestServer(unittest.TestCase):
             ),
             headers={
                 "Content-Disposition": (
-                    f"attachment; filename={expected_job_template.FILE_NAME}"
+                    f"attachment; filename={JobUploadTemplate.FILE_NAME}"
                 )
             },
             status_code=200,
@@ -1621,7 +1622,9 @@ class TestServer(unittest.TestCase):
         self, mock_log_error: MagicMock, mock_job_template: MagicMock
     ):
         """Tests that download invalid job template returns errors."""
-        mock_job_template.side_effect = Exception("mock invalid job template")
+        mock_job_template.create_excel_sheet_filestream.side_effect = (
+            Exception("mock invalid job template")
+        )
         with TestClient(app) as client:
             response = client.get("/api/job_upload_template")
         expected_response = {
@@ -1656,6 +1659,13 @@ class TestServer(unittest.TestCase):
                 }
                 response = client.post(url="/api/v2/validate_csv", files=files)
 
+        expected_airflow_params = AirflowDagRunsRequestParameters(
+            dag_ids=["transform_and_upload_v2", "run_list_of_jobs"],
+            states=["running", "queued"],
+        )
+        mock_get_airflow_jobs.assert_called_once_with(
+            params=expected_airflow_params, get_confs=True
+        )
         self.assertEqual(200, response.status_code)
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
@@ -1852,7 +1862,13 @@ class TestServer(unittest.TestCase):
                 )
             self.assertEqual(200, submit_job_response.status_code)
         mock_get_job_types.assert_called_once_with("v2")
-        mock_get_airflow_jobs.assert_called_once()
+        expected_airflow_params = AirflowDagRunsRequestParameters(
+            dag_ids=["transform_and_upload_v2", "run_list_of_jobs"],
+            states=["running", "queued"],
+        )
+        mock_get_airflow_jobs.assert_called_once_with(
+            params=expected_airflow_params, get_confs=True
+        )
         self.assertEqual(2, mock_get_project_names.call_count)
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
@@ -2267,7 +2283,8 @@ class TestServer(unittest.TestCase):
             )
             self.assertEqual(job["version"], response_json["data"]["version"])
         expected_airflow_params = AirflowDagRunsRequestParameters(
-            dag_ids=["transform_and_upload_v2"], states=["running", "queued"]
+            dag_ids=["transform_and_upload_v2", "run_list_of_jobs"],
+            states=["running", "queued"],
         )
         mock_get_airflow_jobs.assert_called_once_with(
             params=expected_airflow_params, get_confs=True

@@ -253,7 +253,7 @@ async def validate_csv(request: Request):
                 data = csv_io.getvalue()
             csv_reader = csv.DictReader(io.StringIO(data))
             params = AirflowDagRunsRequestParameters(
-                dag_ids=["transform_and_upload_v2"],
+                dag_ids=["transform_and_upload_v2", "run_list_of_jobs"],
                 states=["running", "queued"],
             )
             _, current_jobs = await get_airflow_jobs(
@@ -349,7 +349,8 @@ async def validate_json_v2(request: Request):
     content = await request.json()
     try:
         params = AirflowDagRunsRequestParameters(
-            dag_ids=["transform_and_upload_v2"], states=["running", "queued"]
+            dag_ids=["transform_and_upload_v2", "run_list_of_jobs"],
+            states=["running", "queued"],
         )
         _, current_jobs = await get_airflow_jobs(params=params, get_confs=True)
         context = {
@@ -464,7 +465,8 @@ async def submit_jobs_v2(request: Request):
     content = await request.json()
     try:
         params = AirflowDagRunsRequestParameters(
-            dag_ids=["transform_and_upload_v2"], states=["running", "queued"]
+            dag_ids=["transform_and_upload_v2", "run_list_of_jobs"],
+            states=["running", "queued"],
         )
         _, current_jobs = await get_airflow_jobs(params=params, get_confs=True)
         context = {
@@ -1012,8 +1014,7 @@ async def download_job_template(_: Request):
     """Get job template as xlsx filestream for download"""
 
     try:
-        job_template = JobUploadTemplate()
-        xl_io = job_template.excel_sheet_filestream
+        xl_io = JobUploadTemplate.create_excel_sheet_filestream()
         return StreamingResponse(
             io.BytesIO(xl_io.getvalue()),
             media_type=(
@@ -1022,7 +1023,7 @@ async def download_job_template(_: Request):
             ),
             headers={
                 "Content-Disposition": (
-                    f"attachment; filename={job_template.FILE_NAME}"
+                    f"attachment; filename={JobUploadTemplate.FILE_NAME}"
                 )
             },
             status_code=200,
