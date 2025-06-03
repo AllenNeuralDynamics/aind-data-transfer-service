@@ -1142,6 +1142,12 @@ async def login(request: Request):
     return response
 
 
+async def logout(request: Request):
+    """Logout user and clear session"""
+    request.session.pop("user", None)
+    return RedirectResponse(url="/")
+
+
 async def auth(request: Request):
     """Authenticate user and store user info in session"""
     oauth = set_oauth()
@@ -1205,6 +1211,7 @@ routes = [
         methods=["GET"],
     ),
     Route("/login", login, methods=["GET"]),
+    Route("/logout", logout, methods=["GET"]),
     Route("/auth", auth, methods=["GET"]),
     Route("/admin", admin, methods=["GET"]),
 ]

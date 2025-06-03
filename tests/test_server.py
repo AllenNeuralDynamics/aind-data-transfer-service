@@ -2448,6 +2448,22 @@ class TestServer(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
+    @patch("aind_data_transfer_service.server.RedirectResponse")
+    @patch("fastapi.Request.session")
+    def test_logout(self, mock_session: MagicMock, mock_redirect: MagicMock):
+        """Tests logout clears user from session and redirects to index."""
+        expected_user = {"name": "test_user", "email": "test_email"}
+        mock_session.get.return_value = expected_user
+        mock_redirect.return_value = JSONResponse(
+            content={"message": "Redirecting to index"},
+            status_code=307,
+        )
+        with TestClient(app) as client:
+            response = client.get("/logout")
+        mock_redirect.assert_called_once_with(url="/")
+        self.assertEqual(response.status_code, 307)
+
+    @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch("boto3.client")
     @patch("aind_data_transfer_service.server.OAuth")
     def test_auth(
