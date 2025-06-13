@@ -93,8 +93,7 @@ def map_csv_row_to_job(row: dict) -> UploadJobConfigsV2:
     )
     tasks = {
         "gather_preliminary_metadata": metadata_task,
-        "check_s3_folder_exists_task": check_s3_folder_exists_task,
-        "final_check_s3_folder_exist": final_check_s3_folder_exist,
+        "check_s3_folder_exists": check_s3_folder_exists_task,
         "modality_transformation_settings": modality_tasks,
         "codeocean_pipeline_settings": None
         if codeocean_tasks == dict()
