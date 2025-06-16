@@ -2,7 +2,7 @@
 
 import datetime
 from io import BytesIO
-from typing import Any, Dict, List
+from typing import Any, ClassVar, Dict, List
 
 from aind_data_schema_models.modalities import Modality
 from aind_data_schema_models.platforms import Platform
@@ -10,16 +10,16 @@ from openpyxl import Workbook
 from openpyxl.styles import Font
 from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.datavalidation import DataValidation
+from pydantic import BaseModel
 
 
-# TODO: convert to pydantic model
-class JobUploadTemplate:
+class JobUploadTemplate(BaseModel):
     """Class to configure and create xlsx job upload template"""
 
-    FILE_NAME = "job_upload_template.xlsx"
-    NUM_TEMPLATE_ROWS = 20
-    XLSX_DATETIME_FORMAT = "YYYY-MM-DDTHH:mm:ss"
-    HEADERS = [
+    FILE_NAME: ClassVar[str] = "job_upload_template.xlsx"
+    _NUM_TEMPLATE_ROWS: ClassVar[int] = 20
+    _XLSX_DATETIME_FORMAT: ClassVar[str] = "YYYY-MM-DDTHH:mm:ss"
+    _HEADERS: ClassVar[List[str]] = [
         "job_type",
         "project_name",
         "platform",
@@ -31,7 +31,7 @@ class JobUploadTemplate:
         "modality1",
         "modality1.input_source",
     ]
-    SAMPLE_JOBS = [
+    _SAMPLE_JOBS: ClassVar[List[List[Any]]] = [
         [
             "default",
             "Behavior Platform",
@@ -68,8 +68,8 @@ class JobUploadTemplate:
         ],
     ]
 
-    @property
-    def validators(self) -> List[Dict[str, Any]]:
+    @classmethod
+    def _get_validators(cls) -> List[Dict[str, Any]]:
         """
         Returns
         -------
@@ -82,36 +82,36 @@ class JobUploadTemplate:
                 "name": "platform",
                 "type": "list",
                 "options": list(Platform.abbreviation_map.keys()),
-                "column_indexes": [self.HEADERS.index("platform")],
+                "column_indexes": [cls._HEADERS.index("platform")],
             },
             {
                 "name": "modality",
                 "type": "list",
                 "options": list(Modality.abbreviation_map.keys()),
                 "column_indexes": [
-                    self.HEADERS.index("modality0"),
-                    self.HEADERS.index("modality1"),
+                    cls._HEADERS.index("modality0"),
+                    cls._HEADERS.index("modality1"),
                 ],
             },
             {
                 "name": "datetime",
                 "type": "date",
-                "column_indexes": [self.HEADERS.index("acq_datetime")],
+                "column_indexes": [cls._HEADERS.index("acq_datetime")],
             },
         ]
 
-    @property
-    def excel_sheet_filestream(self) -> BytesIO:
+    @classmethod
+    def create_excel_sheet_filestream(cls) -> BytesIO:
         """Create job template as xlsx filestream"""
         xl_io = BytesIO()
         workbook = Workbook()
         workbook.iso_dates = True
         worksheet = workbook.active
-        worksheet.append(self.HEADERS)
-        for job in self.SAMPLE_JOBS:
+        worksheet.append(cls._HEADERS)
+        for job in cls._SAMPLE_JOBS:
             worksheet.append(job)
         # data validators
-        for validator in self.validators:
+        for validator in cls._get_validators():
             dv_type = validator["type"]
             dv_name = validator["name"]
             dv_params = {
@@ -127,17 +127,17 @@ class JobUploadTemplate:
                 dv_params["prompt"] = f"Select a {dv_name} from the dropdown"
             elif dv_type == "date":
                 dv_params["prompt"] = "Provide a {} using {}".format(
-                    dv_name, self.XLSX_DATETIME_FORMAT
+                    dv_name, cls._XLSX_DATETIME_FORMAT
                 )
             dv = DataValidation(**dv_params)
             for i in validator["column_indexes"]:
                 col = get_column_letter(i + 1)
-                col_range = f"{col}2:{col}{self.NUM_TEMPLATE_ROWS}"
+                col_range = f"{col}2:{col}{cls._NUM_TEMPLATE_ROWS}"
                 dv.add(col_range)
                 if dv_type != "date":
                     continue
                 for (cell,) in worksheet[col_range]:
-                    cell.number_format = self.XLSX_DATETIME_FORMAT
+                    cell.number_format = cls._XLSX_DATETIME_FORMAT
             worksheet.add_data_validation(dv)
         # formatting
         bold = Font(bold=True)

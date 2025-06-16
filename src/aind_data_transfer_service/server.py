@@ -15,6 +15,7 @@ from aind_data_transfer_models import (
     __version__ as aind_data_transfer_models_version,
 )
 from aind_data_transfer_models.core import SubmitJobRequest, validation_context
+from authlib.integrations.starlette_client import OAuth
 from botocore.exceptions import ClientError
 from fastapi import Request
 from fastapi.responses import JSONResponse, StreamingResponse
@@ -23,6 +24,9 @@ from httpx import AsyncClient
 from openpyxl import load_workbook
 from pydantic import SecretStr, ValidationError
 from starlette.applications import Starlette
+from starlette.config import Config
+from starlette.middleware.sessions import SessionMiddleware
+from starlette.responses import RedirectResponse
 from starlette.routing import Route
 
 from aind_data_transfer_service import OPEN_DATA_BUCKET_NAME
@@ -93,6 +97,27 @@ def get_project_names() -> List[str]:
     response.raise_for_status()
     project_names = response.json()["data"]
     return project_names
+
+
+def set_oauth() -> OAuth:
+    """Set up OAuth for the service"""
+    secrets_client = boto3.client("secretsmanager")
+    secret_response = secrets_client.get_secret_value(
+        SecretId=os.getenv("AIND_SSO_SECRET_NAME")
+    )
+    secret_value = json.loads(secret_response["SecretString"])
+    for secrets in secret_value:
+        os.environ[secrets] = secret_value[secrets]
+    config = Config()
+    oauth = OAuth(config)
+    oauth.register(
+        name="azure",
+        client_id=config("CLIENT_ID"),
+        client_secret=config("CLIENT_SECRET"),
+        server_metadata_url=config("AUTHORITY"),
+        client_kwargs={"scope": "openid email profile"},
+    )
+    return oauth
 
 
 def get_job_types(version: Optional[str] = None) -> List[str]:
@@ -228,7 +253,7 @@ async def validate_csv(request: Request):
                 data = csv_io.getvalue()
             csv_reader = csv.DictReader(io.StringIO(data))
             params = AirflowDagRunsRequestParameters(
-                dag_ids=["transform_and_upload_v2"],
+                dag_ids=["transform_and_upload_v2", "run_list_of_jobs"],
                 states=["running", "queued"],
             )
             _, current_jobs = await get_airflow_jobs(
@@ -324,7 +349,8 @@ async def validate_json_v2(request: Request):
     content = await request.json()
     try:
         params = AirflowDagRunsRequestParameters(
-            dag_ids=["transform_and_upload_v2"], states=["running", "queued"]
+            dag_ids=["transform_and_upload_v2", "run_list_of_jobs"],
+            states=["running", "queued"],
         )
         _, current_jobs = await get_airflow_jobs(params=params, get_confs=True)
         context = {
@@ -439,7 +465,8 @@ async def submit_jobs_v2(request: Request):
     content = await request.json()
     try:
         params = AirflowDagRunsRequestParameters(
-            dag_ids=["transform_and_upload_v2"], states=["running", "queued"]
+            dag_ids=["transform_and_upload_v2", "run_list_of_jobs"],
+            states=["running", "queued"],
         )
         _, current_jobs = await get_airflow_jobs(params=params, get_confs=True)
         context = {
@@ -987,8 +1014,7 @@ async def download_job_template(_: Request):
     """Get job template as xlsx filestream for download"""
 
     try:
-        job_template = JobUploadTemplate()
-        xl_io = job_template.excel_sheet_filestream
+        xl_io = JobUploadTemplate.create_excel_sheet_filestream()
         return StreamingResponse(
             io.BytesIO(xl_io.getvalue()),
             media_type=(
@@ -997,7 +1023,7 @@ async def download_job_template(_: Request):
             ),
             headers={
                 "Content-Disposition": (
-                    f"attachment; filename={job_template.FILE_NAME}"
+                    f"attachment; filename={JobUploadTemplate.FILE_NAME}"
                 )
             },
             status_code=200,
@@ -1089,6 +1115,60 @@ def get_parameter(request: Request):
         )
 
 
+async def admin(request: Request):
+    """Get admin page if authenticated, else redirect to login."""
+    user = request.session.get("user")
+    if os.getenv("ENV_NAME") == "local":
+        user = {"name": "local user"}
+    if user:
+        return templates.TemplateResponse(
+            name="admin.html",
+            context=(
+                {
+                    "request": request,
+                    "project_names_url": project_names_url,
+                    "user_name": user.get("name", "unknown"),
+                    "user_email": user.get("email", "unknown"),
+                }
+            ),
+        )
+    return RedirectResponse(url="/login")
+
+
+async def login(request: Request):
+    """Redirect to Azure login page"""
+    oauth = set_oauth()
+    redirect_uri = request.url_for("auth")
+    response = await oauth.azure.authorize_redirect(request, redirect_uri)
+    return response
+
+
+async def logout(request: Request):
+    """Logout user and clear session"""
+    request.session.pop("user", None)
+    return RedirectResponse(url="/")
+
+
+async def auth(request: Request):
+    """Authenticate user and store user info in session"""
+    oauth = set_oauth()
+    try:
+        token = await oauth.azure.authorize_access_token(request)
+        user = token.get("userinfo")
+        if not user:
+            raise ValueError("User info not found in access token.")
+        request.session["user"] = dict(user)
+    except Exception as error:
+        return JSONResponse(
+            content={
+                "message": "Error Logging In",
+                "data": {"error": f"{error.__class__.__name__}{error.args}"},
+            },
+            status_code=500,
+        )
+    return RedirectResponse(url="/admin")
+
+
 routes = [
     Route("/", endpoint=index, methods=["GET", "POST"]),
     Route("/api/validate_csv", endpoint=validate_csv_legacy, methods=["POST"]),
@@ -1131,6 +1211,11 @@ routes = [
         endpoint=download_job_template,
         methods=["GET"],
     ),
+    Route("/login", login, methods=["GET"]),
+    Route("/logout", logout, methods=["GET"]),
+    Route("/auth", auth, methods=["GET"]),
+    Route("/admin", admin, methods=["GET"]),
 ]
 
 app = Starlette(routes=routes)
+app.add_middleware(SessionMiddleware, secret_key=None)
