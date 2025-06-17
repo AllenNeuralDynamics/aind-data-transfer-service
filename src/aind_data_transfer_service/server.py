@@ -934,7 +934,6 @@ async def get_task_logs(request: Request):
 
 async def index(request: Request):
     """GET|POST /: form handler"""
-    print(project_names_url)
     return templates.TemplateResponse(
         request=request,
         name="index.html",
