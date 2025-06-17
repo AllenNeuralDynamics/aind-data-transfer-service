@@ -95,6 +95,7 @@ templates = Jinja2Templates(directory=template_directory)
 logger = get_logger(log_configs=LoggingConfigs())
 project_names_url = os.getenv("AIND_METADATA_SERVICE_PROJECT_NAMES_URL")
 
+
 def get_project_names() -> List[str]:
     """Get a list of project_names"""
     # TODO: Cache response for 5 minutes
@@ -935,7 +936,7 @@ async def index(request: Request):
     """GET|POST /: form handler"""
     print(project_names_url)
     return templates.TemplateResponse(
-        request= request,
+        request=request,
         name="index.html",
         context=(
             {
@@ -951,7 +952,7 @@ async def job_tasks_table(request: Request):
     response_tasks_json = json.loads(response_tasks.body)
     data = response_tasks_json.get("data")
     return templates.TemplateResponse(
-        request= request,
+        request=request,
         name="job_tasks_table.html",
         context=(
             {
@@ -971,7 +972,7 @@ async def task_logs(request: Request):
     response_tasks_json = json.loads(response_tasks.body)
     data = response_tasks_json.get("data")
     return templates.TemplateResponse(
-        request= request,
+        request=request,
         name="task_logs.html",
         context=(
             {
@@ -988,7 +989,7 @@ async def jobs(request: Request):
     """Get Job Status page with pagination"""
     dag_ids = AirflowDagRunsRequestParameters.model_fields["dag_ids"].default
     return templates.TemplateResponse(
-        request= request,
+        request=request,
         name="job_status.html",
         context=(
             {
@@ -1002,7 +1003,7 @@ async def jobs(request: Request):
 async def job_params(request: Request):
     """Get Job Parameters page"""
     return templates.TemplateResponse(
-        request= request,
+        request=request,
         name="job_params.html",
         context=(
             {
@@ -1128,7 +1129,7 @@ async def admin(request: Request):
         user = {"name": "local user"}
     if user:
         return templates.TemplateResponse(
-            request= request,
+            request=request,
             name="admin.html",
             context=(
                 {
