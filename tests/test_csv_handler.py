@@ -14,6 +14,7 @@ from aind_data_transfer_service.models.core import Task, UploadJobConfigsV2
 
 RESOURCES_DIR = Path(os.path.dirname(os.path.realpath(__file__))) / "resources"
 SAMPLE_FILE = RESOURCES_DIR / "new_sample.csv"
+NESTED_SAMPLE_FILE = RESOURCES_DIR / "nested_sample.csv"
 LEGACY_FILE = RESOURCES_DIR / "legacy_sample.csv"
 LEGACY_FILE_2 = RESOURCES_DIR / "legacy_sample2.csv"
 
@@ -86,6 +87,72 @@ class TestCsvHandler(unittest.TestCase):
             ),
         ]
         self.assertEqual(expected_jobs, jobs)
+
+    # def test_map_nested_csv_row_to_job(self):
+    #     """Tests map_csv_row_to_job method with nested keys"""
+    #
+    #     jobs = []
+    #     with open(NESTED_SAMPLE_FILE, newline="") as csvfile:
+    #         reader = csv.DictReader(csvfile, skipinitialspace=True)
+    #         for row in reader:
+    #             jobs.append(map_csv_row_to_job(row))
+    #     print(jobs)
+        # expected_jobs = [
+        #     UploadJobConfigsV2(
+        #         project_name="Ephys Platform",
+        #         s3_bucket="default",
+        #         platform=Platform.ECEPHYS,
+        #         modalities=[Modality.ECEPHYS],
+        #         tasks={
+        #             "gather_preliminary_metadata": Task(
+        #                 job_settings={"metadata_dir": "dir/metadata"}
+        #             ),
+        #             "modality_transformation_settings": {
+        #                 Modality.ECEPHYS.abbreviation: Task(
+        #                     job_settings={"input_source": "dir/data_set_1"}
+        #                 )
+        #             },
+        #         },
+        #         subject_id="123454",
+        #         acq_datetime=datetime(2020, 10, 10, 14, 10, 10),
+        #         job_type="ecephys",
+        #     ),
+        #     UploadJobConfigsV2(
+        #         project_name="Behavior Platform",
+        #         s3_bucket="open",
+        #         platform=Platform.BEHAVIOR,
+        #         modalities=[Modality.BEHAVIOR_VIDEOS, Modality.MRI],
+        #         tasks={
+        #             "modality_transformation_settings": {
+        #                 Modality.BEHAVIOR_VIDEOS.abbreviation: Task(
+        #                     job_settings={"input_source": "dir/data_set_2"}
+        #                 ),
+        #                 Modality.MRI.abbreviation: Task(
+        #                     job_settings={"input_source": "dir/data_set_3"}
+        #                 ),
+        #             }
+        #         },
+        #         subject_id="123456",
+        #         acq_datetime=datetime(2020, 10, 13, 13, 10, 10),
+        #         job_type="custom",
+        #     ),
+        #     UploadJobConfigsV2(
+        #         project_name="Behavior Platform",
+        #         platform=Platform.BEHAVIOR,
+        #         modalities=[Modality.BEHAVIOR_VIDEOS],
+        #         tasks={
+        #             "modality_transformation_settings": {
+        #                 Modality.BEHAVIOR_VIDEOS.abbreviation: Task(
+        #                     job_settings={"input_source": "dir/data_set_2"}
+        #                 )
+        #             }
+        #         },
+        #         subject_id="123456",
+        #         acq_datetime=datetime(2020, 10, 13, 13, 10, 10),
+        #         job_type="default",
+        #     ),
+        # ]
+        # self.assertEqual(expected_jobs, jobs)
 
     def test_map_legacy_csv_row_to_job(self):
         """Tests map_csv_row_to_job method"""
