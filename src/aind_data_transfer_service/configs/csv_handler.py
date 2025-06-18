@@ -1,8 +1,10 @@
 """Module to handle processing legacy csv files"""
 
 import re
+from collections.abc import Mapping
+from copy import deepcopy
 from datetime import datetime
-from typing import Dict, Any
+from typing import Any, Dict
 
 from aind_data_schema_models.modalities import Modality
 from aind_data_schema_models.platforms import Platform
@@ -14,24 +16,43 @@ DATETIME_PATTERN2 = re.compile(
 )
 
 
-def create_nested_dict(d: Dict[str, Any], key_string: str, value: Any):
+def nested_update(dict_to_update: Dict[str, Any], updates: Mapping):
     """
-    Updates a nested dictionary with a period delimited key with a value.
+    Update a nested dictionary in-place.
     Parameters
     ----------
-    d : Dict[str, Any]
+    dict_to_update : Dict[str, Any]
+    updates : Mapping
+
+    """
+    for k, v in updates.items():
+        if isinstance(v, Mapping):
+            dict_to_update[k] = nested_update(dict_to_update.get(k, {}), v)
+        else:
+            dict_to_update[k] = v
+    return dict_to_update
+
+
+def create_nested_dict(
+    dict_to_update: Dict[str, Any], key_string: str, value: Any
+):
+    """
+    Updates in-place a nested dictionary with a period delimited key and value.
+    Parameters
+    ----------
+    dict_to_update : Dict[str, Any]
     key_string : str
     value : Any
 
     """
-    keys = key_string.split('.', 1)
+    keys = key_string.split(".", 1)
     current_key = keys[0]
     if len(keys) == 1:
-        d[current_key] = value
-    else:  # More nesting required
-        if current_key not in d:
-            d[current_key] = dict()
-        create_nested_dict(d[current_key], keys[1], value)
+        dict_to_update[current_key] = value
+    else:
+        if current_key not in dict_to_update:
+            dict_to_update[current_key] = dict()
+        create_nested_dict(dict_to_update[current_key], keys[1], value)
 
 
 def map_csv_row_to_job(row: dict) -> UploadJobConfigsV2:
@@ -62,7 +83,9 @@ def map_csv_row_to_job(row: dict) -> UploadJobConfigsV2:
             modality_parts = clean_key.split(".")
             modality_key = modality_parts[0]
             sub_key = (
-                "modality" if len(modality_parts) == 1 else modality_parts[1]
+                "modality"
+                if len(modality_parts) == 1
+                else ".".join(modality_parts[1:])
             )
             modality_configs.setdefault(modality_key, dict())
             # Temp backwards compatibility check
@@ -88,11 +111,15 @@ def map_csv_row_to_job(row: dict) -> UploadJobConfigsV2:
             else:
                 nested_val = dict()
                 create_nested_dict(
-                    d=dict(),
+                    dict_to_update=nested_val,
                     key_string=sub_key,
-                    value=clean_val
+                    value=clean_val,
                 )
-                modality_configs[modality_key].update(nested_val)
+                current_dict = deepcopy(
+                    modality_configs.get(modality_key, dict())
+                )
+                nested_update(current_dict, nested_val)
+                modality_configs[modality_key] = current_dict
         elif clean_key == "force_cloud_sync" and clean_val.upper() in [
             "TRUE",
             "T",
@@ -118,7 +145,7 @@ def map_csv_row_to_job(row: dict) -> UploadJobConfigsV2:
     )
     tasks = {
         "gather_preliminary_metadata": metadata_task,
-        "check_s3_folder_exists_task": check_s3_folder_exists_task,
+        "check_s3_folder_exists": check_s3_folder_exists_task,
         "modality_transformation_settings": modality_tasks,
         "codeocean_pipeline_settings": None
         if codeocean_tasks == dict()
