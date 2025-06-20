@@ -44,7 +44,7 @@ server = [
     'aind-metadata-mapper==0.23.0',
     'boto3',
     'boto3-stubs[ssm]',
-    'fastapi>=0.115.12', 
+    'fastapi>=0.115.13', 
     'httpx',
     'jinja2',
     'starlette>=0.40.0,<0.47.0',
