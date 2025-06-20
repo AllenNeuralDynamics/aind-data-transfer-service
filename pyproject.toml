@@ -47,7 +47,7 @@ server = [
     'fastapi>=0.115.12', 
     'httpx',
     'jinja2',
-    'starlette>0.40.0,<=0.47.0',
+    'starlette>=0.40.0,<0.47.0',
     'starlette_wtf',
     'uvicorn[standard]',
     'wtforms',
