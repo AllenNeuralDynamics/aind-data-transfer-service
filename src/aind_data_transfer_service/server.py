@@ -29,7 +29,9 @@ from starlette.middleware.sessions import SessionMiddleware
 from starlette.responses import RedirectResponse
 from starlette.routing import Route
 
-from aind_data_transfer_service import OPEN_DATA_BUCKET_NAME
+from aind_data_transfer_service import (
+    OPEN_DATA_BUCKET_NAME,
+)
 from aind_data_transfer_service import (
     __version__ as aind_data_transfer_service_version,
 )
@@ -37,14 +39,18 @@ from aind_data_transfer_service.configs.csv_handler import map_csv_row_to_job
 from aind_data_transfer_service.configs.job_configs import (
     BasicUploadJobConfigs as LegacyBasicUploadJobConfigs,
 )
-from aind_data_transfer_service.configs.job_configs import HpcJobConfigs
+from aind_data_transfer_service.configs.job_configs import (
+    HpcJobConfigs,
+)
 from aind_data_transfer_service.configs.job_upload_template import (
     JobUploadTemplate,
 )
 from aind_data_transfer_service.hpc.client import HpcClient, HpcClientConfigs
 from aind_data_transfer_service.hpc.models import HpcJobSubmitSettings
 from aind_data_transfer_service.log_handler import LoggingConfigs, get_logger
-from aind_data_transfer_service.models.core import SubmitJobRequestV2
+from aind_data_transfer_service.models.core import (
+    SubmitJobRequestV2,
+)
 from aind_data_transfer_service.models.core import (
     validation_context as validation_context_v2,
 )
@@ -929,10 +935,10 @@ async def get_task_logs(request: Request):
 async def index(request: Request):
     """GET|POST /: form handler"""
     return templates.TemplateResponse(
+        request=request,
         name="index.html",
         context=(
             {
-                "request": request,
                 "project_names_url": project_names_url,
             }
         ),
@@ -945,10 +951,10 @@ async def job_tasks_table(request: Request):
     response_tasks_json = json.loads(response_tasks.body)
     data = response_tasks_json.get("data")
     return templates.TemplateResponse(
+        request=request,
         name="job_tasks_table.html",
         context=(
             {
-                "request": request,
                 "status_code": response_tasks.status_code,
                 "message": response_tasks_json.get("message"),
                 "errors": data.get("errors", []),
@@ -965,10 +971,10 @@ async def task_logs(request: Request):
     response_tasks_json = json.loads(response_tasks.body)
     data = response_tasks_json.get("data")
     return templates.TemplateResponse(
+        request=request,
         name="task_logs.html",
         context=(
             {
-                "request": request,
                 "status_code": response_tasks.status_code,
                 "message": response_tasks_json.get("message"),
                 "errors": data.get("errors", []),
@@ -982,10 +988,10 @@ async def jobs(request: Request):
     """Get Job Status page with pagination"""
     dag_ids = AirflowDagRunsRequestParameters.model_fields["dag_ids"].default
     return templates.TemplateResponse(
+        request=request,
         name="job_status.html",
         context=(
             {
-                "request": request,
                 "project_names_url": project_names_url,
                 "dag_ids": dag_ids,
             }
@@ -996,10 +1002,10 @@ async def jobs(request: Request):
 async def job_params(request: Request):
     """Get Job Parameters page"""
     return templates.TemplateResponse(
+        request=request,
         name="job_params.html",
         context=(
             {
-                "request": request,
                 "project_names_url": os.getenv(
                     "AIND_METADATA_SERVICE_PROJECT_NAMES_URL"
                 ),
@@ -1122,10 +1128,10 @@ async def admin(request: Request):
         user = {"name": "local user"}
     if user:
         return templates.TemplateResponse(
+            request=request,
             name="admin.html",
             context=(
                 {
-                    "request": request,
                     "project_names_url": project_names_url,
                     "user_name": user.get("name", "unknown"),
                     "user_email": user.get("email", "unknown"),
