@@ -120,7 +120,6 @@ class TestCsvHandler(unittest.TestCase):
             reader = csv.DictReader(csvfile, skipinitialspace=True)
             for row in reader:
                 jobs.append(map_csv_row_to_job(row))
-        print(jobs)
         expected_jobs = [
             UploadJobConfigsV2(
                 job_type="ecephys",
