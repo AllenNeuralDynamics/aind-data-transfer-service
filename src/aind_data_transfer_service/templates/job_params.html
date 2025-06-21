@@ -122,6 +122,13 @@
                 var url = getParamUrlFromParamName(paramName);
                 loadParameterValue(url, modal);
             });
+            $('#param-modal').on('click', '#submit-param-btn', function () {
+                var modal = $('#param-modal');
+                var paramName = modal.find('#param-modal-label').text();
+                var paramValue = modal.find('#param-modal-content').val();
+                var url = getParamUrlFromParamName(paramName);
+                submitParameterValue(url, paramValue, modal);
+            });
             // Event listener for version dropdown
             $('#version-dropdown .dropdown-item').on('click', function() {
                 var version = $(this).text();
@@ -215,7 +222,7 @@
             }
             return data;
         }
-        // Methods to load param values in the modal
+        // Methods to load/submit param values in the modal
         function getParamUrlFromParamName(paramName) {
             if (paramName.includes('job_types/v2')) {
                 var version = 'v2';
@@ -237,6 +244,23 @@
                 error: function (xhr, status, error) {
                     console.error(`Error fetching ${paramUrl}: ${error}`);
                     modal.find('#param-modal-content').val(error);
+                }
+            });
+        }
+        function submitParameterValue(paramUrl, paramValue, modal) {
+            $.ajax({
+                url: paramUrl,
+                type: 'PUT',
+                contentType: 'application/json',
+                data: paramValue,
+                success: function (response) {
+                    console.log(`Successfully updated ${paramUrl}`);
+                    alert(`Parameter updated successfully: ${response.data}`);
+                    loadParameterValue(paramUrl, modal);
+                },
+                error: function (xhr, status, error) {
+                    console.error(`Error updating ${paramUrl}: ${error}`);
+                    alert(`Failed to update parameter: ${error}`);
                 }
             });
         }
