@@ -116,6 +116,12 @@
                 $(this).find('#param-modal-label').text('');
                 $(this).find('#param-modal-content').val('');
             });
+            $('#param-modal').on('click', '#reset-param-btn', function () {
+                var modal = $('#param-modal');
+                var paramName = modal.find('#param-modal-label').text();
+                var url = getParamUrlFromParamName(paramName);
+                loadParameterValue(url, modal);
+            });
             // Event listener for version dropdown
             $('#version-dropdown .dropdown-item').on('click', function() {
                 var version = $(this).text();
@@ -209,7 +215,17 @@
             }
             return data;
         }
-        // Method to load param values in the modal
+        // Methods to load param values in the modal
+        function getParamUrlFromParamName(paramName) {
+            if (paramName.includes('job_types/v2')) {
+                var version = 'v2';
+                var cleanedParamName = paramName.split('job_types/v2/')[1];
+            } else {
+                var version = 'v1';
+                var cleanedParamName = paramName.split('job_types/')[1];
+            }
+            return `/api/${version}/parameters/job_types/${cleanedParamName}`;
+        }
         function loadParameterValue(paramUrl, modal) {
             $.ajax({
                 url: paramUrl,
