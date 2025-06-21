@@ -62,10 +62,12 @@
                         <th>Modality</th>
                         <th>Parameter Name</th>
                         <th>Last Modified</th>
+                        <th>Actions</th>
                     </tr>
                 </thead>
             </table>
             <!-- modal for displaying param value as json -->
+            <!-- if opened from Edit button, the textarea will be editable and the footer will display the Submit button -->
             <div class="modal fade" id="param-modal" tabindex="-1" aria-labelledby="param-modal-label" aria-hidden="true">
                 <div class="modal-dialog modal-xl">
                     <div class="modal-content">
@@ -74,7 +76,12 @@
                             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                         </div>
                         <div class="modal-body">
-                            <pre id="param-modal-content" class="bg-light p-1 border rounded"></pre>
+                            <textarea id="param-modal-content" class="bg-light form-control form-control-sm font-monospace" rows="15" readonly></textarea>
+                        </div>
+                        <div class="modal-footer" hidden>
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                            <button type="button" class="btn btn-secondary" id="reset-param-btn">Reset</button>
+                            <button type="button" class="btn btn-primary" id="submit-param-btn">Submit</button>
                         </div>
                     </div>
                 </div>
@@ -91,29 +98,23 @@
                 var jobType = button.data('bs-job-type');
                 var taskId = button.data('bs-task-id');
                 var modality = button.data('bs-modality');
-                // update the modal label and contents
+                var editEnabled = button.data('bs-edit-enabled');
+                // update the modal label and footer
                 var modal = $(this);
                 modal.find('#param-modal-label').text(paramName);
+                modal.find('.modal-footer').attr('hidden', !editEnabled);
+                modal.find('#param-modal-content').attr('readonly', !editEnabled);
+                // update modal contents
                 var version = $('#version-button').text().trim();
                 var getParameterUrl = `/api/${version}/parameters/job_types/${jobType}/tasks/${taskId}`;
                 if (modality) {
                     getParameterUrl += `/${modality}`;
                 }
-                $.ajax({
-                    url: getParameterUrl,
-                    type: 'GET',
-                    success: function(response) {
-                        jsonStr = JSON.stringify(response.data, null, 3);
-                        modal.find('#param-modal-content').text(jsonStr);
-                    },
-                    error: function(xhr, status, error) {
-                        modal.find('#param-modal-content').text(error);
-                    }
-                });
+                loadParameterValue(getParameterUrl, modal);
             });
             $('#param-modal').on('hidden.bs.modal', function() {
                 $(this).find('#param-modal-label').text('');
-                $(this).find('#param-modal-content').text('');
+                $(this).find('#param-modal-content').val('');
             });
             // Event listener for version dropdown
             $('#version-dropdown .dropdown-item').on('click', function() {
@@ -138,6 +139,7 @@
                     { data: 'modality', searchPanes: {show: false} },
                     { data: 'name', render: renderParameterButton },
                     { data: 'last_modified', render: renderDatetime },
+                    { data: 'name', render: renderActionButtons }
                 ],
                 order: [0, 'asc'],
                 // preselect "default" job_type
@@ -184,11 +186,43 @@
                         data-bs-job-type=${row.job_type} 
                         data-bs-task-id=${row.task_id}
                         data-bs-modality=${row.modality}
+                        data-bs-edit-enabled="false"
                     >${data}
                     </button>`
                 );
             }
             return data;
+        }
+        function renderActionButtons(data, type, row) {
+            if (type == 'display') {
+                return (
+                    `<button type="button" class="btn btn-secondary btn-sm" 
+                        data-bs-toggle="modal" 
+                        data-bs-target="#param-modal" 
+                        data-bs-param-name=${data} 
+                        data-bs-job-type=${row.job_type} 
+                        data-bs-task-id=${row.task_id}
+                        data-bs-modality=${row.modality}
+                        data-bs-edit-enabled="true"
+                    >Edit</button>`
+                );
+            }
+            return data;
+        }
+        // Method to load param values in the modal
+        function loadParameterValue(paramUrl, modal) {
+            $.ajax({
+                url: paramUrl,
+                type: 'GET',
+                success: function (response) {
+                    jsonStr = JSON.stringify(response.data, null, 3);
+                    modal.find('#param-modal-content').val(jsonStr);
+                },
+                error: function (xhr, status, error) {
+                    console.error(`Error fetching ${paramUrl}: ${error}`);
+                    modal.find('#param-modal-content').val(error);
+                }
+            });
         }
     </script>
     </body>
