@@ -36,6 +36,11 @@
         <a title="List of project names" href= "{{ project_names_url }}" target="_blank" >Project Names</a> |
         <a title="For more information click here" href="https://aind-data-transfer-service.readthedocs.io"  target="_blank" >Help</a> |
         <a href="/admin">Admin</a>
+        {% if user_signed_in %}
+            <a href="/logout" class="float-end">Log out</a>
+        {% else %}
+            <a href="/login" class="float-end">Log in</a>
+        {% endif %}
     </nav>
     <div class="content">
         <h4 class="mb-2">
@@ -62,7 +67,6 @@
                         <th>Modality</th>
                         <th>Parameter Name</th>
                         <th>Last Modified</th>
-                        <th>Actions</th>
                     </tr>
                 </thead>
             </table>
@@ -76,13 +80,15 @@
                             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                         </div>
                         <div class="modal-body">
-                            <textarea id="param-modal-content" class="bg-light form-control form-control-sm font-monospace" rows="15" readonly></textarea>
+                            <textarea id="param-modal-content" class="bg-light form-control form-control-sm font-monospace" rows="15" {% if not user_signed_in %}readonly{% endif %}></textarea>
                         </div>
-                        <div class="modal-footer" hidden>
+                        {% if user_signed_in %}
+                        <div class="modal-footer">
                             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
                             <button type="button" class="btn btn-secondary" id="reset-param-btn">Reset</button>
                             <button type="button" class="btn btn-primary" id="submit-param-btn">Submit</button>
                         </div>
+                        {% endif %}
                     </div>
                 </div>
             </div>
@@ -98,12 +104,9 @@
                 var jobType = button.data('bs-job-type');
                 var taskId = button.data('bs-task-id');
                 var modality = button.data('bs-modality');
-                var editEnabled = button.data('bs-edit-enabled');
                 // update the modal label and footer
                 var modal = $(this);
                 modal.find('#param-modal-label').text(paramName);
-                modal.find('.modal-footer').attr('hidden', !editEnabled);
-                modal.find('#param-modal-content').attr('readonly', !editEnabled);
                 // update modal contents
                 var version = $('#version-button').text().trim();
                 var getParameterUrl = `/api/${version}/parameters/job_types/${jobType}/tasks/${taskId}`;
@@ -152,7 +155,6 @@
                     { data: 'modality', searchPanes: {show: false} },
                     { data: 'name', render: renderParameterButton },
                     { data: 'last_modified', render: renderDatetime },
-                    { data: 'name', render: renderActionButtons }
                 ],
                 order: [0, 'asc'],
                 // preselect "default" job_type
@@ -199,25 +201,8 @@
                         data-bs-job-type=${row.job_type} 
                         data-bs-task-id=${row.task_id}
                         data-bs-modality=${row.modality}
-                        data-bs-edit-enabled="false"
                     >${data}
                     </button>`
-                );
-            }
-            return data;
-        }
-        function renderActionButtons(data, type, row) {
-            if (type == 'display') {
-                return (
-                    `<button type="button" class="btn btn-secondary btn-sm" 
-                        data-bs-toggle="modal" 
-                        data-bs-target="#param-modal" 
-                        data-bs-param-name=${data} 
-                        data-bs-job-type=${row.job_type} 
-                        data-bs-task-id=${row.task_id}
-                        data-bs-modality=${row.modality}
-                        data-bs-edit-enabled="true"
-                    >Edit</button>`
                 );
             }
             return data;

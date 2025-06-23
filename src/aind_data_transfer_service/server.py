@@ -1014,6 +1014,7 @@ async def jobs(request: Request):
 
 async def job_params(request: Request):
     """Get Job Parameters page"""
+    user = request.session.get("user")
     return templates.TemplateResponse(
         request=request,
         name="job_params.html",
@@ -1024,6 +1025,7 @@ async def job_params(request: Request):
                 ),
                 "versions": ["v1", "v2"],
                 "default_version": "v1",
+                "user_signed_in": user is not None,
             }
         ),
     )
