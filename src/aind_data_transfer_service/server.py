@@ -172,10 +172,10 @@ def get_parameter_value(param_name: str) -> dict:
     param_value = json.loads(param_response["Parameter"]["Value"])
     return param_value
 
+
 def set_parameter_value(param_name: str, param_value: dict) -> Any:
     """Set a parameter value in AWS param store based on parameter name"""
     param_value_str = json.dumps(param_value)
-    print(f"Setting parameter {param_name} with value: {param_value_str}")
     ssm_client = boto3.client("ssm")
     result = ssm_client.put_parameter(
         Name=param_name,
@@ -1081,7 +1081,6 @@ def list_parameters(_: Request):
         status_code=200,
     )
 
-# TODO: do we even want to allow users to edit v1 params?
 
 def get_parameter_v2(request: Request):
     """Get v2 parameter from AWS param store based on job_type and task_id"""
@@ -1111,14 +1110,28 @@ def get_parameter_v2(request: Request):
 
 async def set_parameter_v2(request: Request):
     """Set v2 parameter in AWS param store based on job_type and task_id"""
-    # TODO: check authentication
-    # TODO: logging
+    # User must be signed in
+    user = request.session.get("user")
+    if not user:
+        return JSONResponse(
+            content={
+                "message": "User not authenticated",
+                "data": {"error": "User not authenticated"},
+            },
+            status_code=401,
+        )
+    # path params are auto validated
     job_type = request.path_params.get("job_type")
     task_id = request.path_params.get("task_id")
     param_name = JobParamInfo.get_parameter_name(job_type, task_id, "v2")
+    logger.info(f"Received request from {user} to set parameter {param_name}")
     try:
         param_value = await request.json()
-        result = set_parameter_value(param_name=param_name, param_value=param_value)
+        logger.info(f"Setting parameter {param_name} to {param_value}")
+        result = set_parameter_value(
+            param_name=param_name, param_value=param_value
+        )
+        logger.info(result)
         return JSONResponse(
             content={
                 "message": f"Set parameter for {param_name}",
@@ -1127,14 +1140,15 @@ async def set_parameter_v2(request: Request):
             status_code=200,
         )
     except ClientError as e:
-        logger.exception(f"Error retrieving parameter {param_name}: {e}")
+        logger.exception(f"Error setting parameter {param_name}: {e}")
         return JSONResponse(
             content={
-                "message": f"Error retrieving parameter {param_name}",
+                "message": f"Error setting parameter {param_name}",
                 "data": {"error": f"{e.__class__.__name__}{e.args}"},
             },
             status_code=500,
         )
+
 
 def get_parameter(request: Request):
     """Get parameter from AWS parameter store based on job_type and task_id"""
@@ -1165,8 +1179,6 @@ def get_parameter(request: Request):
 async def admin(request: Request):
     """Get admin page if authenticated, else redirect to login."""
     user = request.session.get("user")
-    if os.getenv("ENV_NAME") == "local":
-        user = {"name": "local user"}
     if user:
         return templates.TemplateResponse(
             request=request,
@@ -1184,6 +1196,9 @@ async def admin(request: Request):
 
 async def login(request: Request):
     """Redirect to Azure login page"""
+    if os.getenv("ENV_NAME") == "local":
+        request.session["user"] = {"name": "local user"}
+        return RedirectResponse(url="/admin")
     oauth = set_oauth()
     redirect_uri = request.url_for("auth")
     response = await oauth.azure.authorize_redirect(request, redirect_uri)
