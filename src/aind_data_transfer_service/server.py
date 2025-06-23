@@ -1108,8 +1108,8 @@ def get_parameter_v2(request: Request):
         )
 
 
-async def set_parameter_v2(request: Request):
-    """Set v2 parameter in AWS param store based on job_type and task_id"""
+async def set_parameter(request: Request):
+    """Set v1/v2 parameter in AWS param store based on job_type and task_id"""
     # User must be signed in
     user = request.session.get("user")
     if not user:
@@ -1120,10 +1120,19 @@ async def set_parameter_v2(request: Request):
             },
             status_code=401,
         )
-    # path params are auto validated
+    # path params
+    version = request.path_params.get("version")
+    if version not in ["v1", "v2"]:
+        return JSONResponse(
+            content={
+                "message": "Invalid version",
+                "data": {"error": "Version must be v1 or v2"},
+            },
+            status_code=400,
+        )
     job_type = request.path_params.get("job_type")
     task_id = request.path_params.get("task_id")
-    param_name = JobParamInfo.get_parameter_name(job_type, task_id, "v2")
+    param_name = JobParamInfo.get_parameter_name(job_type, task_id, version)
     logger.info(f"Received request from {user} to set parameter {param_name}")
     try:
         param_value = await request.json()
@@ -1265,8 +1274,8 @@ routes = [
         methods=["GET"],
     ),
     Route(
-        "/api/v2/parameters/job_types/{job_type:str}/tasks/{task_id:path}",
-        endpoint=set_parameter_v2,
+        "/api/{version:str}/parameters/job_types/{job_type:str}/tasks/{task_id:path}",
+        endpoint=set_parameter,
         methods=["PUT"],
     ),
     Route("/jobs", endpoint=jobs, methods=["GET"]),
