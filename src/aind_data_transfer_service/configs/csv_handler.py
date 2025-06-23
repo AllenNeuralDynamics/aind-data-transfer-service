@@ -1,7 +1,10 @@
 """Module to handle processing legacy csv files"""
 
 import re
+from collections.abc import Mapping
+from copy import deepcopy
 from datetime import datetime
+from typing import Any, Dict
 
 from aind_data_schema_models.modalities import Modality
 from aind_data_schema_models.platforms import Platform
@@ -11,6 +14,45 @@ from aind_data_transfer_service.models.core import Task, UploadJobConfigsV2
 DATETIME_PATTERN2 = re.compile(
     r"^\d{1,2}/\d{1,2}/\d{4} \d{1,2}:\d{2}:\d{2} [APap][Mm]$"
 )
+
+
+def nested_update(dict_to_update: Dict[str, Any], updates: Mapping):
+    """
+    Update a nested dictionary in-place.
+    Parameters
+    ----------
+    dict_to_update : Dict[str, Any]
+    updates : Mapping
+
+    """
+    for k, v in updates.items():
+        if isinstance(v, Mapping):
+            dict_to_update[k] = nested_update(dict_to_update.get(k, {}), v)
+        else:
+            dict_to_update[k] = v
+    return dict_to_update
+
+
+def create_nested_dict(
+    dict_to_update: Dict[str, Any], key_string: str, value: Any
+):
+    """
+    Updates in-place a nested dictionary with a period delimited key and value.
+    Parameters
+    ----------
+    dict_to_update : Dict[str, Any]
+    key_string : str
+    value : Any
+
+    """
+    keys = key_string.split(".", 1)
+    current_key = keys[0]
+    if len(keys) == 1:
+        dict_to_update[current_key] = value
+    else:
+        if current_key not in dict_to_update:
+            dict_to_update[current_key] = dict()
+        create_nested_dict(dict_to_update[current_key], keys[1], value)
 
 
 def map_csv_row_to_job(row: dict) -> UploadJobConfigsV2:
@@ -29,7 +71,6 @@ def map_csv_row_to_job(row: dict) -> UploadJobConfigsV2:
     modality_configs = dict()
     job_configs = dict()
     check_s3_folder_exists_task = None
-    final_check_s3_folder_exist = None
     codeocean_tasks = dict()
     for key, value in row.items():
         # Strip white spaces and replace dashes with underscores
@@ -42,7 +83,9 @@ def map_csv_row_to_job(row: dict) -> UploadJobConfigsV2:
             modality_parts = clean_key.split(".")
             modality_key = modality_parts[0]
             sub_key = (
-                "modality" if len(modality_parts) == 1 else modality_parts[1]
+                "modality"
+                if len(modality_parts) == 1
+                else ".".join(modality_parts[1:])
             )
             modality_configs.setdefault(modality_key, dict())
             # Temp backwards compatibility check
@@ -66,13 +109,22 @@ def map_csv_row_to_job(row: dict) -> UploadJobConfigsV2:
                     job_settings=codeocean_pipeline_monitor_settings,
                 )
             else:
-                modality_configs[modality_key].update({sub_key: clean_val})
+                nested_val = dict()
+                create_nested_dict(
+                    dict_to_update=nested_val,
+                    key_string=sub_key,
+                    value=clean_val,
+                )
+                current_dict = deepcopy(
+                    modality_configs.get(modality_key, dict())
+                )
+                nested_update(current_dict, nested_val)
+                modality_configs[modality_key] = current_dict
         elif clean_key == "force_cloud_sync" and clean_val.upper() in [
             "TRUE",
             "T",
         ]:
             check_s3_folder_exists_task = {"skip_task": True}
-            final_check_s3_folder_exist = {"skip_task": True}
         else:
             job_configs[clean_key] = clean_val
     # Rename codeocean config keys with correct modality
@@ -93,8 +145,7 @@ def map_csv_row_to_job(row: dict) -> UploadJobConfigsV2:
     )
     tasks = {
         "gather_preliminary_metadata": metadata_task,
-        "check_s3_folder_exists_task": check_s3_folder_exists_task,
-        "final_check_s3_folder_exist": final_check_s3_folder_exist,
+        "check_s3_folder_exists": check_s3_folder_exists_task,
         "modality_transformation_settings": modality_tasks,
         "codeocean_pipeline_settings": None
         if codeocean_tasks == dict()

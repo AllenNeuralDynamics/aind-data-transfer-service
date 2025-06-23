@@ -9,17 +9,42 @@ from pathlib import Path
 from aind_data_schema_models.modalities import Modality
 from aind_data_schema_models.platforms import Platform
 
-from aind_data_transfer_service.configs.csv_handler import map_csv_row_to_job
+from aind_data_transfer_service.configs.csv_handler import (
+    create_nested_dict,
+    map_csv_row_to_job,
+    nested_update,
+)
 from aind_data_transfer_service.models.core import Task, UploadJobConfigsV2
 
 RESOURCES_DIR = Path(os.path.dirname(os.path.realpath(__file__))) / "resources"
 SAMPLE_FILE = RESOURCES_DIR / "new_sample.csv"
+NESTED_SAMPLE_FILE = RESOURCES_DIR / "nested_sample.csv"
 LEGACY_FILE = RESOURCES_DIR / "legacy_sample.csv"
 LEGACY_FILE_2 = RESOURCES_DIR / "legacy_sample2.csv"
 
 
 class TestCsvHandler(unittest.TestCase):
     """Tests methods in csv_handler module"""
+
+    def test_create_nested_dict(self):
+        """Tests create_nested_dict method"""
+
+        key = "abc.def.ghi"
+        value = "my_val"
+        nested_dict = dict()
+        create_nested_dict(
+            dict_to_update=nested_dict, key_string=key, value=value
+        )
+        expected_dict = {"abc": {"def": {"ghi": "my_val"}}}
+        self.assertEqual(expected_dict, nested_dict)
+
+    def test_nested_update(self):
+        """Tests nested_update method."""
+        current_dict = {"abc": {"def": {"ghi": "my_val"}}}
+        updates = {"abc": {"def": {"jkl": 123}}}
+        nested_update(current_dict, updates)
+        expected_dict = {"abc": {"def": {"ghi": "my_val", "jkl": 123}}}
+        self.assertEqual(expected_dict, current_dict)
 
     def test_map_csv_row_to_job(self):
         """Tests map_csv_row_to_job method"""
@@ -87,6 +112,42 @@ class TestCsvHandler(unittest.TestCase):
         ]
         self.assertEqual(expected_jobs, jobs)
 
+    def test_map_nested_csv_row_to_job(self):
+        """Tests map_csv_row_to_job method with nested keys"""
+
+        jobs = []
+        with open(NESTED_SAMPLE_FILE, newline="") as csvfile:
+            reader = csv.DictReader(csvfile, skipinitialspace=True)
+            for row in reader:
+                jobs.append(map_csv_row_to_job(row))
+        expected_jobs = [
+            UploadJobConfigsV2(
+                job_type="ecephys",
+                s3_bucket="default",
+                project_name="Ephys Platform",
+                platform=Platform.ECEPHYS,
+                modalities=[Modality.ECEPHYS],
+                subject_id="123454",
+                acq_datetime=datetime(2020, 10, 10, 14, 10, 10),
+                tasks={
+                    "modality_transformation_settings": {
+                        "ecephys": Task(
+                            skip_task=False,
+                            job_settings={
+                                "input_source": "dir/data_set_1",
+                                "compression_requested": {
+                                    "compression_enum": "gamma fix colorspace"
+                                },
+                            },
+                        )
+                    }
+                },
+                s3_prefix="ecephys_123454_2020-10-10_14-10-10",
+            )
+        ]
+
+        self.assertEqual(expected_jobs, jobs)
+
     def test_map_legacy_csv_row_to_job(self):
         """Tests map_csv_row_to_job method"""
 
@@ -105,10 +166,7 @@ class TestCsvHandler(unittest.TestCase):
                 subject_id="123454",
                 acq_datetime=datetime(2020, 10, 10, 14, 10, 10),
                 tasks={
-                    "check_s3_folder_exists_task": Task(
-                        skip_task=True,
-                    ),
-                    "final_check_s3_folder_exist": Task(
+                    "check_s3_folder_exists": Task(
                         skip_task=True,
                     ),
                     "modality_transformation_settings": {

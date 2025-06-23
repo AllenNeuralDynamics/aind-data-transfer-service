@@ -55,7 +55,7 @@ upload_job_configs_v2 = UploadJobConfigsV2(
     tasks={
         "modality_transformation_settings": modality_transformation_settings,
         "gather_preliminary_metadata": gather_preliminary_metadata,
-        "remove_source_folders": remove_source_folders
+        "remove_source_folders": remove_source_folders,
     },
 )
 
