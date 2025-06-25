@@ -68,24 +68,22 @@
                 <div class="modal-dialog modal-xl">
                     <div class="modal-content">
                         <div class="modal-header">
-                            <h5 class="modal-title" id="new-param-modal-label">Add New Parameter</h5>
+                            <h5 class="modal-title" id="new-param-modal-label">Add New Parameter
+                                <span class="badge bg-primary ms-2" id="new-param-modal-version"></span>
+                            </h5>
                             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                         </div>
                         <div class="modal-body">
                             <div class="row mb-2">
                                 <div class="col-md-4">
-                                    <label for="new-param-job-type" class="form-label">Job Type</label>
-                                    <select id="new-param-job-type-select" class="form-select form-select-sm mb-1">
-                                        <option value="">Select Job Type</option>
-                                        <option value="__custom__">New job type (enter manually)</option>
-                                    </select>
-                                    <input type="text" id="new-param-job-type-input" class="form-control form-control-sm mt-1" placeholder="Enter new job type" style="display:none;" />
+                                    <label for="new-param-job-type-select" class="form-label">Job Type</label>
+                                    <select id="new-param-job-type-select" class="form-select form-select-sm mb-1"></select>
+                                    <input type="text" id="new-param-job-type-input" class="form-control form-control-sm mt-1" placeholder="Enter new Job Type" style="display:none;" />
                                 </div>
                                 <div class="col-md-4">
-                                    <label for="new-param-task-id" class="form-label">Task ID</label>
-                                    <select id="new-param-task-id" class="form-select form-select-sm">
-                                        <option value="">Select Task ID</option>
-                                    </select>
+                                    <label for="new-param-task-id-select" class="form-label">Task ID</label>
+                                    <select id="new-param-task-id-select" class="form-select form-select-sm"></select>
+                                    <input type="text" id="new-param-task-id-input" class="form-control form-control-sm mt-1" placeholder="Enter new Task ID" style="display:none;" />
                                 </div>
                                 <div class="col-md-4">
                                     <label for="new-param-modality" class="form-label">Modality</label>
@@ -159,7 +157,7 @@
                 var modal = $(this);
                 modal.find('#param-modal-label').text(paramName);
                 // update modal contents
-                var version = $('#version-button').text().trim();
+                var version = getCurrentVersion();
                 var getParameterUrl = `/api/${version}/parameters/job_types/${jobType}/tasks/${taskId}`;
                 if (modality) {
                     getParameterUrl += `/${modality}`;
@@ -186,19 +184,40 @@
             // Event listeners for Add New Parameter modal
             $('#add-param-btn').on('click', function() {
                 var modal = $('#new-param-modal');
+                // Set version badge in the modal
+                var version = getCurrentVersion();
+                modal.find('#new-param-modal-version').text(version);
+                // Set job type and task id dropdown options
+                ['Job Type','Task ID'].forEach(function(dropdown) {
+                    var values = getUniqueColumnValues(`${dropdown}:title`);
+                    var select = modal.find(`#new-param-${dropdown.toLowerCase().replace(' ', '-')}-select`);
+                    select.empty();
+                    select.append(`<option value="">Select ${dropdown}</option>`);
+                    values.forEach(function(val) {
+                        select.append(`<option value="${val}">${val}</option>`);
+                    });
+                    select.append(`<option value="__new__">Create new ${dropdown}</option>`);
+                });
                 modal.modal('show');
             });
             $('#new-param-job-type-select').on('change', function() {
-                if ($(this).val() === '__custom__') {
+                if ($(this).val() === '__new__') {
                     $('#new-param-job-type-input').show().focus();
                 } else {
                     $('#new-param-job-type-input').hide();
                 }
             });
+            $('#new-param-task-id-select').on('change', function() {
+                if ($(this).val() === '__new__') {
+                    $('#new-param-task-id-input').show().focus();
+                } else {
+                    $('#new-param-task-id-input').hide();
+                }
+            });
             // Event listener for version dropdown
             $('#version-dropdown .dropdown-item').on('click', function() {
                 var version = $(this).text();
-                if (version != $('#version-button').text().trim()) {
+                if (version != getCurrentVersion()) {
                     $('#version-button').text(version);
                     $('#job-params-table').DataTable().ajax.url(`/api/${version}/parameters`).load();
                 }
@@ -311,6 +330,13 @@
                     alert(`Failed to update parameter: ${error}`);
                 }
             });
+        }
+        // Helper methods to get current values
+        function getCurrentVersion() {
+            return $('#version-button').text().trim();
+        }
+        function getUniqueColumnValues(columnSelector) {
+            return Array.from(new Set($('#job-params-table').DataTable().column(columnSelector).data().toArray()));
         }
     </script>
     </body>
