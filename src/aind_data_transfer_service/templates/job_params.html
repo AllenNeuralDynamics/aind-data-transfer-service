@@ -85,9 +85,9 @@
                                     <select id="new-param-task-id-select" class="form-select form-select-sm"></select>
                                     <input type="text" id="new-param-task-id-input" class="form-control form-control-sm mt-1" placeholder="Enter new Task ID" style="display:none;" />
                                 </div>
-                                <div class="col-md-4">
-                                    <label for="new-param-modality" class="form-label">Modality</label>
-                                    <select id="new-param-modality" class="form-select form-select-sm">
+                                <div class="col-md-4" style="display:none;">
+                                    <label for="new-param-modality-select" class="form-label">Modality</label>
+                                    <select id="new-param-modality-select" class="form-select form-select-sm">
                                         <option value="">Select Modality</option>
                                         {% for modality in modalities %}
                                             <option value="{{ modality }}">{{ modality }}</option>
@@ -144,6 +144,7 @@
         </div>
     </div>
     <script>
+        const MODALITY_TASKS = {{ modality_tasks | tojson }}; // from Jinja context
         $(document).ready(function() {
             createJobParamsTable();
             // Event listeners for param value modal
@@ -201,18 +202,11 @@
                 modal.modal('show');
             });
             $('#new-param-job-type-select').on('change', function() {
-                if ($(this).val() === '__new__') {
-                    $('#new-param-job-type-input').show().focus();
-                } else {
-                    $('#new-param-job-type-input').hide();
-                }
+                $('#new-param-job-type-input').toggle($(this).val() === '__new__').focus();
             });
             $('#new-param-task-id-select').on('change', function() {
-                if ($(this).val() === '__new__') {
-                    $('#new-param-task-id-input').show().focus();
-                } else {
-                    $('#new-param-task-id-input').hide();
-                }
+                $('#new-param-task-id-input').toggle($(this).val() === '__new__').focus();
+                $('#new-param-modality-select').parent().toggle(MODALITY_TASKS.includes($(this).val()));
             });
             // Event listener for version dropdown
             $('#version-dropdown .dropdown-item').on('click', function() {

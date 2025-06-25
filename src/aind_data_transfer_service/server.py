@@ -98,6 +98,7 @@ project_names_url = os.getenv("AIND_METADATA_SERVICE_PROJECT_NAMES_URL")
 
 MODALITIES_LIST = list(Modality.abbreviation_map.keys())
 
+
 def get_project_names() -> List[str]:
     """Get a list of project_names"""
     # TODO: Cache response for 5 minutes
@@ -1029,6 +1030,10 @@ async def job_params(request: Request):
                 "versions": ["v1", "v2"],
                 "default_version": "v1",
                 "modalities": MODALITIES_LIST,
+                "modality_tasks": [
+                    "modality_transformation_settings",
+                    "codeocean_pipeline_settings",
+                ],
             }
         ),
     )
