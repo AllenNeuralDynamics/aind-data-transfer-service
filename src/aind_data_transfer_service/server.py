@@ -11,6 +11,7 @@ from typing import Any, List, Optional, Union
 
 import boto3
 import requests
+from aind_data_schema_models.modalities import Modality
 from aind_data_transfer_models import (
     __version__ as aind_data_transfer_models_version,
 )
@@ -95,6 +96,7 @@ templates = Jinja2Templates(directory=template_directory)
 logger = get_logger(log_configs=LoggingConfigs())
 project_names_url = os.getenv("AIND_METADATA_SERVICE_PROJECT_NAMES_URL")
 
+MODALITIES_LIST = list(Modality.abbreviation_map.keys())
 
 def get_project_names() -> List[str]:
     """Get a list of project_names"""
@@ -1020,12 +1022,13 @@ async def job_params(request: Request):
         name="job_params.html",
         context=(
             {
+                "user_signed_in": user is not None,
                 "project_names_url": os.getenv(
                     "AIND_METADATA_SERVICE_PROJECT_NAMES_URL"
                 ),
                 "versions": ["v1", "v2"],
                 "default_version": "v1",
-                "user_signed_in": user is not None,
+                "modalities": MODALITIES_LIST,
             }
         ),
     )

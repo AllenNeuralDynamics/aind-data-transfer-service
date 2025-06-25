@@ -91,6 +91,9 @@
                                     <label for="new-param-modality" class="form-label">Modality</label>
                                     <select id="new-param-modality" class="form-select form-select-sm">
                                         <option value="">Select Modality</option>
+                                        {% for modality in modalities %}
+                                            <option value="{{ modality }}">{{ modality }}</option>
+                                        {% endfor %}
                                     </select>
                                 </div>
                             </div>
