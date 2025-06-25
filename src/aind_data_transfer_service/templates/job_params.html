@@ -57,6 +57,54 @@
             </div>
             <span>Job Parameters</span>
         </h4>
+        <!-- button and modal for adding new parameters-->
+        {% if user_signed_in %}
+        <div class="mb-2">
+            <button type="button" class="btn btn-success btn-sm" id="add-param-btn">
+                <i class="bi bi-plus-circle"></i> Add New Parameter
+            </button>
+        </div>
+        <div class="modal fade" id="new-param-modal" tabindex="-1" aria-labelledby="new-param-modal-label" aria-hidden="true">
+                <div class="modal-dialog modal-xl">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="new-param-modal-label">Add New Parameter</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="row mb-2">
+                                <div class="col-md-4">
+                                    <label for="new-param-job-type" class="form-label">Job Type</label>
+                                    <select id="new-param-job-type-select" class="form-select form-select-sm mb-1">
+                                        <option value="">Select Job Type</option>
+                                        <option value="__custom__">New job type (enter manually)</option>
+                                    </select>
+                                    <input type="text" id="new-param-job-type-input" class="form-control form-control-sm mt-1" placeholder="Enter new job type" style="display:none;" />
+                                </div>
+                                <div class="col-md-4">
+                                    <label for="new-param-task-id" class="form-label">Task ID</label>
+                                    <select id="new-param-task-id" class="form-select form-select-sm">
+                                        <option value="">Select Task ID</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <label for="new-param-modality" class="form-label">Modality</label>
+                                    <select id="new-param-modality" class="form-select form-select-sm">
+                                        <option value="">Select Modality</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <textarea id="new-param-modal-content" class="bg-light form-control form-control-sm font-monospace" rows="15" placeholder='{"skip_task": false}'></textarea>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                            <button type="button" class="btn btn-secondary" id="new-reset-param-btn">Reset</button>
+                            <button type="button" class="btn btn-primary" id="new-submit-param-btn">Submit</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        {% endif %}
         <!-- job params table -->
         <div>
             <table id="job-params-table" class="display compact table table-bordered table-sm" style="font-size: small">
@@ -71,7 +119,7 @@
                 </thead>
             </table>
             <!-- modal for displaying param value as json -->
-            <!-- if opened from Edit button, the textarea will be editable and the footer will display the Submit button -->
+            <!-- if user is signed in, the textarea will be editable and the footer will display the Submit button -->
             <div class="modal fade" id="param-modal" tabindex="-1" aria-labelledby="param-modal-label" aria-hidden="true">
                 <div class="modal-dialog modal-xl">
                     <div class="modal-content">
@@ -131,6 +179,18 @@
                 var paramValue = modal.find('#param-modal-content').val();
                 var url = getParamUrlFromParamName(paramName);
                 submitParameterValue(url, paramValue, modal);
+            });
+            // Event listeners for Add New Parameter modal
+            $('#add-param-btn').on('click', function() {
+                var modal = $('#new-param-modal');
+                modal.modal('show');
+            });
+            $('#new-param-job-type-select').on('change', function() {
+                if ($(this).val() === '__custom__') {
+                    $('#new-param-job-type-input').show().focus();
+                } else {
+                    $('#new-param-job-type-input').hide();
+                }
             });
             // Event listener for version dropdown
             $('#version-dropdown .dropdown-item').on('click', function() {
