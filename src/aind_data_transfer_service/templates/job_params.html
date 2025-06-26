@@ -170,10 +170,7 @@
                 $(this).find('#param-modal-content').val('');
             });
             $('#param-modal').on('click', '#reset-param-btn', function () {
-                var modal = $('#param-modal');
-                var paramName = modal.find('#param-modal-label').text();
-                var url = getParamUrlFromParamName(paramName);
-                loadParameterValue(url, modal);
+                resetParamModal($('#param-modal'));
             });
             $('#param-modal').on('click', '#submit-param-btn', function () {
                 var modal = $('#param-modal');
@@ -204,7 +201,13 @@
             });
             $('#new-param-task-id-select').on('change', function() {
                 $('#new-param-task-id-input').toggle($(this).val() === '__new__').focus();
-                $('#new-param-modality-select').parent().toggle(MODALITY_TASKS.includes($(this).val()));
+                $('#new-param-modality-select').val('').parent().toggle(MODALITY_TASKS.includes($(this).val()));
+            });
+            $('#new-param-modal').on('hidden.bs.modal', function() {
+                resetParamModal($(this));
+            });
+            $('#new-param-modal').on('click', '#new-reset-param-btn', function () {
+                resetParamModal($('#new-param-modal'));
             });
             $('#new-param-modal').on('click', '#new-submit-param-btn', function () {
                 var modal = $('#new-param-modal');
@@ -214,6 +217,7 @@
                 var modality = (MODALITY_TASKS.includes(taskId)) ? getValidatedInputValue('Modality', modal) : null;
                 var url = getParamUrlFromParamInfo(version, jobType, taskId, modality);
                 var paramValue = modal.find('#new-param-modal-content').val();
+                submitParameterValue(url, paramValue, modal);
             });
             // Event listener for version dropdown
             $('#version-dropdown .dropdown-item').on('click', function() {
@@ -290,7 +294,7 @@
             }
             return data;
         }
-        // Methods to load/submit param values in the modal
+        // Methods to load/submit/reset param values in the modal
         function getParamUrlFromParamInfo(version, jobType, taskId, modality) {
             console.log(`Creating URL for ${version}, job type: ${jobType}, task ID: ${taskId}, modality: ${modality}`);
             var baseUrl = `/api/${version}/parameters/job_types/${jobType}/tasks/${taskId}`;
@@ -307,16 +311,17 @@
             return `/api/${version}/parameters/job_types/${cleanedParamName}`;
         }
         function loadParameterValue(paramUrl, modal) {
+            var modalContentSelector = (modal.attr('id') === 'param-modal') ? '#param-modal-content' : '#new-param-modal-content';
             $.ajax({
                 url: paramUrl,
                 type: 'GET',
                 success: function (response) {
                     jsonStr = JSON.stringify(response.data, null, 3);
-                    modal.find('#param-modal-content').val(jsonStr);
+                    modal.find(modalContentSelector).val(jsonStr);
                 },
                 error: function (xhr, status, error) {
                     console.error(`Error fetching ${paramUrl}: ${error}`);
-                    modal.find('#param-modal-content').val(error);
+                    modal.find(modalContentSelector).val(error);
                 }
             });
         }
@@ -336,6 +341,22 @@
                     alert(`Failed to update parameter: ${error}`);
                 }
             });
+        }
+        function resetParamModal(modal) {
+            // Resetting the Add New Parameter modal will clear all inputs
+            // Resetting the Edit Existing Parameter modal will reload the parameter value
+            if (modal.attr('id') === 'new-param-modal') {
+                modal.find('#new-param-job-type-select').val('');
+                modal.find('#new-param-job-type-input').val('').hide();
+                modal.find('#new-param-task-id-select').val('');
+                modal.find('#new-param-task-id-input').val('').hide();
+                modal.find('#new-param-modality-select').val('').parent().hide();
+                modal.find('#new-param-modal-content').val('');
+            } else {
+                var paramName = modal.find('#param-modal-label').text();
+                var url = getParamUrlFromParamName(paramName);
+                loadParameterValue(url, modal);
+            }
         }
         // Helper methods to get current values
         function getCurrentVersion() {
