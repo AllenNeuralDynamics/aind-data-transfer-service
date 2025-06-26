@@ -60,57 +60,57 @@
         <!-- button and modal for adding new parameters-->
         {% if user_signed_in %}
         <div class="mb-2">
-            <button type="button" class="btn btn-success btn-sm" id="add-param-btn">
+            <button type="button" class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#new-param-modal">
                 <i class="bi bi-plus-circle"></i> Add New Parameter
             </button>
         </div>
         <div class="modal fade" id="new-param-modal" tabindex="-1" aria-labelledby="new-param-modal-label" aria-hidden="true">
-                <div class="modal-dialog modal-xl">
-                    <div class="modal-content">
-                        <div class="modal-header">
-                            <h5 class="modal-title" id="new-param-modal-label">Add New Parameter
-                                <span class="badge bg-primary ms-2" id="new-param-modal-version"></span>
-                            </h5>
-                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                        </div>
-                        <div class="modal-body">
-                            <!-- dropdowns for job type, task id and modality -->
-                            <div class="row mb-2">
-                                <div class="col-md-4">
-                                    <label for="new-param-job-type-select" class="form-label">Job Type</label>
-                                    <select id="new-param-job-type-select" class="form-select form-select-sm mb-1"></select>
-                                    <input type="text" id="new-param-job-type-input" class="form-control form-control-sm mt-1" placeholder="Enter new Job Type" style="display:none;" />
-                                </div>
-                                <div class="col-md-4">
-                                    <label for="new-param-task-id-select" class="form-label">Task ID</label>
-                                    <select id="new-param-task-id-select" class="form-select form-select-sm"></select>
-                                    <input type="text" id="new-param-task-id-input" class="form-control form-control-sm mt-1" placeholder="Enter new Task ID" style="display:none;" />
-                                </div>
-                                <div class="col-md-4" style="display:none;">
-                                    <label for="new-param-modality-select" class="form-label">Modality</label>
-                                    <select id="new-param-modality-select" class="form-select form-select-sm">
-                                        <option value="">Select Modality</option>
-                                        {% for modality in modalities %}
-                                            <option value="{{ modality }}">{{ modality }}</option>
-                                        {% endfor %}
-                                    </select>
-                                </div>
+            <div class="modal-dialog modal-xl">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="new-param-modal-label">Add New Parameter
+                            <span class="badge bg-primary ms-2" id="new-param-modal-version"></span>
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <!-- dropdowns for job type, task id and modality -->
+                        <div class="row mb-2">
+                            <div class="col-md-4">
+                                <label for="new-param-modal-job-type-select" class="form-label">Job Type</label>
+                                <select id="new-param-modal-job-type-select" class="form-select form-select-sm mb-1"></select>
+                                <input type="text" id="new-param-modal-job-type-input" class="form-control form-control-sm mt-1" placeholder="Enter new Job Type" style="display:none;" />
                             </div>
-                            <!-- textarea for parameter json value -->
-                            <textarea id="new-param-modal-content" class="bg-light form-control form-control-sm font-monospace" rows="15" placeholder='{"skip_task": false}'></textarea>
-                            <!-- message if parameter already exists -->
-                            <div id="new-param-modal-param-exists-alert" class="alert alert-info" role="alert" style="display:none;">
-                                This parameter already exists! To edit, please click on the parameter from the Job Parameters table.
+                            <div class="col-md-4">
+                                <label for="new-param-modal-task-id-select" class="form-label">Task ID</label>
+                                <select id="new-param-modal-task-id-select" class="form-select form-select-sm"></select>
+                                <input type="text" id="new-param-modal-task-id-input" class="form-control form-control-sm mt-1" placeholder="Enter new Task ID" style="display:none;" />
+                            </div>
+                            <div class="col-md-4" style="display:none;">
+                                <label for="new-param-modal-modality-select" class="form-label">Modality</label>
+                                <select id="new-param-modal-modality-select" class="form-select form-select-sm">
+                                    <option value="">Select Modality</option>
+                                    {% for modality in modalities %}
+                                    <option value="{{ modality }}">{{ modality }}</option>
+                                    {% endfor %}
+                                </select>
                             </div>
                         </div>
-                        <div class="modal-footer">
-                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                            <button type="button" class="btn btn-secondary" id="new-reset-param-btn">Reset</button>
-                            <button type="button" class="btn btn-primary" id="new-submit-param-btn">Submit</button>
+                        <!-- textarea for parameter json value -->
+                        <textarea id="new-param-modal-content" class="bg-light form-control form-control-sm font-monospace" rows="15" placeholder='{"skip_task": false}'></textarea>
+                        <!-- message if parameter already exists -->
+                        <div id="new-param-modal-param-exists-alert" class="alert alert-info" role="alert" style="display:none;">
+                            This parameter already exists! To edit, please click on the parameter from the Job Parameters table.
                         </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                        <button type="button" class="btn btn-secondary" id="new-param-modal-reset-btn">Reset</button>
+                        <button type="button" class="btn btn-primary" id="new-param-modal-submit-btn">Submit</button>
                     </div>
                 </div>
             </div>
+        </div>
         {% endif %}
         <!-- job params table -->
         <div>
@@ -140,8 +140,8 @@
                         {% if user_signed_in %}
                         <div class="modal-footer">
                             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                            <button type="button" class="btn btn-secondary" id="reset-param-btn">Reset</button>
-                            <button type="button" class="btn btn-primary" id="submit-param-btn">Submit</button>
+                            <button type="button" class="btn btn-secondary" id="param-modal-reset-btn">Reset</button>
+                            <button type="button" class="btn btn-primary" id="param-modal-submit-btn">Submit</button>
                         </div>
                         {% endif %}
                     </div>
@@ -151,89 +151,53 @@
     </div>
     <script>
         const MODALITY_TASKS = {{ modality_tasks | tojson }}; // from Jinja context
+        const MODAL_ID_EDIT = 'param-modal';
+        const MODAL_ID_ADD = 'new-param-modal';
         $(document).ready(function() {
             createJobParamsTable();
-            // Event listeners for param value modal
-            // show modal: load param value
-            $('#param-modal').on('show.bs.modal', function(event) {
+            // Event listeners for param value modals
+            // show modal: load param value or set up for new param
+            $(`#${MODAL_ID_EDIT}`).on('show.bs.modal', function(event) {
                 var button = $(event.relatedTarget);
-                var paramName = button.data('bs-param-name');
-                var jobType = button.data('bs-job-type');
-                var taskId = button.data('bs-task-id');
-                var modality = button.data('bs-modality');
-                // update the modal label and footer
-                var modal = $(this);
-                modal.find('#param-modal-label').text(paramName);
-                // update modal contents
-                var version = getCurrentVersion();
-                var getParameterUrl = getParamUrlFromParamInfo(version, jobType, taskId, modality);
-                loadParameterValue(getParameterUrl, modal);
+                onShowModal(MODAL_ID_EDIT, button);
             });
-            // hide modal: clear all values
-            $('#param-modal').on('hidden.bs.modal', function() {
-                $(this).find('#param-modal-label').text('');
-                $(this).find('#param-modal-content').val('');
+            $(`#${MODAL_ID_ADD}`).on('show.bs.modal', function(event) {
+                onShowModal(MODAL_ID_ADD);
             });
-            // reset: reload param value
-            $('#param-modal').on('click', '#reset-param-btn', function () {
-                resetParamModal($('#param-modal'));
+            // hide modal: clear all inputs
+            $(`#${MODAL_ID_EDIT}`).on('hidden.bs.modal', function() {
+                onResetModal(MODAL_ID_EDIT);
             });
-            // submit: post param to api
-            $('#param-modal').on('click', '#submit-param-btn', function () {
-                var modal = $('#param-modal');
-                var paramName = modal.find('#param-modal-label').text();
-                var paramValue = modal.find('#param-modal-content').val();
-                var url = getParamUrlFromParamName(paramName);
-                submitParameterValue(url, paramValue, modal);
+            $(`#${MODAL_ID_ADD}`).on('hidden.bs.modal', function() {
+                onResetModal(MODAL_ID_ADD);
             });
-            // Event listeners for Add New Parameter modal
-            // show modal: set version badge, job type and task id dropdowns
-            $('#add-param-btn').on('click', function() {
-                var modal = $('#new-param-modal');
-                // Set version badge in the modal
-                var version = getCurrentVersion();
-                modal.find('#new-param-modal-version').text(version);
-                // Set job type and task id dropdown options
-                ['Job Type','Task ID'].forEach(function(dropdown) {
-                    var values = getUniqueColumnValues(`${dropdown}:title`);
-                    var select = modal.find(`#new-param-${dropdown.toLowerCase().replace(' ', '-')}-select`);
-                    select.empty();
-                    select.append(`<option value="">Select ${dropdown}</option>`);
-                    values.forEach(val => select.append(`<option value="${val}">${val}</option>`));
-                    select.append(`<option value="__new__">Create new ${dropdown}</option>`);
-                });
-                modal.modal('show');
+            // reset: reload param value or clear all inputs
+            $(`#${MODAL_ID_EDIT}`).on('click', `#${MODAL_ID_EDIT}-reset-btn`, function() {
+                onResetModal(MODAL_ID_EDIT, true);
             });
+            $(`#${MODAL_ID_ADD}`).on('click', `#${MODAL_ID_ADD}-reset-btn`, function() {
+                onResetModal(MODAL_ID_ADD);
+            });
+            // submit: validate and post param to api
+            $(`#${MODAL_ID_EDIT}`).on('click', `#${MODAL_ID_EDIT}-submit-btn`, function() {
+                onSubmitModal(MODAL_ID_EDIT);
+            });
+            $(`#${MODAL_ID_ADD}`).on('click', `#${MODAL_ID_ADD}-submit-btn`, function() {
+                onSubmitModal(MODAL_ID_ADD);
+            });
+            // only for Add New Parameter modal
             // update dropdowns based on selection
-            $('#new-param-job-type-select').on('change', function() {
-                $('#new-param-job-type-input').toggle($(this).val() === '__new__').focus();
-                handleExistingParam($('#new-param-modal'));
+            $(`#${MODAL_ID_ADD}-job-type-select`).on('change', function() {
+                $(`#${MODAL_ID_ADD}-job-type-input`).toggle($(this).val() === '__new__').focus();
+                handleExistingParam(MODAL_ID_ADD);
             });
-            $('#new-param-task-id-select').on('change', function() {
-                $('#new-param-task-id-input').toggle($(this).val() === '__new__').focus();
-                $('#new-param-modality-select').val('').parent().toggle(MODALITY_TASKS.includes($(this).val()));
-                handleExistingParam($('#new-param-modal'));
+            $(`#${MODAL_ID_ADD}-task-id-select`).on('change', function() {
+                $(`#${MODAL_ID_ADD}-task-id-input`).toggle($(this).val() === '__new__').focus();
+                $(`#${MODAL_ID_ADD}-modality-select`).val('').parent().toggle(MODALITY_TASKS.includes($(this).val()));
+                handleExistingParam(MODAL_ID_ADD);
             });
-            $('#new-param-modality-select').on('change', function() {
-                handleExistingParam($('#new-param-modal'));
-            });
-            // hide/reset modal: clear all inputs
-            $('#new-param-modal').on('hidden.bs.modal', function() {
-                resetParamModal($(this));
-            });
-            $('#new-param-modal').on('click', '#new-reset-param-btn', function () {
-                resetParamModal($('#new-param-modal'));
-            });
-            // submit: validate inputs and submit new param to api
-            $('#new-param-modal').on('click', '#new-submit-param-btn', function () {
-                var modal = $('#new-param-modal');
-                var version = getCurrentVersion();
-                var jobType = getValidatedInputValue('Job Type', modal);
-                var taskId = getValidatedInputValue('Task ID', modal);
-                var modality = (MODALITY_TASKS.includes(taskId)) ? getValidatedInputValue('Modality', modal) : null;
-                var url = getParamUrlFromParamInfo(version, jobType, taskId, modality);
-                var paramValue = modal.find('#new-param-modal-content').val();
-                submitParameterValue(url, paramValue, modal);
+            $(`#${MODAL_ID_ADD}-modality-select`).on('change', function() {
+                handleExistingParam(MODAL_ID_ADD);
             });
             // Event listener for version dropdown
             $('#version-dropdown .dropdown-item').on('click', function() {
@@ -299,7 +263,7 @@
                 return (
                     `<button type="button" class="btn btn-link btn-sm" 
                         data-bs-toggle="modal" 
-                        data-bs-target="#param-modal" 
+                        data-bs-target="#${MODAL_ID_EDIT}"
                         data-bs-param-name=${data} 
                         data-bs-job-type=${row.job_type} 
                         data-bs-task-id=${row.task_id}
@@ -326,8 +290,8 @@
             return `/api/${version}/parameters/job_types/${cleanedParamName}`;
         }
         function loadParameterValue(paramUrl, modal) {
-            console.log(`Loading ${paramUrl} into ${modal.attr('id')}`);
-            var modalContentSelector = (modal.attr('id') === 'param-modal') ? '#param-modal-content' : '#new-param-modal-content';
+            console.log(`Loading ${paramUrl}`);
+            const modalContentSelector = `#${modal.attr('id')}-content`;
             $.ajax({
                 url: paramUrl,
                 type: 'GET',
@@ -375,11 +339,13 @@
         }
         // Methods for param modal updates
         function toggleParamTextArea(isEnabled, modal){
-            modal.find('#new-param-modal-content').toggle(isEnabled);
-            modal.find('#new-param-modal-param-exists-alert').toggle(!isEnabled);
-            modal.find('#new-submit-param-btn').prop('disabled', !isEnabled);
+            const modalId = modal.attr('id');
+            modal.find(`#${modalId}-content`).toggle(isEnabled);
+            modal.find(`#${modalId}-param-exists-alert`).toggle(!isEnabled);
+            modal.find(`#${modalId}-submit-btn`).prop('disabled', !isEnabled);
         }
-        function handleExistingParam(modal) {
+        function handleExistingParam(modalId) {
+            var modal = $(`#${modalId}`);
             var existing = false;
             const version = getCurrentVersion();
             const jobType = getInputValues('Job Type', modal).input;
@@ -393,22 +359,71 @@
             }
             toggleParamTextArea(!existing, modal);
         }
-        function resetParamModal(modal) {
+        function onShowModal(modalId, eventTarget = null) {
+            var modal = $(`#${modalId}`);
+            if (modalId === MODAL_ID_ADD) {
+                // Set version badge in the modal
+                var version = getCurrentVersion();
+                modal.find(`#${modalId}-version`).text(version);
+                // Set job type and task id dropdown options
+                ['Job Type', 'Task ID'].forEach(function(dropdown) {
+                    var values = getUniqueColumnValues(`${dropdown}:title`);
+                    var select = modal.find(`#${modalId}-${dropdown.toLowerCase().replace(' ', '-')}-select`);
+                    select.empty();
+                    select.append(`<option value="">Select ${dropdown}</option>`);
+                    values.forEach(val => select.append(`<option value="${val}">${val}</option>`));
+                    select.append(`<option value="__new__">Create new ${dropdown}</option>`);
+                });
+            } else {
+                var paramName = eventTarget.data('bs-param-name');
+                var jobType = eventTarget.data('bs-job-type');
+                var taskId = eventTarget.data('bs-task-id');
+                var modality = eventTarget.data('bs-modality');
+                // update the modal label and contents
+                modal.find(`#${modalId}-label`).text(paramName);
+                var version = getCurrentVersion();
+                var getParameterUrl = getParamUrlFromParamInfo(version, jobType, taskId, modality);
+                loadParameterValue(getParameterUrl, modal);
+            }
+        }
+        function onResetModal(modalId, isReload = false) {
             // Resetting the Add New Parameter modal will clear all inputs
             // Resetting the Edit Existing Parameter modal will reload the parameter value
-            if (modal.attr('id') === 'new-param-modal') {
-                modal.find('#new-param-job-type-select').val('');
-                modal.find('#new-param-job-type-input').val('').hide();
-                modal.find('#new-param-task-id-select').val('');
-                modal.find('#new-param-task-id-input').val('').hide();
-                modal.find('#new-param-modality-select').val('').parent().hide();
-                modal.find('#new-param-modal-content').val('');
+            var modal = $(`#${modalId}`);
+            if (modalId === MODAL_ID_ADD) {
+                modal.find(`#${modalId}-job-type-select`).val('');
+                modal.find(`#${modalId}-job-type-input`).val('').hide();
+                modal.find(`#${modalId}-task-id-select`).val('');
+                modal.find(`#${modalId}-task-id-input`).val('').hide();
+                modal.find(`#${modalId}-modality-select`).val('').parent().hide();
+                modal.find(`#${modalId}-content`).val('');
                 toggleParamTextArea(true, modal);
             } else {
-                var paramName = modal.find('#param-modal-label').text();
-                var url = getParamUrlFromParamName(paramName);
-                loadParameterValue(url, modal);
+                if (isReload) {
+                    var paramName = modal.find(`#${modalId}-label`).text();
+                    var url = getParamUrlFromParamName(paramName);
+                    loadParameterValue(url, modal);
+                } else {
+                    modal.find(`#${modalId}-label`).text('');
+                    modal.find(`#${modalId}-content`).val('');
+                }
             }
+        }
+        function onSubmitModal(modalId) {
+            var modal = $(`#${modalId}`);
+            let url;
+            if (modalId === MODAL_ID_ADD) {
+                var version = getCurrentVersion();
+                var jobType = getValidatedInputValue('Job Type', modal);
+                var taskId = getValidatedInputValue('Task ID', modal);
+                var modality = (MODALITY_TASKS.includes(taskId)) ? getValidatedInputValue('Modality', modal) : null;
+                url = getParamUrlFromParamInfo(version, jobType, taskId, modality);
+            } else {
+                var paramName = modal.find(`#${modalId}-label`).text();
+                url = getParamUrlFromParamName(paramName);
+            }
+            var paramValue = modal.find(`#${modalId}-content`).val();
+            submitParameterValue(url, paramValue, modal);
         }
         // Helper methods to get current values
         function getCurrentVersion() {
@@ -418,11 +433,12 @@
             return Array.from(new Set($('#job-params-table').DataTable().column(columnSelector).data().toArray()));
         }
         function getInputValues(inputField, modal) {
-            var selector = inputField.toLowerCase().replace(' ', '-');
-            var dropdownVal = modal.find(`#new-param-${selector}-select`).val().trim();
+            const modalId = modal.attr('id');
+            const selector = inputField.toLowerCase().replace(' ', '-');
+            var dropdownVal = modal.find(`#${modalId}-${selector}-select`).val().trim();
             return {
                 dropdown: dropdownVal,
-                input: (dropdownVal === '__new__') ? modal.find(`#new-param-${selector}-input`).val().trim() : dropdownVal
+                input: (dropdownVal === '__new__') ? modal.find(`#${modalId}-${selector}-input`).val().trim() : dropdownVal
             };
         }
         function getValidatedInputValue(inputField, modal) {
@@ -446,5 +462,5 @@
             return inputValues.input;
         }
     </script>
-    </body>
+</body>
 </html>
