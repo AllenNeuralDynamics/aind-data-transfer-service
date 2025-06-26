@@ -74,6 +74,7 @@
                             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                         </div>
                         <div class="modal-body">
+                            <!-- dropdowns for job type, task id and modality -->
                             <div class="row mb-2">
                                 <div class="col-md-4">
                                     <label for="new-param-job-type-select" class="form-label">Job Type</label>
@@ -95,7 +96,12 @@
                                     </select>
                                 </div>
                             </div>
+                            <!-- textarea for parameter json value -->
                             <textarea id="new-param-modal-content" class="bg-light form-control form-control-sm font-monospace" rows="15" placeholder='{"skip_task": false}'></textarea>
+                            <!-- message if parameter already exists -->
+                            <div id="new-param-modal-param-exists-alert" class="alert alert-info" role="alert" style="display:none;">
+                                This parameter already exists! To edit, please click on the parameter from the Job Parameters table.
+                            </div>
                         </div>
                         <div class="modal-footer">
                             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
@@ -159,10 +165,7 @@
                 modal.find('#param-modal-label').text(paramName);
                 // update modal contents
                 var version = getCurrentVersion();
-                var getParameterUrl = `/api/${version}/parameters/job_types/${jobType}/tasks/${taskId}`;
-                if (modality) {
-                    getParameterUrl += `/${modality}`;
-                }
+                var getParameterUrl = getParamUrlFromParamInfo(version, jobType, taskId, modality);
                 loadParameterValue(getParameterUrl, modal);
             });
             $('#param-modal').on('hidden.bs.modal', function() {
@@ -198,10 +201,15 @@
             });
             $('#new-param-job-type-select').on('change', function() {
                 $('#new-param-job-type-input').toggle($(this).val() === '__new__').focus();
+                handleExistingParam($('#new-param-modal'));
             });
             $('#new-param-task-id-select').on('change', function() {
                 $('#new-param-task-id-input').toggle($(this).val() === '__new__').focus();
                 $('#new-param-modality-select').val('').parent().toggle(MODALITY_TASKS.includes($(this).val()));
+                handleExistingParam($('#new-param-modal'));
+            });
+            $('#new-param-modality-select').on('change', function() {
+                handleExistingParam($('#new-param-modal'));
             });
             $('#new-param-modal').on('hidden.bs.modal', function() {
                 resetParamModal($(this));
@@ -351,7 +359,9 @@
                 modal.find('#new-param-task-id-select').val('');
                 modal.find('#new-param-task-id-input').val('').hide();
                 modal.find('#new-param-modality-select').val('').parent().hide();
-                modal.find('#new-param-modal-content').val('');
+                modal.find('#new-param-modal-content').val('').show();
+                modal.find('#new-param-modal-param-exists-alert').hide();
+                modal.find('#new-submit-param-btn').prop('disabled', false);
             } else {
                 var paramName = modal.find('#param-modal-label').text();
                 var url = getParamUrlFromParamName(paramName);
@@ -365,20 +375,26 @@
         function getUniqueColumnValues(columnSelector) {
             return Array.from(new Set($('#job-params-table').DataTable().column(columnSelector).data().toArray()));
         }
-        function getValidatedInputValue(inputField, modal) {
+        function getInputValues(inputField, modal) {
             var selector = inputField.toLowerCase().replace(' ', '-');
             var dropdownVal = modal.find(`#new-param-${selector}-select`).val().trim();
-            var inputVal = (dropdownVal === '__new__') ? modal.find(`#new-param-${selector}-input`).val().trim() : dropdownVal;
+            return {
+                dropdown: dropdownVal,
+                input: (dropdownVal === '__new__') ? modal.find(`#new-param-${selector}-input`).val().trim() : dropdownVal
+            };
+        }
+        function getValidatedInputValue(inputField, modal) {
             // Check for empty string, spaces, slashes, or existing values
+            var inputValues = getInputValues(inputField, modal);
             var error = false;
-            if (!inputVal) {
+            if (!inputValues.input) {
                 error = `${inputField} cannot be empty`;
-            } else if (inputVal.includes(' ') || inputVal.includes('/')) {
+            } else if (inputValues.input.includes(' ') || inputValues.input.includes('/')) {
                 error = `${inputField} cannot contain spaces or slashes`;
-            } else if (dropdownVal === '__new__') {
+            } else if (inputValues.dropdown === '__new__') {
                 var existingValues = getUniqueColumnValues(`${inputField}:title`);
-                if (existingValues.map(val => val.toLowerCase()).includes(inputVal.toLowerCase())) {
-                    error = `${inputField} "${inputVal}" already exists. Please select it from the dropdown.`;
+                if (existingValues.map(val => val.toLowerCase()).includes(inputValues.input.toLowerCase())) {
+                    error = `${inputField} "${inputValues.input}" already exists. Please select it from the dropdown.`;
                 }
             }
             if (error) {
@@ -386,6 +402,26 @@
                 throw new Error(error);
             }
             return inputVal;
+        }
+        function checkExistingParam(modal) {
+            const version = getCurrentVersion();
+            const jobType = getInputValues('Job Type', modal).input;
+            const taskId = getInputValues('Task ID', modal).input;
+            const modality = MODALITY_TASKS.includes(taskId) ? getInputValues('Modality', modal).input : null;
+            if (!jobType || !taskId || (MODALITY_TASKS.includes(taskId) && !modality)) {
+                return false;
+            }
+            const table = $('#job-params-table').DataTable();
+            const searchStr = `/${jobType}/tasks/${taskId}` + (modality ? `/${modality}` : '');
+            const existing = table.column('Parameter Name:title').data().toArray().find(val => val.endsWith(searchStr));
+            return existing || false;
+        }
+        function handleExistingParam(modal) {
+            // Toggle textarea, message, and submit button based on existing parameter
+            var paramExists = checkExistingParam(modal);
+            modal.find('#new-param-modal-content').toggle(!paramExists);
+            modal.find('#new-param-modal-param-exists-alert').toggle(!!paramExists);
+            modal.find('#new-submit-param-btn').prop('disabled', !!paramExists);
         }
     </script>
     </body>
