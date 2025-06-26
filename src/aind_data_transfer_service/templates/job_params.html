@@ -154,6 +154,7 @@
         $(document).ready(function() {
             createJobParamsTable();
             // Event listeners for param value modal
+            // show modal: load param value
             $('#param-modal').on('show.bs.modal', function(event) {
                 var button = $(event.relatedTarget);
                 var paramName = button.data('bs-param-name');
@@ -168,13 +169,16 @@
                 var getParameterUrl = getParamUrlFromParamInfo(version, jobType, taskId, modality);
                 loadParameterValue(getParameterUrl, modal);
             });
+            // hide modal: clear all values
             $('#param-modal').on('hidden.bs.modal', function() {
                 $(this).find('#param-modal-label').text('');
                 $(this).find('#param-modal-content').val('');
             });
+            // reset: reload param value
             $('#param-modal').on('click', '#reset-param-btn', function () {
                 resetParamModal($('#param-modal'));
             });
+            // submit: post param to api
             $('#param-modal').on('click', '#submit-param-btn', function () {
                 var modal = $('#param-modal');
                 var paramName = modal.find('#param-modal-label').text();
@@ -183,6 +187,7 @@
                 submitParameterValue(url, paramValue, modal);
             });
             // Event listeners for Add New Parameter modal
+            // show modal: set version badge, job type and task id dropdowns
             $('#add-param-btn').on('click', function() {
                 var modal = $('#new-param-modal');
                 // Set version badge in the modal
@@ -199,6 +204,7 @@
                 });
                 modal.modal('show');
             });
+            // update dropdowns based on selection
             $('#new-param-job-type-select').on('change', function() {
                 $('#new-param-job-type-input').toggle($(this).val() === '__new__').focus();
                 handleExistingParam($('#new-param-modal'));
@@ -211,12 +217,14 @@
             $('#new-param-modality-select').on('change', function() {
                 handleExistingParam($('#new-param-modal'));
             });
+            // hide/reset modal: clear all inputs
             $('#new-param-modal').on('hidden.bs.modal', function() {
                 resetParamModal($(this));
             });
             $('#new-param-modal').on('click', '#new-reset-param-btn', function () {
                 resetParamModal($('#new-param-modal'));
             });
+            // submit: validate inputs and submit new param to api
             $('#new-param-modal').on('click', '#new-submit-param-btn', function () {
                 var modal = $('#new-param-modal');
                 var version = getCurrentVersion();
@@ -354,8 +362,14 @@
                     loadParameterValue(paramUrl, modal);
                 },
                 error: function (xhr, status, error) {
-                    console.error(`Error updating ${paramUrl}: ${error}`);
-                    alert(`Failed to update parameter: ${error}`);
+                    var msg = `Error submitting parameter: ${error}`;
+                    try {
+                        msg += `\n\n${JSON.stringify(JSON.parse(xhr.responseText), null, 3)}`;
+                    } catch (e) {
+                        console.error('Failed to parse error response:', e.message);
+                    }
+                    console.error(msg);
+                    alert(msg);
                 }
             });
         }
