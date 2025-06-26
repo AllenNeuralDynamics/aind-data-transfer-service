@@ -304,7 +304,6 @@
         }
         // Methods to load/submit/reset param values in the modal
         function getParamUrlFromParamInfo(version, jobType, taskId, modality) {
-            console.log(`Creating URL for ${version}, job type: ${jobType}, task ID: ${taskId}, modality: ${modality}`);
             var baseUrl = `/api/${version}/parameters/job_types/${jobType}/tasks/${taskId}`;
             return modality ? `${baseUrl}/${modality}` : baseUrl;
         }
@@ -319,6 +318,7 @@
             return `/api/${version}/parameters/job_types/${cleanedParamName}`;
         }
         function loadParameterValue(paramUrl, modal) {
+            console.log(`Loading ${paramUrl} into ${modal.attr('id')}`);
             var modalContentSelector = (modal.attr('id') === 'param-modal') ? '#param-modal-content' : '#new-param-modal-content';
             $.ajax({
                 url: paramUrl,
@@ -334,6 +334,14 @@
             });
         }
         function submitParameterValue(paramUrl, paramValue, modal) {
+            console.log(`Submitting ${paramUrl} with value: ${paramValue}`);
+            try {
+                JSON.parse(paramValue);
+            } catch (e) {
+                console.error('Invalid JSON:', e.message);
+                alert('Parameter value must be valid JSON:\n' + e.message);
+                return;
+            }
             $.ajax({
                 url: paramUrl,
                 type: 'PUT',
@@ -342,6 +350,7 @@
                 success: function (response) {
                     console.log(`Successfully updated ${paramUrl}`);
                     alert(`Parameter updated successfully: ${response.data}`);
+                    // reload the content to verify and reformat changes
                     loadParameterValue(paramUrl, modal);
                 },
                 error: function (xhr, status, error) {
@@ -349,6 +358,26 @@
                     alert(`Failed to update parameter: ${error}`);
                 }
             });
+        }
+        // Methods for param modal updates
+        function toggleParamTextArea(isEnabled, modal){
+            modal.find('#new-param-modal-content').toggle(isEnabled);
+            modal.find('#new-param-modal-param-exists-alert').toggle(!isEnabled);
+            modal.find('#new-submit-param-btn').prop('disabled', !isEnabled);
+        }
+        function handleExistingParam(modal) {
+            var existing = false;
+            const version = getCurrentVersion();
+            const jobType = getInputValues('Job Type', modal).input;
+            const taskId = getInputValues('Task ID', modal).input;
+            const modality = MODALITY_TASKS.includes(taskId) ? getInputValues('Modality', modal).input : null;
+            if (jobType && taskId && (!MODALITY_TASKS.includes(taskId) || modality)) {
+                const table = $('#job-params-table').DataTable();
+                const searchStr = `/${jobType}/tasks/${taskId}` + (modality ? `/${modality}` : '');
+                existing = table.column('Parameter Name:title').data().toArray().find(val => val.endsWith(searchStr));
+                console.log(`Parameter already exists: ${existing}`);
+            }
+            toggleParamTextArea(!existing, modal);
         }
         function resetParamModal(modal) {
             // Resetting the Add New Parameter modal will clear all inputs
@@ -359,9 +388,8 @@
                 modal.find('#new-param-task-id-select').val('');
                 modal.find('#new-param-task-id-input').val('').hide();
                 modal.find('#new-param-modality-select').val('').parent().hide();
-                modal.find('#new-param-modal-content').val('').show();
-                modal.find('#new-param-modal-param-exists-alert').hide();
-                modal.find('#new-submit-param-btn').prop('disabled', false);
+                modal.find('#new-param-modal-content').val('');
+                toggleParamTextArea(true, modal);
             } else {
                 var paramName = modal.find('#param-modal-label').text();
                 var url = getParamUrlFromParamName(paramName);
@@ -401,27 +429,7 @@
                 alert(error);
                 throw new Error(error);
             }
-            return inputVal;
-        }
-        function checkExistingParam(modal) {
-            const version = getCurrentVersion();
-            const jobType = getInputValues('Job Type', modal).input;
-            const taskId = getInputValues('Task ID', modal).input;
-            const modality = MODALITY_TASKS.includes(taskId) ? getInputValues('Modality', modal).input : null;
-            if (!jobType || !taskId || (MODALITY_TASKS.includes(taskId) && !modality)) {
-                return false;
-            }
-            const table = $('#job-params-table').DataTable();
-            const searchStr = `/${jobType}/tasks/${taskId}` + (modality ? `/${modality}` : '');
-            const existing = table.column('Parameter Name:title').data().toArray().find(val => val.endsWith(searchStr));
-            return existing || false;
-        }
-        function handleExistingParam(modal) {
-            // Toggle textarea, message, and submit button based on existing parameter
-            var paramExists = checkExistingParam(modal);
-            modal.find('#new-param-modal-content').toggle(!paramExists);
-            modal.find('#new-param-modal-param-exists-alert').toggle(!!paramExists);
-            modal.find('#new-submit-param-btn').prop('disabled', !!paramExists);
+            return inputValues.input;
         }
     </script>
     </body>
