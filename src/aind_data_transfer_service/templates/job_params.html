@@ -194,9 +194,7 @@
                     var select = modal.find(`#new-param-${dropdown.toLowerCase().replace(' ', '-')}-select`);
                     select.empty();
                     select.append(`<option value="">Select ${dropdown}</option>`);
-                    values.forEach(function(val) {
-                        select.append(`<option value="${val}">${val}</option>`);
-                    });
+                    values.forEach(val => select.append(`<option value="${val}">${val}</option>`));
                     select.append(`<option value="__new__">Create new ${dropdown}</option>`);
                 });
                 modal.modal('show');
@@ -207,6 +205,15 @@
             $('#new-param-task-id-select').on('change', function() {
                 $('#new-param-task-id-input').toggle($(this).val() === '__new__').focus();
                 $('#new-param-modality-select').parent().toggle(MODALITY_TASKS.includes($(this).val()));
+            });
+            $('#new-param-modal').on('click', '#new-submit-param-btn', function () {
+                var modal = $('#new-param-modal');
+                var version = getCurrentVersion();
+                var jobType = getValidatedInputValue('Job Type', modal);
+                var taskId = getValidatedInputValue('Task ID', modal);
+                var modality = (MODALITY_TASKS.includes(taskId)) ? getValidatedInputValue('Modality', modal) : null;
+                var url = getParamUrlFromParamInfo(version, jobType, taskId, modality);
+                var paramValue = modal.find('#new-param-modal-content').val();
             });
             // Event listener for version dropdown
             $('#version-dropdown .dropdown-item').on('click', function() {
@@ -284,6 +291,11 @@
             return data;
         }
         // Methods to load/submit param values in the modal
+        function getParamUrlFromParamInfo(version, jobType, taskId, modality) {
+            console.log(`Creating URL for ${version}, job type: ${jobType}, task ID: ${taskId}, modality: ${modality}`);
+            var baseUrl = `/api/${version}/parameters/job_types/${jobType}/tasks/${taskId}`;
+            return modality ? `${baseUrl}/${modality}` : baseUrl;
+        }
         function getParamUrlFromParamName(paramName) {
             if (paramName.includes('job_types/v2')) {
                 var version = 'v2';
@@ -331,6 +343,28 @@
         }
         function getUniqueColumnValues(columnSelector) {
             return Array.from(new Set($('#job-params-table').DataTable().column(columnSelector).data().toArray()));
+        }
+        function getValidatedInputValue(inputField, modal) {
+            var selector = inputField.toLowerCase().replace(' ', '-');
+            var dropdownVal = modal.find(`#new-param-${selector}-select`).val().trim();
+            var inputVal = (dropdownVal === '__new__') ? modal.find(`#new-param-${selector}-input`).val().trim() : dropdownVal;
+            // Check for empty string, spaces, slashes, or existing values
+            var error = false;
+            if (!inputVal) {
+                error = `${inputField} cannot be empty`;
+            } else if (inputVal.includes(' ') || inputVal.includes('/')) {
+                error = `${inputField} cannot contain spaces or slashes`;
+            } else if (dropdownVal === '__new__') {
+                var existingValues = getUniqueColumnValues(`${inputField}:title`);
+                if (existingValues.map(val => val.toLowerCase()).includes(inputVal.toLowerCase())) {
+                    error = `${inputField} "${inputVal}" already exists. Please select it from the dropdown.`;
+                }
+            }
+            if (error) {
+                alert(error);
+                throw new Error(error);
+            }
+            return inputVal;
         }
     </script>
     </body>
