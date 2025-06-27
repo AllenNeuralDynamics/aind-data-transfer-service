@@ -140,8 +140,27 @@
             createJobParamsTable();
             // Event listeners for modal to display/edit params
             $(`#${MODAL_ID}`).on('show.bs.modal', function(event) {
-                var button = $(event.relatedTarget);
-                onShowModal(button);
+                // Add New Parameter: set label and dropdown options
+                // Edit Existing Parameter: set label and load intital value
+                const eventTarget = $(event.relatedTarget);
+                const action = eventTarget.data('bs-action');
+                const modal = $(`#${MODAL_ID}`);
+                modal.data('bs-action', action); // save action type
+                const isNew = action === 'new';
+                modal.find(`#${MODAL_ID}-label`).text(isNew ? 'Add New Parameter' : eventTarget.data('bs-param-name'));
+                modal.find(`#${MODAL_ID}-version`).text(getCurrentVersion()).toggle(isNew);
+                modal.find(`#${MODAL_ID}-dropdowns`).toggle(isNew);
+                if (isNew) {
+                    ['Job Type', 'Task ID'].forEach(field => {
+                        const select = modal.find(`#${MODAL_ID}-${field.toLowerCase().replace(' ', '-')}-select`);
+                        select.empty()
+                            .append(`<option value="">Select ${field}</option>`)
+                            .append(getUniqueColumnValues(field).map(val => `<option value="${val}">${val}</option>`))
+                            .append(`<option value="__new__">Create new ${field}</option>`);
+                    });
+                } else {
+                    loadParameterValue(getParamUrlFromParamName(eventTarget.data('bs-param-name')));
+                }
             });
             $(`#${MODAL_ID}`).on('hidden.bs.modal', function() {
                 onResetModal();
@@ -150,7 +169,21 @@
                 onResetModal(true);
             });
             $(`#${MODAL_ID}`).on('click', `#${MODAL_ID}-submit-btn`, function() {
-                onSubmitModal();
+                const modal = $(`#${MODAL_ID}`);
+                const action = modal.data('bs-action');
+                let url;
+                if (action === "new") {
+                    const version = getCurrentVersion();
+                    const jobType = getValidatedInputValue('Job Type', modal);
+                    const taskId = getValidatedInputValue('Task ID', modal);
+                    const modality = MODALITY_TASKS.includes(taskId) ? getValidatedInputValue('Modality', modal) : null;
+                    url = getParamUrlFromParamInfo(version, jobType, taskId, modality);
+                } else {
+                    const paramName = modal.find(`#${MODAL_ID}-label`).text();
+                    url = getParamUrlFromParamName(paramName);
+                }
+                const paramValue = modal.find(`#${MODAL_ID}-content`).val();
+                submitParameterValue(url, paramValue);
             });
             $(`#${MODAL_ID}-job-type-select`).on('change', function() {
                 $(`#${MODAL_ID}-job-type-input`).toggle($(this).val() === '__new__').focus();
@@ -316,28 +349,6 @@
             }
             toggleParamTextArea(!exists);
         }
-        function onShowModal(eventTarget) {
-            // Add New Parameter: set label and dropdown options
-            // Edit Existing Parameter: set label and load intital value
-            const action = eventTarget.data('bs-action');
-            const modal = $(`#${MODAL_ID}`);
-            modal.data('bs-action', action); // save action type
-            const isNew = action === 'new';
-            modal.find(`#${MODAL_ID}-label`).text(isNew ? 'Add New Parameter' : eventTarget.data('bs-param-name'));
-            modal.find(`#${MODAL_ID}-version`).text(getCurrentVersion()).toggle(isNew);
-            modal.find(`#${MODAL_ID}-dropdowns`).toggle(isNew);
-            if (isNew) {
-                ['Job Type', 'Task ID'].forEach(field => {
-                    const select = modal.find(`#${MODAL_ID}-${field.toLowerCase().replace(' ', '-')}-select`);
-                    select.empty()
-                        .append(`<option value="">Select ${field}</option>`)
-                        .append(getUniqueColumnValues(field).map(val => `<option value="${val}">${val}</option>`))
-                        .append(`<option value="__new__">Create new ${field}</option>`);
-                });
-            } else {
-                loadParameterValue(getParamUrlFromParamName(eventTarget.data('bs-param-name')));
-            }
-        }
         function onResetModal(reload = false) {
             const modal = $(`#${MODAL_ID}`);
             const action = modal.data('bs-action');
@@ -355,23 +366,6 @@
                     modal.find(`#${MODAL_ID}-label, #${MODAL_ID}-content`).text('').val('');
                 }
             }
-        }
-        function onSubmitModal() {
-            const modal = $(`#${MODAL_ID}`);
-            const action = modal.data('bs-action');
-            let url;
-            if (action === "new") {
-                const version = getCurrentVersion();
-                const jobType = getValidatedInputValue('Job Type', modal);
-                const taskId = getValidatedInputValue('Task ID', modal);
-                const modality = MODALITY_TASKS.includes(taskId) ? getValidatedInputValue('Modality', modal) : null;
-                url = getParamUrlFromParamInfo(version, jobType, taskId, modality);
-            } else {
-                const paramName = modal.find(`#${MODAL_ID}-label`).text();
-                url = getParamUrlFromParamName(paramName);
-            }
-            const paramValue = modal.find(`#${MODAL_ID}-content`).val();
-            submitParameterValue(url, paramValue);
         }
         // Helper methods to get current values
         function getCurrentVersion() {
