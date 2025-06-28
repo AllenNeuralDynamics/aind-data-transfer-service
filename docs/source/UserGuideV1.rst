@@ -520,6 +520,7 @@ Available job types and their configurations can be viewed at:
 http://aind-data-transfer-service/job_params
 
 To request a new job type, please reach out to Scientific Computing.
+Admins can manage job types directly in the Job Parameters page.
 
 Reporting bugs or making feature requests
 -----------------------------------------

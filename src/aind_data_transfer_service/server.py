@@ -7,10 +7,11 @@ import os
 import re
 from asyncio import gather, sleep
 from pathlib import PurePosixPath
-from typing import List, Optional, Union
+from typing import Any, List, Optional, Union
 
 import boto3
 import requests
+from aind_data_schema_models.modalities import Modality
 from aind_data_transfer_models import (
     __version__ as aind_data_transfer_models_version,
 )
@@ -95,6 +96,8 @@ templates = Jinja2Templates(directory=template_directory)
 logger = get_logger(log_configs=LoggingConfigs())
 project_names_url = os.getenv("AIND_METADATA_SERVICE_PROJECT_NAMES_URL")
 
+MODALITIES_LIST = list(Modality.abbreviation_map.keys())
+
 
 def get_project_names() -> List[str]:
     """Get a list of project_names"""
@@ -171,6 +174,19 @@ def get_parameter_value(param_name: str) -> dict:
     )
     param_value = json.loads(param_response["Parameter"]["Value"])
     return param_value
+
+
+def set_parameter_value(param_name: str, param_value: dict) -> Any:
+    """Set a parameter value in AWS param store based on parameter name"""
+    param_value_str = json.dumps(param_value)
+    ssm_client = boto3.client("ssm")
+    result = ssm_client.put_parameter(
+        Name=param_name,
+        Value=param_value_str,
+        Type="String",
+        Overwrite=True,
+    )
+    return result
 
 
 async def get_airflow_jobs(
@@ -1001,16 +1017,23 @@ async def jobs(request: Request):
 
 async def job_params(request: Request):
     """Get Job Parameters page"""
+    user = request.session.get("user")
     return templates.TemplateResponse(
         request=request,
         name="job_params.html",
         context=(
             {
+                "user_signed_in": user is not None,
                 "project_names_url": os.getenv(
                     "AIND_METADATA_SERVICE_PROJECT_NAMES_URL"
                 ),
                 "versions": ["v1", "v2"],
                 "default_version": "v1",
+                "modalities": MODALITIES_LIST,
+                "modality_tasks": [
+                    "modality_transformation_settings",
+                    "codeocean_pipeline_settings",
+                ],
             }
         ),
     )
@@ -1095,6 +1118,57 @@ def get_parameter_v2(request: Request):
         )
 
 
+async def set_parameter(request: Request):
+    """Set v1/v2 parameter in AWS param store based on job_type and task_id"""
+    # User must be signed in
+    user = request.session.get("user")
+    if not user:
+        return JSONResponse(
+            content={
+                "message": "User not authenticated",
+                "data": {"error": "User not authenticated"},
+            },
+            status_code=401,
+        )
+    # path params
+    version = request.path_params.get("version")
+    if version not in ["v1", "v2"]:
+        return JSONResponse(
+            content={
+                "message": "Invalid version",
+                "data": {"error": "Version must be v1 or v2"},
+            },
+            status_code=400,
+        )
+    job_type = request.path_params.get("job_type")
+    task_id = request.path_params.get("task_id")
+    param_name = JobParamInfo.get_parameter_name(job_type, task_id, version)
+    logger.info(f"Received request from {user} to set parameter {param_name}")
+    try:
+        param_value = await request.json()
+        logger.info(f"Setting parameter {param_name} to {param_value}")
+        result = set_parameter_value(
+            param_name=param_name, param_value=param_value
+        )
+        logger.info(result)
+        return JSONResponse(
+            content={
+                "message": f"Set parameter for {param_name}",
+                "data": param_value,
+            },
+            status_code=200,
+        )
+    except ClientError as e:
+        logger.exception(f"Error setting parameter {param_name}: {e}")
+        return JSONResponse(
+            content={
+                "message": f"Error setting parameter {param_name}",
+                "data": {"error": f"{e.__class__.__name__}{e.args}"},
+            },
+            status_code=500,
+        )
+
+
 def get_parameter(request: Request):
     """Get parameter from AWS parameter store based on job_type and task_id"""
     # path params are auto validated
@@ -1124,8 +1198,6 @@ def get_parameter(request: Request):
 async def admin(request: Request):
     """Get admin page if authenticated, else redirect to login."""
     user = request.session.get("user")
-    if os.getenv("ENV_NAME") == "local":
-        user = {"name": "local user"}
     if user:
         return templates.TemplateResponse(
             request=request,
@@ -1143,6 +1215,9 @@ async def admin(request: Request):
 
 async def login(request: Request):
     """Redirect to Azure login page"""
+    if os.getenv("ENV_NAME") == "local":
+        request.session["user"] = {"name": "local user"}
+        return RedirectResponse(url="/admin")
     oauth = set_oauth()
     redirect_uri = request.url_for("auth")
     response = await oauth.azure.authorize_redirect(request, redirect_uri)
@@ -1207,6 +1282,11 @@ routes = [
         "/api/v2/parameters/job_types/{job_type:str}/tasks/{task_id:path}",
         endpoint=get_parameter_v2,
         methods=["GET"],
+    ),
+    Route(
+        "/api/{version:str}/parameters/job_types/{job_type:str}/tasks/{task_id:path}",
+        endpoint=set_parameter,
+        methods=["PUT"],
     ),
     Route("/jobs", endpoint=jobs, methods=["GET"]),
     Route("/job_tasks_table", endpoint=job_tasks_table, methods=["GET"]),
