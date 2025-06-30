@@ -272,6 +272,6 @@ class JobParamInfo(BaseModel):
     ) -> str:
         """Create the parameter name from job_type and task_id"""
         prefix = os.getenv("AIND_AIRFLOW_PARAM_PREFIX")
-        if version is None:
+        if version is None or version == "v1":
             return f"{prefix}/{job_type}/tasks/{task_id}"
         return f"{prefix}/{version}/{job_type}/tasks/{task_id}"

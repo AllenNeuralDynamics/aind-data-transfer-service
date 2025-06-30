@@ -1,0 +1,17 @@
+{
+  "Version": 16,
+  "Tier": "Standard",
+  "ResponseMetadata": {
+    "RequestId": "ffcc56cc-f500-4362-879e-60e9a14c3d36",
+    "HTTPStatusCode": 200,
+    "HTTPHeaders": {
+      "server": "Server",
+      "date": "Mon,30 Jun 2025 21: 16: 24 GMT",
+      "content-type": "application/x-amz-json-1.1",
+      "content-length": "32",
+      "connection": "keep-alive",
+      "x-amzn-requestid": "ffcc56cc-f500-4362-879e-60e9a14c3d36"
+    },
+    "RetryAttempts": 0
+  }
+}

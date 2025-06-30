@@ -176,7 +176,7 @@ def get_parameter_value(param_name: str) -> dict:
     return param_value
 
 
-def set_parameter_value(param_name: str, param_value: dict) -> Any:
+def put_parameter_value(param_name: str, param_value: dict) -> Any:
     """Set a parameter value in AWS param store based on parameter name"""
     param_value_str = json.dumps(param_value)
     ssm_client = boto3.client("ssm")
@@ -1118,7 +1118,7 @@ def get_parameter_v2(request: Request):
         )
 
 
-async def set_parameter(request: Request):
+async def put_parameter(request: Request):
     """Set v1/v2 parameter in AWS param store based on job_type and task_id"""
     # User must be signed in
     user = request.session.get("user")
@@ -1147,7 +1147,7 @@ async def set_parameter(request: Request):
     try:
         param_value = await request.json()
         logger.info(f"Setting parameter {param_name} to {param_value}")
-        result = set_parameter_value(
+        result = put_parameter_value(
             param_name=param_name, param_value=param_value
         )
         logger.info(result)
@@ -1158,7 +1158,7 @@ async def set_parameter(request: Request):
             },
             status_code=200,
         )
-    except ClientError as e:
+    except Exception as e:
         logger.exception(f"Error setting parameter {param_name}: {e}")
         return JSONResponse(
             content={
@@ -1285,7 +1285,7 @@ routes = [
     ),
     Route(
         "/api/{version:str}/parameters/job_types/{job_type:str}/tasks/{task_id:path}",
-        endpoint=set_parameter,
+        endpoint=put_parameter,
         methods=["PUT"],
     ),
     Route("/jobs", endpoint=jobs, methods=["GET"]),
