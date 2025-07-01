@@ -637,7 +637,7 @@ class TestServer(unittest.TestCase):
         tasks = [
             ("job1", "task1", None),
             ("job1", "task2", None),
-            ("job2", "task1", "modality1"),
+            ("job2", "modality_transformation_settings", "ecephys"),
         ]
         mock_get_parameter_infos.return_value = [
             JobParamInfo(
@@ -646,6 +646,7 @@ class TestServer(unittest.TestCase):
                 task_id=t[1],
                 modality=t[2],
                 last_modified=None,
+                version="v2",
             )
             for t in tasks
         ]
@@ -1305,6 +1306,7 @@ class TestServer(unittest.TestCase):
                     "name": "/param_prefix/job1/tasks/task1",
                     "task_id": "task1",
                     "modality": None,
+                    "version": None,
                 },
                 {
                     "job_type": "job2",
@@ -1312,6 +1314,7 @@ class TestServer(unittest.TestCase):
                     "name": "/param_prefix/job2/tasks/task2",
                     "task_id": "task2",
                     "modality": None,
+                    "version": None,
                 },
             ],
             "v2": [
@@ -1321,13 +1324,18 @@ class TestServer(unittest.TestCase):
                     "name": "/param_prefix/v2/job1/tasks/task1",
                     "task_id": "task1",
                     "modality": None,
+                    "version": "v2",
                 },
                 {
                     "job_type": "job1",
                     "last_modified": "2025-01-23T11:50:04.605000-08:00",
-                    "name": "/param_prefix/v2/job1/tasks/task2/modality1",
-                    "task_id": "task2",
-                    "modality": "modality1",
+                    "name": (
+                        "/param_prefix/v2/job1/tasks"
+                        "/modality_transformation_settings/ecephys"
+                    ),
+                    "task_id": "modality_transformation_settings",
+                    "modality": "ecephys",
+                    "version": "v2",
                 },
             ],
         }
@@ -1445,47 +1453,82 @@ class TestServer(unittest.TestCase):
     ):
         """Tests put_parameter sets values in aws param store."""
         mock_user = {"name": "test_user", "email": "test_email"}
-        mock_params = {
-            "v1": "/param_prefix/ecephys/tasks/task1",
-            "v2": "/param_prefix/v2/ecephys/tasks/task1",
-        }
+        mock_param_name = "/param_prefix/ecephys/tasks/task1"
         mock_param_value = {"foo": "bar"}
         mock_session.get.return_value = mock_user
         mock_ssm_client.return_value.put_parameter.return_value = (
             self.put_parameter_response
         )
-        for version, param_name in mock_params.items():
-            with TestClient(app) as client:
-                response = client.put(
-                    f"/api/{version}/parameters/job_types/ecephys/tasks/task1",
-                    json=mock_param_value,
-                )
-            mock_session.get.assert_called_with("user")
-            mock_ssm_client.assert_called_with("ssm")
-            mock_ssm_client.return_value.put_parameter.assert_called_with(
-                Name=param_name,
-                Value=json.dumps(mock_param_value),
-                Type="String",
-                Overwrite=True,
+        with TestClient(app) as client:
+            response = client.put(
+                "/api/v1/parameters/job_types/ecephys/tasks/task1",
+                json=mock_param_value,
             )
-            response_content = response.json()
-            self.assertEqual(response.status_code, 200)
-            self.assertEqual(
-                response_content,
-                {
-                    "message": f"Set parameter for {param_name}",
-                    "data": mock_param_value,
-                },
+        mock_session.get.assert_called_with("user")
+        mock_ssm_client.assert_called_with("ssm")
+        mock_ssm_client.return_value.put_parameter.assert_called_with(
+            Name=mock_param_name,
+            Value=json.dumps(mock_param_value),
+            Type="String",
+            Overwrite=True,
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.json(),
+            {
+                "message": f"Set parameter for {mock_param_name}",
+                "data": mock_param_value,
+            },
+        )
+        expected_logs = [
+            call(
+                f"Received request from {mock_user} to set parameter "
+                f"{mock_param_name}"
+            ),
+            call(f"Setting parameter {mock_param_name} to {mock_param_value}"),
+            call(self.put_parameter_response),
+        ]
+        mock_log_info.assert_has_calls(expected_logs)
+
+    @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
+    @patch("boto3.client")
+    @patch("fastapi.Request.session")
+    def test_put_parameter_modality(
+        self,
+        mock_session: MagicMock,
+        mock_ssm_client: MagicMock,
+    ):
+        """Tests put_parameter sets values in aws param store when modality
+        is provided."""
+        task = "modality_transformation_settings"
+        mock_user = {"name": "test_user", "email": "test_email"}
+        mock_param_name = f"/param_prefix/v2/ecephys/tasks/{task}/ecephys"
+        mock_param_value = {"foo": "bar"}
+        mock_session.get.return_value = mock_user
+        mock_ssm_client.return_value.put_parameter.return_value = (
+            self.put_parameter_response
+        )
+        with TestClient(app) as client:
+            response = client.put(
+                f"/api/v2/parameters/job_types/ecephys/tasks/{task}/ecephys",
+                json=mock_param_value,
             )
-            expected_logs = [
-                call(
-                    f"Received request from {mock_user} to set parameter"
-                    f"{param_name}"
-                ),
-                call(f"Setting parameter {param_name} to {mock_param_value}"),
-                call(self.put_parameter_response),
-            ]
-            mock_log_info.assert_has_calls(expected_logs)
+        mock_session.get.assert_called_with("user")
+        mock_ssm_client.assert_called_with("ssm")
+        mock_ssm_client.return_value.put_parameter.assert_called_with(
+            Name=mock_param_name,
+            Value=json.dumps(mock_param_value),
+            Type="String",
+            Overwrite=True,
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.json(),
+            {
+                "message": f"Set parameter for {mock_param_name}",
+                "data": mock_param_value,
+            },
+        )
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch("boto3.client")
@@ -1497,69 +1540,62 @@ class TestServer(unittest.TestCase):
     ):
         """Tests put_parameter returns 401 Unauthorized error when user is
         not signed in."""
-        mock_user = None
-        mock_session.get.return_value = mock_user
+        mock_session.get.return_value = None
         for version in ["v1", "v2"]:
             with TestClient(app) as client:
                 response = client.put(
                     f"/api/{version}/parameters/job_types/ecephys/tasks/task1",
                     json={"foo": "bar"},
                 )
-            mock_session.get.assert_called_with("user")
             mock_ssm_client.assert_not_called()
-            response_content = response.json()
             self.assertEqual(response.status_code, 401)
             self.assertEqual(
-                response_content["message"],
+                response.json()["message"],
                 "User not authenticated",
             )
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch("boto3.client")
     @patch("fastapi.Request.session")
-    def test_put_parameter_invalid_version(
+    def test_put_parameter_invalid_params(
         self,
         mock_session: MagicMock,
         mock_ssm_client: MagicMock,
     ):
-        """Tests put_parameter is not allowed when version is invalid."""
-        mock_user = {"name": "test_user", "email": "test_email"}
-        mock_session.get.return_value = mock_user
-        with TestClient(app) as client:
-            response = client.put(
-                "/api/v3/parameters/job_types/ecephys/tasks/task1",
-                json={"foo": "bar"},
-            )
-        mock_session.get.assert_called_once_with("user")
-        mock_ssm_client.assert_not_called()
-        response_content = response.json()
-        self.assertEqual(response.status_code, 400)
-        self.assertEqual(
-            response_content,
-            {
-                "message": "Invalid version",
-                "data": {"error": "Version must be v1 or v2"},
-            },
-        )
+        """Tests put_parameter is not allowed for invalid param components."""
+        mock_session.get.return_value = {"name": "test", "email": "test"}
+        request_urls = [
+            "/api/v3/parameters/job_types/ecephys/tasks/task1",
+            "/api/v2/parameters/job_types/new job/tasks/task1",
+            "/api/v2/parameters/job_types/new_job/tasks/new task",
+            "/api/v2/parameters/job_types/new_job/tasks"
+            "/codeocean_pipeline_settings/foo",
+        ]
+        for url in request_urls:
+            with TestClient(app) as client:
+                response = client.put(url, json={"foo": "bar"})
+            mock_ssm_client.assert_not_called()
+            self.assertEqual(response.status_code, 400)
+            response_content = response.json()
+            self.assertEqual("Invalid parameter", response_content["message"])
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch("logging.Logger.exception")
     @patch("boto3.client")
     @patch("fastapi.Request.session")
-    def test_put_parameter_invalid(
+    def test_put_parameter_error(
         self,
         mock_session: MagicMock,
         mock_ssm_client: MagicMock,
         mock_log_error: MagicMock,
     ):
         """Tests put_parameter when there is a client error."""
-        mock_user = {"name": "test_user", "email": "test_email"}
         mock_params = {
             "v1": "/param_prefix/ecephys/tasks/task1",
             "v2": "/param_prefix/v2/ecephys/tasks/task1",
         }
         mock_param_value = {"foo": "bar"}
-        mock_session.get.return_value = mock_user
+        mock_session.get.return_value = {"name": "test", "email": "test"}
         mock_ssm_client.return_value.put_parameter.return_value = (
             self.put_parameter_response
         )
@@ -1578,18 +1614,9 @@ class TestServer(unittest.TestCase):
                     f"/api/{version}/parameters/job_types/ecephys/tasks/task1",
                     json=mock_param_value,
                 )
-            mock_session.get.assert_called_with("user")
-            mock_ssm_client.assert_called_with("ssm")
-            mock_ssm_client.return_value.put_parameter.assert_called_with(
-                Name=param_name,
-                Value=json.dumps(mock_param_value),
-                Type="String",
-                Overwrite=True,
-            )
-            response_content = response.json()
             self.assertEqual(response.status_code, 500)
             self.assertEqual(
-                response_content["message"],
+                response.json()["message"],
                 f"Error setting parameter {param_name}",
             )
             mock_log_error.assert_called_with(

@@ -11,7 +11,6 @@ from typing import Any, List, Optional, Union
 
 import boto3
 import requests
-from aind_data_schema_models.modalities import Modality
 from aind_data_transfer_models import (
     __version__ as aind_data_transfer_models_version,
 )
@@ -96,8 +95,6 @@ templates = Jinja2Templates(directory=template_directory)
 logger = get_logger(log_configs=LoggingConfigs())
 project_names_url = os.getenv("AIND_METADATA_SERVICE_PROJECT_NAMES_URL")
 
-MODALITIES_LIST = list(Modality.abbreviation_map.keys())
-
 
 def get_project_names() -> List[str]:
     """Get a list of project_names"""
@@ -159,6 +156,7 @@ def get_parameter_infos(version: Optional[str] = None) -> List[JobParamInfo]:
                     job_type=match.group("job_type"),
                     task_id=match.group("task_id"),
                     modality=match.group("modality"),
+                    version=version,
                 )
                 params.append(param_info)
             else:
@@ -1029,11 +1027,8 @@ async def job_params(request: Request):
                 ),
                 "versions": ["v1", "v2"],
                 "default_version": "v1",
-                "modalities": MODALITIES_LIST,
-                "modality_tasks": [
-                    "modality_transformation_settings",
-                    "codeocean_pipeline_settings",
-                ],
+                "modalities": JobParamInfo._MODALITIES_LIST,
+                "modality_tasks": JobParamInfo._MODALITY_TASKS,
             }
         ),
     )
@@ -1097,7 +1092,10 @@ def get_parameter_v2(request: Request):
     # path params are auto validated
     job_type = request.path_params.get("job_type")
     task_id = request.path_params.get("task_id")
-    param_name = JobParamInfo.get_parameter_name(job_type, task_id, "v2")
+    modality = request.path_params.get("modality")
+    param_name = JobParamInfo.get_parameter_name(
+        job_type=job_type, task_id=task_id, modality=modality, version="v2"
+    )
     try:
         param_value = get_parameter_value(param_name)
         return JSONResponse(
@@ -1130,21 +1128,26 @@ async def put_parameter(request: Request):
             },
             status_code=401,
         )
-    # path params
-    version = request.path_params.get("version")
-    if version not in ["v1", "v2"]:
-        return JSONResponse(
-            content={
-                "message": "Invalid version",
-                "data": {"error": "Version must be v1 or v2"},
-            },
-            status_code=400,
-        )
-    job_type = request.path_params.get("job_type")
-    task_id = request.path_params.get("task_id")
-    param_name = JobParamInfo.get_parameter_name(job_type, task_id, version)
-    logger.info(f"Received request from {user} to set parameter {param_name}")
     try:
+        # path params
+        param_info = JobParamInfo(
+            name=None,
+            last_modified=None,
+            job_type=request.path_params.get("job_type"),
+            task_id=request.path_params.get("task_id"),
+            modality=request.path_params.get("modality"),
+            version=request.path_params.get("version"),
+        )
+        param_name = JobParamInfo.get_parameter_name(
+            job_type=param_info.job_type,
+            task_id=param_info.task_id,
+            modality=param_info.modality,
+            version=param_info.version,
+        )
+        # update param store
+        logger.info(
+            f"Received request from {user} to set parameter {param_name}"
+        )
         param_value = await request.json()
         logger.info(f"Setting parameter {param_name} to {param_value}")
         result = put_parameter_value(
@@ -1157,6 +1160,14 @@ async def put_parameter(request: Request):
                 "data": param_value,
             },
             status_code=200,
+        )
+    except ValidationError as error:
+        return JSONResponse(
+            content={
+                "message": "Invalid parameter",
+                "data": {"errors": json.loads(error.json())},
+            },
+            status_code=400,
         )
     except Exception as e:
         logger.exception(f"Error setting parameter {param_name}: {e}")
@@ -1174,7 +1185,10 @@ def get_parameter(request: Request):
     # path params are auto validated
     job_type = request.path_params.get("job_type")
     task_id = request.path_params.get("task_id")
-    param_name = JobParamInfo.get_parameter_name(job_type, task_id)
+    modality = request.path_params.get("modality")
+    param_name = JobParamInfo.get_parameter_name(
+        job_type=job_type, task_id=task_id, modality=modality
+    )
     try:
         param_value = get_parameter_value(param_name)
         return JSONResponse(
@@ -1268,7 +1282,13 @@ routes = [
     Route("/api/v1/get_task_logs", endpoint=get_task_logs, methods=["GET"]),
     Route("/api/v1/parameters", endpoint=list_parameters, methods=["GET"]),
     Route(
-        "/api/v1/parameters/job_types/{job_type:str}/tasks/{task_id:path}",
+        "/api/v1/parameters/job_types/{job_type:str}/tasks/{task_id:str}",
+        endpoint=get_parameter,
+        methods=["GET"],
+    ),
+    Route(
+        "/api/v1/parameters/job_types/{job_type:str}/tasks/{task_id:str}"
+        "/{modality:str}",
         endpoint=get_parameter,
         methods=["GET"],
     ),
@@ -1279,12 +1299,25 @@ routes = [
     Route("/api/v2/submit_jobs", endpoint=submit_jobs_v2, methods=["POST"]),
     Route("/api/v2/parameters", endpoint=list_parameters_v2, methods=["GET"]),
     Route(
-        "/api/v2/parameters/job_types/{job_type:str}/tasks/{task_id:path}",
+        "/api/v2/parameters/job_types/{job_type:str}/tasks/{task_id:str}",
         endpoint=get_parameter_v2,
         methods=["GET"],
     ),
     Route(
-        "/api/{version:str}/parameters/job_types/{job_type:str}/tasks/{task_id:path}",
+        "/api/v2/parameters/job_types/{job_type:str}/tasks/{task_id:str}"
+        "/{modality:str}",
+        endpoint=get_parameter_v2,
+        methods=["GET"],
+    ),
+    Route(
+        "/api/{version:str}/parameters/job_types/{job_type:str}"
+        "/tasks/{task_id:str}",
+        endpoint=put_parameter,
+        methods=["PUT"],
+    ),
+    Route(
+        "/api/{version:str}/parameters/job_types/{job_type:str}"
+        "/tasks/{task_id:str}/{modality:str}",
         endpoint=put_parameter,
         methods=["PUT"],
     ),

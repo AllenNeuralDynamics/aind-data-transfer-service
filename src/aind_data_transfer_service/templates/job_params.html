@@ -273,7 +273,7 @@
             }
             return data;
         }
-        // Methods to load/submit/reset param values in the modal
+        // Methods to load/submit param values in the modal
         function getParamUrlFromParamInfo(version, jobType, taskId, modality) {
             var baseUrl = `/api/${version}/parameters/job_types/${jobType}/tasks/${taskId}`;
             return modality ? `${baseUrl}/${modality}` : baseUrl;

@@ -3,8 +3,9 @@
 import ast
 import os
 from datetime import datetime, timedelta, timezone
-from typing import List, Optional, Union
+from typing import ClassVar, List, Optional, Union
 
+from aind_data_schema_models.modalities import Modality
 from mypy_boto3_ssm.type_defs import ParameterMetadataTypeDef
 from pydantic import AwareDatetime, BaseModel, Field, field_validator
 from starlette.datastructures import QueryParams
@@ -223,11 +224,29 @@ class JobTasks(BaseModel):
 class JobParamInfo(BaseModel):
     """Model for job parameter info from AWS Parameter Store"""
 
+    _MODALITIES_LIST: ClassVar[list[str]] = list(
+        Modality.abbreviation_map.keys()
+    )
+    _MODALITY_TASKS: ClassVar[list[str]] = [
+        "modality_transformation_settings",
+        "codeocean_pipeline_settings",
+    ]
+
     name: Optional[str]
     last_modified: Optional[datetime]
-    job_type: str
-    task_id: str
+    job_type: str = Field(..., pattern=r"^[^\s/]+$")
+    task_id: str = Field(..., pattern=r"^[^\s/]+$")
     modality: Optional[str]
+    version: Optional[str] = Field(..., pattern=r"^(v1|v2)?$")
+
+    @field_validator("modality", mode="after")
+    def validate_modality(cls, v):
+        if v is not None and v not in JobParamInfo._MODALITIES_LIST:
+            raise ValueError(
+                "Invalid modality: modality must be one of "
+                f"{JobParamInfo._MODALITIES_LIST}"
+            )
+        return v
 
     @classmethod
     def from_aws_describe_parameter(
@@ -236,6 +255,7 @@ class JobParamInfo(BaseModel):
         job_type: str,
         task_id: str,
         modality: Optional[str],
+        version: Optional[str],
     ):
         """Map the parameter to the model"""
         return cls(
@@ -244,13 +264,14 @@ class JobParamInfo(BaseModel):
             job_type=job_type,
             task_id=task_id,
             modality=modality,
+            version=version,
         )
 
     @staticmethod
     def get_parameter_prefix(version: Optional[str] = None) -> str:
         """Get the prefix for job_type parameters"""
         prefix = os.getenv("AIND_AIRFLOW_PARAM_PREFIX")
-        if version is None:
+        if version is None or version == "v1":
             return prefix
         return f"{prefix}/{version}"
 
@@ -262,16 +283,19 @@ class JobParamInfo(BaseModel):
             "(?P<job_type>[^/]+)/tasks/(?P<task_id>[^/]+)"
             "(?:/(?P<modality>[^/]+))?"
         )
-        if version is None:
+        if version is None or version == "v1":
             return f"{prefix}/{regex}"
         return f"{prefix}/{version}/{regex}"
 
     @staticmethod
     def get_parameter_name(
-        job_type: str, task_id: str, version: Optional[str] = None
+        job_type: str,
+        task_id: str,
+        modality: Optional[str],
+        version: Optional[str] = None,
     ) -> str:
         """Create the parameter name from job_type and task_id"""
-        prefix = os.getenv("AIND_AIRFLOW_PARAM_PREFIX")
-        if version is None or version == "v1":
-            return f"{prefix}/{job_type}/tasks/{task_id}"
-        return f"{prefix}/{version}/{job_type}/tasks/{task_id}"
+        prefix = JobParamInfo.get_parameter_prefix(version)
+        if modality:
+            return f"{prefix}/{job_type}/tasks/{task_id}/{modality}"
+        return f"{prefix}/{job_type}/tasks/{task_id}"
