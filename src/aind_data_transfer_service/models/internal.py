@@ -241,6 +241,7 @@ class JobParamInfo(BaseModel):
 
     @field_validator("modality", mode="after")
     def validate_modality(cls, v):
+        """Check that modality is one of aind-data-schema modalities"""
         if v is not None and v not in JobParamInfo._MODALITIES_LIST:
             raise ValueError(
                 "Invalid modality: modality must be one of "
