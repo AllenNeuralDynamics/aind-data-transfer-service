@@ -41,7 +41,7 @@ docs = [
 server = [
     'aind-data-schema>=1.0.0,<2.0',
     'aind-data-transfer-models==0.17.0',
-    'aind-metadata-mapper>=0.27.0',
+    'aind-metadata-mapper==0.27.2',
     'boto3',
     'boto3-stubs[ssm]',
     'fastapi>=0.115.13', 
