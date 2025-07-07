@@ -1,0 +1,2 @@
+project_name, modality0, modality0.input_source, modality0.compression_requested.compression_enum, subject-id, platform, acq-datetime, job_type
+Ephys Platform, behavior-videos, dir/data_set_1, gamma fix colorspace, 123454, ecephys, 2020-10-10 14:10:10, ecephys
