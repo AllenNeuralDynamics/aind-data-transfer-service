@@ -35,7 +35,7 @@
             "DataType": "text"
          },
          {
-            "Name": "/param_prefix/v2/job1/tasks/task2/modality1",
+            "Name": "/param_prefix/v2/job1/tasks/modality_transformation_settings/ecephys",
             "ARN": "ARN",
             "Type": "String",
             "LastModifiedDate": "2025-01-23 11:50:04.605000-08:00",

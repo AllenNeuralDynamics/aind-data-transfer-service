@@ -62,6 +62,7 @@ To run uvicorn locally:
 
 .. code:: bash
 
+   # export MSYS_NO_PATHCONV=1 # Uncomment this line if running on Windows
    export AIND_METADATA_SERVICE_PROJECT_NAMES_URL='http://aind-metadata-service-dev/project_names'
    export AIND_AIRFLOW_SERVICE_URL='http://aind-airflow-service-dev:8080/api/v1/dags/run_list_of_jobs/dagRuns'
    # export AIND_AIRFLOW_SERVICE_JOBS_URL='http://aind-airflow-service-dev:8080/api/v1/dags'
