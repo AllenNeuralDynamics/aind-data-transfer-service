@@ -500,7 +500,6 @@ async def submit_jobs_v2(request: Request):
         full_content = json.loads(
             model.model_dump_json(warnings=False, exclude_none=True)
         )
-        # TODO: Replace with httpx async client
         logger.info(
             f"Valid request detected. Sending list of jobs. "
             f"dag_id: {model.dag_id}"
@@ -512,19 +511,23 @@ async def submit_jobs_v2(request: Request):
                 f"{job_index} of {total_jobs}."
             )
 
-        response = requests.post(
-            url=os.getenv("AIND_AIRFLOW_SERVICE_URL"),
+        async with AsyncClient(
             auth=(
                 os.getenv("AIND_AIRFLOW_SERVICE_USER"),
                 os.getenv("AIND_AIRFLOW_SERVICE_PASSWORD"),
-            ),
-            json={"conf": full_content},
-        )
+            )
+        ) as async_client:
+            response = await async_client.post(
+                url=os.getenv("AIND_AIRFLOW_SERVICE_URL"),
+                json={"conf": full_content},
+            )
+            status_code = response.status_code
+            response_json = response.json()
         return JSONResponse(
-            status_code=response.status_code,
+            status_code=status_code,
             content={
                 "message": "Submitted request to airflow",
-                "data": {"responses": [response.json()], "errors": []},
+                "data": {"responses": [response_json], "errors": []},
             },
         )
     except ValidationError as e:
@@ -558,7 +561,6 @@ async def submit_jobs(request: Request):
         full_content = json.loads(
             model.model_dump_json(warnings=False, exclude_none=True)
         )
-        # TODO: Replace with httpx async client
         logger.info(
             f"Valid request detected. Sending list of jobs. "
             f"Job Type: {model.job_type}"
@@ -570,19 +572,23 @@ async def submit_jobs(request: Request):
                 f"{job_index} of {total_jobs}."
             )
 
-        response = requests.post(
-            url=os.getenv("AIND_AIRFLOW_SERVICE_URL"),
+        async with AsyncClient(
             auth=(
                 os.getenv("AIND_AIRFLOW_SERVICE_USER"),
                 os.getenv("AIND_AIRFLOW_SERVICE_PASSWORD"),
-            ),
-            json={"conf": full_content},
-        )
+            )
+        ) as async_client:
+            response = await async_client.post(
+                url=os.getenv("AIND_AIRFLOW_SERVICE_URL"),
+                json={"conf": full_content},
+            )
+            status_code = response.status_code
+            response_json = response.json()
         return JSONResponse(
-            status_code=response.status_code,
+            status_code=status_code,
             content={
                 "message": "Submitted request to airflow",
-                "data": {"responses": [response.json()], "errors": []},
+                "data": {"responses": [response_json], "errors": []},
             },
         )
 

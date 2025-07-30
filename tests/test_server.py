@@ -1964,7 +1964,7 @@ class TestServer(unittest.TestCase):
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch("logging.Logger.warning")
-    @patch("requests.post")
+    @patch("httpx.AsyncClient.post")
     @patch("aind_data_transfer_service.server.get_airflow_jobs")
     @patch("aind_data_transfer_service.server.get_project_names")
     @patch("aind_data_transfer_service.server.get_job_types")
@@ -1995,7 +1995,7 @@ class TestServer(unittest.TestCase):
         self.assertEqual(2, mock_get_project_names.call_count)
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
-    @patch("requests.post")
+    @patch("httpx.AsyncClient.post")
     @patch("aind_data_transfer_service.server.get_airflow_jobs")
     @patch("aind_data_transfer_service.server.get_project_names")
     @patch("aind_data_transfer_service.server.get_job_types")
@@ -2073,7 +2073,7 @@ class TestServer(unittest.TestCase):
         self.assertEqual(2, mock_get_project_names.call_count)
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
-    @patch("requests.post")
+    @patch("httpx.AsyncClient.post")
     @patch("logging.Logger.exception")
     @patch("aind_data_transfer_service.server.get_airflow_jobs")
     @patch("aind_data_transfer_service.server.get_project_names")
@@ -2169,7 +2169,7 @@ class TestServer(unittest.TestCase):
         self.assertEqual(2, mock_get_project_names.call_count)
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
-    @patch("requests.post")
+    @patch("httpx.AsyncClient.post")
     @patch("aind_data_transfer_service.server.get_project_names")
     def test_submit_v1_jobs_200_slurm_settings(
         self,
@@ -2227,7 +2227,7 @@ class TestServer(unittest.TestCase):
         self.assertEqual(200, submit_job_response.status_code)
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
-    @patch("requests.post")
+    @patch("httpx.AsyncClient.post")
     @patch("aind_data_transfer_service.server.get_project_names")
     def test_submit_v1_jobs_200_session_settings_config_file(
         self,
@@ -2295,7 +2295,7 @@ class TestServer(unittest.TestCase):
             self.assertEqual(200, submit_job_response.status_code)
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
-    @patch("requests.post")
+    @patch("httpx.AsyncClient.post")
     @patch("aind_data_transfer_service.server.get_project_names")
     def test_submit_v1_jobs_200_trigger_capsule_configs(
         self,
@@ -2352,7 +2352,7 @@ class TestServer(unittest.TestCase):
         self.assertEqual(200, submit_job_response.status_code)
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
-    @patch("requests.post")
+    @patch("httpx.AsyncClient.post")
     @patch("aind_data_transfer_service.server.get_airflow_jobs")
     @patch("aind_data_transfer_service.server.get_project_names")
     @patch("aind_data_transfer_service.server.get_job_types")
