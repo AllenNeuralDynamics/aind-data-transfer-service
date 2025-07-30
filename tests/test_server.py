@@ -891,7 +891,7 @@ class TestServer(unittest.TestCase):
         )
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
-    @patch("requests.get")
+    @patch("httpx.AsyncClient.get")
     def test_get_tasks_list_query_params(
         self,
         mock_get,
@@ -1131,7 +1131,7 @@ class TestServer(unittest.TestCase):
         )
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
-    @patch("requests.get")
+    @patch("httpx.AsyncClient.get")
     @patch("logging.Logger.warning")
     def test_get_tasks_list_validation_error(
         self,
@@ -1157,7 +1157,7 @@ class TestServer(unittest.TestCase):
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch("logging.Logger.exception")
-    @patch("requests.get")
+    @patch("httpx.AsyncClient.get")
     def test_get_tasks_list_error(
         self,
         mock_get: MagicMock,
@@ -1641,7 +1641,8 @@ class TestServer(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn("Jobs Submitted:", response.text)
 
-    @patch("requests.get")
+    @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
+    @patch("httpx.AsyncClient.get")
     def test_tasks_table_success(self, mock_get: MagicMock):
         """Tests that job tasks table renders as expected."""
         mock_response = Response()
@@ -1660,7 +1661,7 @@ class TestServer(unittest.TestCase):
         self.assertIn("Try Number", response.text)
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
-    @patch("requests.get")
+    @patch("httpx.AsyncClient.get")
     def test_tasks_table_failure(self, mock_get: MagicMock):
         """Tests that job status table renders error message from airflow."""
         mock_response = Response()

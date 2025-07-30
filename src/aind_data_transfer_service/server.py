@@ -842,16 +842,18 @@ async def get_tasks_list(request: Request):
             request.query_params
         )
         params_dict = json.loads(params.model_dump_json())
-        response_tasks = requests.get(
-            url=(
-                f"{url}/{params.dag_id}/dagRuns/{params.dag_run_id}/"
-                "taskInstances"
-            ),
+        async with AsyncClient(
             auth=(
                 os.getenv("AIND_AIRFLOW_SERVICE_USER"),
                 os.getenv("AIND_AIRFLOW_SERVICE_PASSWORD"),
-            ),
-        )
+            )
+        ) as async_client:
+            response_tasks = await async_client.get(
+                url=(
+                    f"{url}/{params.dag_id}/dagRuns/{params.dag_run_id}/"
+                    "taskInstances"
+                ),
+            )
         status_code = response_tasks.status_code
         if response_tasks.status_code == 200:
             task_instances = AirflowTaskInstancesResponse.model_validate_json(
