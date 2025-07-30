@@ -96,12 +96,13 @@ logger = get_logger(log_configs=LoggingConfigs())
 project_names_url = os.getenv("AIND_METADATA_SERVICE_PROJECT_NAMES_URL")
 
 
-def get_project_names() -> List[str]:
+async def get_project_names() -> List[str]:
     """Get a list of project_names"""
     # TODO: Cache response for 5 minutes
-    response = requests.get(project_names_url)
-    response.raise_for_status()
-    project_names = response.json()["data"]
+    async with AsyncClient() as async_client:
+        response = await async_client.get(project_names_url)
+        response.raise_for_status()
+        project_names = response.json()["data"]
     return project_names
 
 
@@ -281,7 +282,7 @@ async def validate_csv(request: Request):
             )
             context = {
                 "job_types": get_job_types("v2"),
-                "project_names": get_project_names(),
+                "project_names": await get_project_names(),
                 "current_jobs": current_jobs,
             }
             for row in csv_reader:
@@ -375,7 +376,7 @@ async def validate_json_v2(request: Request):
         _, current_jobs = await get_airflow_jobs(params=params, get_confs=True)
         context = {
             "job_types": get_job_types("v2"),
-            "project_names": get_project_names(),
+            "project_names": await get_project_names(),
             "current_jobs": current_jobs,
         }
         with validation_context_v2(context):
@@ -431,7 +432,7 @@ async def validate_json(request: Request):
     logger.info("Received request to validate json")
     content = await request.json()
     try:
-        project_names = get_project_names()
+        project_names = await get_project_names()
         with validation_context({"project_names": project_names}):
             validated_model = SubmitJobRequest.model_validate_json(
                 json.dumps(content)
@@ -491,7 +492,7 @@ async def submit_jobs_v2(request: Request):
         _, current_jobs = await get_airflow_jobs(params=params, get_confs=True)
         context = {
             "job_types": get_job_types("v2"),
-            "project_names": get_project_names(),
+            "project_names": await get_project_names(),
             "current_jobs": current_jobs,
         }
         with validation_context_v2(context):
@@ -551,7 +552,7 @@ async def submit_jobs(request: Request):
     logger.info("Received request to submit jobs")
     content = await request.json()
     try:
-        project_names = get_project_names()
+        project_names = await get_project_names()
         with validation_context({"project_names": project_names}):
             model = SubmitJobRequest.model_validate_json(json.dumps(content))
         full_content = json.loads(

@@ -1,5 +1,6 @@
 """Tests server module."""
 
+import asyncio
 import json
 import os
 import unittest
@@ -619,7 +620,7 @@ class TestServer(unittest.TestCase):
         self.assertEqual(0, mock_sleep.call_count)
         self.assertEqual(2, mock_log_error.call_count)
 
-    @patch("requests.get")
+    @patch("httpx.AsyncClient.get")
     def test_get_project_names(self, mock_get: MagicMock):
         """Tests get_project_names method"""
         mock_response = Response()
@@ -628,7 +629,7 @@ class TestServer(unittest.TestCase):
             {"data": ["project_name_0", "project_name_1"]}
         ).encode("utf-8")
         mock_get.return_value = mock_response
-        project_names = get_project_names()
+        project_names = asyncio.run(get_project_names())
         self.assertEqual(["project_name_0", "project_name_1"], project_names)
 
     @patch("aind_data_transfer_service.server.get_parameter_infos")
