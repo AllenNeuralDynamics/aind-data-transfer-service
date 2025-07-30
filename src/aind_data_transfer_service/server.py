@@ -854,10 +854,11 @@ async def get_tasks_list(request: Request):
                     "taskInstances"
                 ),
             )
-        status_code = response_tasks.status_code
-        if response_tasks.status_code == 200:
+            status_code = response_tasks.status_code
+            response_json = response_tasks.json()
+        if status_code == 200:
             task_instances = AirflowTaskInstancesResponse.model_validate_json(
-                json.dumps(response_tasks.json())
+                json.dumps(response_json)
             )
             job_tasks_list = sorted(
                 [
@@ -878,7 +879,7 @@ async def get_tasks_list(request: Request):
             message = "Error retrieving job tasks list from airflow"
             data = {
                 "params": params_dict,
-                "errors": [response_tasks.json()],
+                "errors": [response_json],
             }
     except ValidationError as e:
         logger.warning(f"There was a validation error process task_list: {e}")
@@ -908,27 +909,29 @@ async def get_task_logs(request: Request):
         )
         params_dict = json.loads(params.model_dump_json())
         params_full = dict(params)
-        response_logs = requests.get(
-            url=(
-                f"{url}/{params.dag_id}/dagRuns/{params.dag_run_id}"
-                f"/taskInstances/{params.task_id}/logs/{params.try_number}"
-            ),
+        async with AsyncClient(
             auth=(
                 os.getenv("AIND_AIRFLOW_SERVICE_USER"),
                 os.getenv("AIND_AIRFLOW_SERVICE_PASSWORD"),
-            ),
-            params=params_dict,
-        )
-        status_code = response_logs.status_code
-        if response_logs.status_code == 200:
-            message = "Retrieved task logs from airflow"
-            data = {"params": params_full, "logs": response_logs.text}
-        else:
-            message = "Error retrieving task logs from airflow"
-            data = {
-                "params": params_full,
-                "errors": [response_logs.json()],
-            }
+            )
+        ) as async_client:
+            response_logs = await async_client.get(
+                url=(
+                    f"{url}/{params.dag_id}/dagRuns/{params.dag_run_id}"
+                    f"/taskInstances/{params.task_id}/logs/{params.try_number}"
+                ),
+                params=params_dict,
+            )
+            status_code = response_logs.status_code
+            if status_code == 200:
+                message = "Retrieved task logs from airflow"
+                data = {"params": params_full, "logs": response_logs.text}
+            else:
+                message = "Error retrieving task logs from airflow"
+                data = {
+                    "params": params_full,
+                    "errors": [response_logs.json()],
+                }
     except ValidationError as e:
         logger.warning(f"Error validating request parameters: {e}")
         status_code = 406

@@ -1182,7 +1182,7 @@ class TestServer(unittest.TestCase):
         mock_log_error.assert_called_once()
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
-    @patch("requests.get")
+    @patch("httpx.AsyncClient.get")
     def test_get_task_logs_query_params(
         self,
         mock_get,
@@ -1226,7 +1226,7 @@ class TestServer(unittest.TestCase):
         )
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
-    @patch("requests.get")
+    @patch("httpx.AsyncClient.get")
     @patch("logging.Logger.warning")
     def test_get_task_logs_validation_error(
         self,
@@ -1255,7 +1255,7 @@ class TestServer(unittest.TestCase):
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch("logging.Logger.exception")
-    @patch("requests.get")
+    @patch("httpx.AsyncClient.get")
     def test_get_task_logs_error(
         self,
         mock_get: MagicMock,
@@ -1686,7 +1686,8 @@ class TestServer(unittest.TestCase):
         )
         self.assertIn("test airflow error", response.text)
 
-    @patch("requests.get")
+    @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
+    @patch("httpx.AsyncClient.get")
     def test_logs_success(self, mock_get: MagicMock):
         """Tests that task logs page renders as expected."""
         mock_response = Response()
@@ -1708,7 +1709,7 @@ class TestServer(unittest.TestCase):
         self.assertIn("mock log content", response.text)
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
-    @patch("requests.get")
+    @patch("httpx.AsyncClient.get")
     def test_logs_failure(self, mock_get: MagicMock):
         """Tests that task logs page renders error message from airflow."""
         mock_response = Response()
