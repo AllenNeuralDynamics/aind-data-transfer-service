@@ -10,7 +10,6 @@ from pathlib import PurePosixPath
 from typing import Any, List, Optional, Union
 
 import boto3
-import requests
 from aind_data_transfer_models import (
     __version__ as aind_data_transfer_models_version,
 )
@@ -652,7 +651,7 @@ async def submit_basic_jobs(request: Request):
         for hpc_job in hpc_jobs:
             try:
                 job_def = hpc_job.job_definition
-                response = hpc_client.submit_job(job_def)
+                response = await hpc_client.submit_job(job_def)
                 response_json = response.json()
                 responses.append(response_json)
                 # Add pause to stagger job requests to the hpc
@@ -776,7 +775,7 @@ async def submit_hpc_jobs(request: Request):  # noqa: C901
             hpc_job_def = hpc_job[0]
             try:
                 script = hpc_job[1]
-                response = hpc_client.submit_hpc_job(
+                response = await hpc_client.submit_hpc_job(
                     job=hpc_job_def, script=script
                 )
                 response_json = response.json()

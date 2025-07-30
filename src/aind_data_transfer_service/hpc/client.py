@@ -3,10 +3,9 @@
 import json
 from typing import List, Optional, Union
 
-import requests
+from httpx import AsyncClient, Response
 from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings
-from requests.models import Response
 
 from aind_data_transfer_service.hpc.models import HpcJobSubmitSettings
 
@@ -75,37 +74,41 @@ class HpcClient:
             "X-SLURM-USER-TOKEN": self.configs.hpc_token.get_secret_value(),
         }
 
-    def get_node_status(self) -> Response:
+    async def get_node_status(self) -> Response:
         """Get status of nodes"""
-        response = requests.get(
-            url=self._node_status_url, headers=self.__headers
-        )
+        async with AsyncClient() as async_client:
+            response = await async_client.get(
+                url=self._node_status_url, headers=self.__headers
+            )
         return response
 
-    def get_job_status(self, job_id: Union[str, int]) -> Response:
+    async def get_job_status(self, job_id: Union[str, int]) -> Response:
         """Get status of job"""
-        response = requests.get(
-            url=self._job_status_url + "/" + str(job_id),
-            headers=self.__headers,
-        )
+        async with AsyncClient() as async_client:
+            response = await async_client.get(
+                url=self._job_status_url + "/" + str(job_id),
+                headers=self.__headers,
+            )
         return response
 
-    def get_jobs(self) -> Response:
+    async def get_jobs(self) -> Response:
         """Get status of job"""
-        response = requests.get(
-            url=self._jobs_url,
-            headers=self.__headers,
-        )
+        async with AsyncClient() as async_client:
+            response = await async_client.get(
+                url=self._jobs_url,
+                headers=self.__headers,
+            )
         return response
 
-    def submit_job(self, job_def: dict) -> Response:
+    async def submit_job(self, job_def: dict) -> Response:
         """Submit a job defined by job def"""
-        response = requests.post(
-            url=self._job_submit_url, json=job_def, headers=self.__headers
-        )
+        async with AsyncClient() as async_client:
+            response = await async_client.post(
+                url=self._job_submit_url, json=job_def, headers=self.__headers
+            )
         return response
 
-    def submit_hpc_job(
+    async def submit_hpc_job(
         self,
         script: str,
         job: Optional[HpcJobSubmitSettings] = None,
@@ -144,8 +147,8 @@ class HpcClient:
                 ],
                 "script": script,
             }
-
-        response = requests.post(
-            url=self._job_submit_url, json=job_def, headers=self.__headers
-        )
+        async with AsyncClient() as async_client:
+            response = await async_client.post(
+                url=self._job_submit_url, json=job_def, headers=self.__headers
+            )
         return response
