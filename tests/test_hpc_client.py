@@ -1,5 +1,6 @@
 """Module to test hpc client classes"""
 
+import asyncio
 import unittest
 from unittest.mock import MagicMock, patch
 
@@ -53,12 +54,12 @@ class TestHpcClient(unittest.TestCase):
             "http://hpc_host/job/submit", hpc_client._job_submit_url
         )
 
-    @patch("requests.get")
+    @patch("httpx.AsyncClient.get")
     def test_node_status_response(self, mock_get: MagicMock):
         """Tests that the node status request is sent correctly."""
         mock_get.return_value = {"message": "A mocked message"}
         hpc_client = HpcClient(configs=self.hpc_client_configs)
-        response = hpc_client.get_node_status()
+        response = asyncio.run(hpc_client.get_node_status())
         self.assertEqual({"message": "A mocked message"}, response)
         mock_get.assert_called_once_with(
             url="http://hpc_host/nodes",
@@ -69,12 +70,12 @@ class TestHpcClient(unittest.TestCase):
             },
         )
 
-    @patch("requests.get")
+    @patch("httpx.AsyncClient.get")
     def test_job_status_response(self, mock_get: MagicMock):
         """Tests that the job status request is sent correctly"""
         mock_get.return_value = {"message": "A mocked message"}
         hpc_client = HpcClient(configs=self.hpc_client_configs)
-        response = hpc_client.get_job_status(job_id="12345")
+        response = asyncio.run(hpc_client.get_job_status(job_id="12345"))
         self.assertEqual({"message": "A mocked message"}, response)
         mock_get.assert_called_once_with(
             url="http://hpc_host/job/12345",
@@ -85,12 +86,12 @@ class TestHpcClient(unittest.TestCase):
             },
         )
 
-    @patch("requests.get")
+    @patch("httpx.AsyncClient.get")
     def test_get_jobs_response(self, mock_get: MagicMock):
         """Tests that the job status request is sent correctly"""
         mock_get.return_value = {"message": "A mocked message"}
         hpc_client = HpcClient(configs=self.hpc_client_configs)
-        response = hpc_client.get_jobs()
+        response = asyncio.run(hpc_client.get_jobs())
         self.assertEqual({"message": "A mocked message"}, response)
         mock_get.assert_called_once_with(
             url="http://hpc_host/jobs",
@@ -101,12 +102,14 @@ class TestHpcClient(unittest.TestCase):
             },
         )
 
-    @patch("requests.post")
+    @patch("httpx.AsyncClient.post")
     def test_submit_job_response(self, mock_post: MagicMock):
         """Tests that the job submission request is sent correctly"""
         mock_post.return_value = {"message": "A mocked message"}
         hpc_client = HpcClient(configs=self.hpc_client_configs)
-        response = hpc_client.submit_job(job_def={"job": {"some_job"}})
+        response = asyncio.run(
+            hpc_client.submit_job(job_def={"job": {"some_job"}})
+        )
         self.assertEqual({"message": "A mocked message"}, response)
         mock_post.assert_called_once_with(
             url="http://hpc_host/job/submit",
@@ -118,13 +121,16 @@ class TestHpcClient(unittest.TestCase):
             },
         )
 
-    @patch("requests.post")
+    @patch("httpx.AsyncClient.post")
     def test_submit_hpc_job_response(self, mock_post: MagicMock):
         """Tests that the job submission request is sent correctly"""
         mock_post.return_value = {"message": "A mocked message"}
         hpc_client = HpcClient(configs=self.hpc_client_configs)
-        response = hpc_client.submit_hpc_job(
-            script="Hello World!", job=HpcJobSubmitSettings(name="test_job")
+        response = asyncio.run(
+            hpc_client.submit_hpc_job(
+                script="Hello World!",
+                job=HpcJobSubmitSettings(name="test_job"),
+            )
         )
         self.assertEqual({"message": "A mocked message"}, response)
         mock_post.assert_called_once_with(
@@ -137,7 +143,7 @@ class TestHpcClient(unittest.TestCase):
             },
         )
 
-    @patch("requests.post")
+    @patch("httpx.AsyncClient.post")
     def test_submit_hpc_jobs_response(self, mock_post: MagicMock):
         """Tests that the jobs submission request is sent correctly"""
         mock_post.return_value = {"message": "A mocked message"}
@@ -146,7 +152,9 @@ class TestHpcClient(unittest.TestCase):
             HpcJobSubmitSettings(name="test_job1"),
             HpcJobSubmitSettings(name="test_job2"),
         ]
-        response = hpc_client.submit_hpc_job(script="Hello World!", jobs=jobs)
+        response = asyncio.run(
+            hpc_client.submit_hpc_job(script="Hello World!", jobs=jobs)
+        )
         self.assertEqual({"message": "A mocked message"}, response)
         mock_post.assert_called_once_with(
             url="http://hpc_host/job/submit",
