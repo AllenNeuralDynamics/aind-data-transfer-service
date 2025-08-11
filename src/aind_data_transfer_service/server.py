@@ -10,7 +10,6 @@ from pathlib import PurePosixPath
 from typing import Any, List, Optional, Union
 
 import boto3
-import requests
 from aind_data_transfer_models import (
     __version__ as aind_data_transfer_models_version,
 )
@@ -96,12 +95,13 @@ logger = get_logger(log_configs=LoggingConfigs())
 project_names_url = os.getenv("AIND_METADATA_SERVICE_PROJECT_NAMES_URL")
 
 
-def get_project_names() -> List[str]:
+async def get_project_names() -> List[str]:
     """Get a list of project_names"""
     # TODO: Cache response for 5 minutes
-    response = requests.get(project_names_url)
-    response.raise_for_status()
-    project_names = response.json()["data"]
+    async with AsyncClient() as async_client:
+        response = await async_client.get(project_names_url)
+        response.raise_for_status()
+        project_names = response.json()["data"]
     return project_names
 
 
@@ -281,7 +281,7 @@ async def validate_csv(request: Request):
             )
             context = {
                 "job_types": get_job_types("v2"),
-                "project_names": get_project_names(),
+                "project_names": await get_project_names(),
                 "current_jobs": current_jobs,
             }
             for row in csv_reader:
@@ -375,7 +375,7 @@ async def validate_json_v2(request: Request):
         _, current_jobs = await get_airflow_jobs(params=params, get_confs=True)
         context = {
             "job_types": get_job_types("v2"),
-            "project_names": get_project_names(),
+            "project_names": await get_project_names(),
             "current_jobs": current_jobs,
         }
         with validation_context_v2(context):
@@ -431,7 +431,7 @@ async def validate_json(request: Request):
     logger.info("Received request to validate json")
     content = await request.json()
     try:
-        project_names = get_project_names()
+        project_names = await get_project_names()
         with validation_context({"project_names": project_names}):
             validated_model = SubmitJobRequest.model_validate_json(
                 json.dumps(content)
@@ -491,7 +491,7 @@ async def submit_jobs_v2(request: Request):
         _, current_jobs = await get_airflow_jobs(params=params, get_confs=True)
         context = {
             "job_types": get_job_types("v2"),
-            "project_names": get_project_names(),
+            "project_names": await get_project_names(),
             "current_jobs": current_jobs,
         }
         with validation_context_v2(context):
@@ -499,7 +499,6 @@ async def submit_jobs_v2(request: Request):
         full_content = json.loads(
             model.model_dump_json(warnings=False, exclude_none=True)
         )
-        # TODO: Replace with httpx async client
         logger.info(
             f"Valid request detected. Sending list of jobs. "
             f"dag_id: {model.dag_id}"
@@ -511,19 +510,23 @@ async def submit_jobs_v2(request: Request):
                 f"{job_index} of {total_jobs}."
             )
 
-        response = requests.post(
-            url=os.getenv("AIND_AIRFLOW_SERVICE_URL"),
+        async with AsyncClient(
             auth=(
                 os.getenv("AIND_AIRFLOW_SERVICE_USER"),
                 os.getenv("AIND_AIRFLOW_SERVICE_PASSWORD"),
-            ),
-            json={"conf": full_content},
-        )
+            )
+        ) as async_client:
+            response = await async_client.post(
+                url=os.getenv("AIND_AIRFLOW_SERVICE_URL"),
+                json={"conf": full_content},
+            )
+            status_code = response.status_code
+            response_json = response.json()
         return JSONResponse(
-            status_code=response.status_code,
+            status_code=status_code,
             content={
                 "message": "Submitted request to airflow",
-                "data": {"responses": [response.json()], "errors": []},
+                "data": {"responses": [response_json], "errors": []},
             },
         )
     except ValidationError as e:
@@ -551,13 +554,12 @@ async def submit_jobs(request: Request):
     logger.info("Received request to submit jobs")
     content = await request.json()
     try:
-        project_names = get_project_names()
+        project_names = await get_project_names()
         with validation_context({"project_names": project_names}):
             model = SubmitJobRequest.model_validate_json(json.dumps(content))
         full_content = json.loads(
             model.model_dump_json(warnings=False, exclude_none=True)
         )
-        # TODO: Replace with httpx async client
         logger.info(
             f"Valid request detected. Sending list of jobs. "
             f"Job Type: {model.job_type}"
@@ -569,19 +571,23 @@ async def submit_jobs(request: Request):
                 f"{job_index} of {total_jobs}."
             )
 
-        response = requests.post(
-            url=os.getenv("AIND_AIRFLOW_SERVICE_URL"),
+        async with AsyncClient(
             auth=(
                 os.getenv("AIND_AIRFLOW_SERVICE_USER"),
                 os.getenv("AIND_AIRFLOW_SERVICE_PASSWORD"),
-            ),
-            json={"conf": full_content},
-        )
+            )
+        ) as async_client:
+            response = await async_client.post(
+                url=os.getenv("AIND_AIRFLOW_SERVICE_URL"),
+                json={"conf": full_content},
+            )
+            status_code = response.status_code
+            response_json = response.json()
         return JSONResponse(
-            status_code=response.status_code,
+            status_code=status_code,
             content={
                 "message": "Submitted request to airflow",
-                "data": {"responses": [response.json()], "errors": []},
+                "data": {"responses": [response_json], "errors": []},
             },
         )
 
@@ -645,7 +651,7 @@ async def submit_basic_jobs(request: Request):
         for hpc_job in hpc_jobs:
             try:
                 job_def = hpc_job.job_definition
-                response = hpc_client.submit_job(job_def)
+                response = await hpc_client.submit_job(job_def)
                 response_json = response.json()
                 responses.append(response_json)
                 # Add pause to stagger job requests to the hpc
@@ -769,7 +775,7 @@ async def submit_hpc_jobs(request: Request):  # noqa: C901
             hpc_job_def = hpc_job[0]
             try:
                 script = hpc_job[1]
-                response = hpc_client.submit_hpc_job(
+                response = await hpc_client.submit_hpc_job(
                     job=hpc_job_def, script=script
                 )
                 response_json = response.json()
@@ -842,20 +848,23 @@ async def get_tasks_list(request: Request):
             request.query_params
         )
         params_dict = json.loads(params.model_dump_json())
-        response_tasks = requests.get(
-            url=(
-                f"{url}/{params.dag_id}/dagRuns/{params.dag_run_id}/"
-                "taskInstances"
-            ),
+        async with AsyncClient(
             auth=(
                 os.getenv("AIND_AIRFLOW_SERVICE_USER"),
                 os.getenv("AIND_AIRFLOW_SERVICE_PASSWORD"),
-            ),
-        )
-        status_code = response_tasks.status_code
-        if response_tasks.status_code == 200:
+            )
+        ) as async_client:
+            response_tasks = await async_client.get(
+                url=(
+                    f"{url}/{params.dag_id}/dagRuns/{params.dag_run_id}/"
+                    "taskInstances"
+                ),
+            )
+            status_code = response_tasks.status_code
+            response_json = response_tasks.json()
+        if status_code == 200:
             task_instances = AirflowTaskInstancesResponse.model_validate_json(
-                json.dumps(response_tasks.json())
+                json.dumps(response_json)
             )
             job_tasks_list = sorted(
                 [
@@ -876,7 +885,7 @@ async def get_tasks_list(request: Request):
             message = "Error retrieving job tasks list from airflow"
             data = {
                 "params": params_dict,
-                "errors": [response_tasks.json()],
+                "errors": [response_json],
             }
     except ValidationError as e:
         logger.warning(f"There was a validation error process task_list: {e}")
@@ -906,27 +915,29 @@ async def get_task_logs(request: Request):
         )
         params_dict = json.loads(params.model_dump_json())
         params_full = dict(params)
-        response_logs = requests.get(
-            url=(
-                f"{url}/{params.dag_id}/dagRuns/{params.dag_run_id}"
-                f"/taskInstances/{params.task_id}/logs/{params.try_number}"
-            ),
+        async with AsyncClient(
             auth=(
                 os.getenv("AIND_AIRFLOW_SERVICE_USER"),
                 os.getenv("AIND_AIRFLOW_SERVICE_PASSWORD"),
-            ),
-            params=params_dict,
-        )
-        status_code = response_logs.status_code
-        if response_logs.status_code == 200:
-            message = "Retrieved task logs from airflow"
-            data = {"params": params_full, "logs": response_logs.text}
-        else:
-            message = "Error retrieving task logs from airflow"
-            data = {
-                "params": params_full,
-                "errors": [response_logs.json()],
-            }
+            )
+        ) as async_client:
+            response_logs = await async_client.get(
+                url=(
+                    f"{url}/{params.dag_id}/dagRuns/{params.dag_run_id}"
+                    f"/taskInstances/{params.task_id}/logs/{params.try_number}"
+                ),
+                params=params_dict,
+            )
+            status_code = response_logs.status_code
+            if status_code == 200:
+                message = "Retrieved task logs from airflow"
+                data = {"params": params_full, "logs": response_logs.text}
+            else:
+                message = "Error retrieving task logs from airflow"
+                data = {
+                    "params": params_full,
+                    "errors": [response_logs.json()],
+                }
     except ValidationError as e:
         logger.warning(f"Error validating request parameters: {e}")
         status_code = 406

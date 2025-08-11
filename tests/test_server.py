@@ -1,5 +1,6 @@
 """Tests server module."""
 
+import asyncio
 import json
 import os
 import unittest
@@ -619,7 +620,7 @@ class TestServer(unittest.TestCase):
         self.assertEqual(0, mock_sleep.call_count)
         self.assertEqual(2, mock_log_error.call_count)
 
-    @patch("requests.get")
+    @patch("httpx.AsyncClient.get")
     def test_get_project_names(self, mock_get: MagicMock):
         """Tests get_project_names method"""
         mock_response = Response()
@@ -628,7 +629,7 @@ class TestServer(unittest.TestCase):
             {"data": ["project_name_0", "project_name_1"]}
         ).encode("utf-8")
         mock_get.return_value = mock_response
-        project_names = get_project_names()
+        project_names = asyncio.run(get_project_names())
         self.assertEqual(["project_name_0", "project_name_1"], project_names)
 
     @patch("aind_data_transfer_service.server.get_parameter_infos")
@@ -891,7 +892,7 @@ class TestServer(unittest.TestCase):
         )
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
-    @patch("requests.get")
+    @patch("httpx.AsyncClient.get")
     def test_get_tasks_list_query_params(
         self,
         mock_get,
@@ -1131,7 +1132,7 @@ class TestServer(unittest.TestCase):
         )
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
-    @patch("requests.get")
+    @patch("httpx.AsyncClient.get")
     @patch("logging.Logger.warning")
     def test_get_tasks_list_validation_error(
         self,
@@ -1157,7 +1158,7 @@ class TestServer(unittest.TestCase):
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch("logging.Logger.exception")
-    @patch("requests.get")
+    @patch("httpx.AsyncClient.get")
     def test_get_tasks_list_error(
         self,
         mock_get: MagicMock,
@@ -1182,7 +1183,7 @@ class TestServer(unittest.TestCase):
         mock_log_error.assert_called_once()
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
-    @patch("requests.get")
+    @patch("httpx.AsyncClient.get")
     def test_get_task_logs_query_params(
         self,
         mock_get,
@@ -1226,7 +1227,7 @@ class TestServer(unittest.TestCase):
         )
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
-    @patch("requests.get")
+    @patch("httpx.AsyncClient.get")
     @patch("logging.Logger.warning")
     def test_get_task_logs_validation_error(
         self,
@@ -1255,7 +1256,7 @@ class TestServer(unittest.TestCase):
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch("logging.Logger.exception")
-    @patch("requests.get")
+    @patch("httpx.AsyncClient.get")
     def test_get_task_logs_error(
         self,
         mock_get: MagicMock,
@@ -1641,7 +1642,8 @@ class TestServer(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn("Jobs Submitted:", response.text)
 
-    @patch("requests.get")
+    @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
+    @patch("httpx.AsyncClient.get")
     def test_tasks_table_success(self, mock_get: MagicMock):
         """Tests that job tasks table renders as expected."""
         mock_response = Response()
@@ -1660,7 +1662,7 @@ class TestServer(unittest.TestCase):
         self.assertIn("Try Number", response.text)
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
-    @patch("requests.get")
+    @patch("httpx.AsyncClient.get")
     def test_tasks_table_failure(self, mock_get: MagicMock):
         """Tests that job status table renders error message from airflow."""
         mock_response = Response()
@@ -1685,7 +1687,8 @@ class TestServer(unittest.TestCase):
         )
         self.assertIn("test airflow error", response.text)
 
-    @patch("requests.get")
+    @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
+    @patch("httpx.AsyncClient.get")
     def test_logs_success(self, mock_get: MagicMock):
         """Tests that task logs page renders as expected."""
         mock_response = Response()
@@ -1707,7 +1710,7 @@ class TestServer(unittest.TestCase):
         self.assertIn("mock log content", response.text)
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
-    @patch("requests.get")
+    @patch("httpx.AsyncClient.get")
     def test_logs_failure(self, mock_get: MagicMock):
         """Tests that task logs page renders error message from airflow."""
         mock_response = Response()
@@ -1961,7 +1964,7 @@ class TestServer(unittest.TestCase):
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch("logging.Logger.warning")
-    @patch("requests.post")
+    @patch("httpx.AsyncClient.post")
     @patch("aind_data_transfer_service.server.get_airflow_jobs")
     @patch("aind_data_transfer_service.server.get_project_names")
     @patch("aind_data_transfer_service.server.get_job_types")
@@ -1992,7 +1995,7 @@ class TestServer(unittest.TestCase):
         self.assertEqual(2, mock_get_project_names.call_count)
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
-    @patch("requests.post")
+    @patch("httpx.AsyncClient.post")
     @patch("aind_data_transfer_service.server.get_airflow_jobs")
     @patch("aind_data_transfer_service.server.get_project_names")
     @patch("aind_data_transfer_service.server.get_job_types")
@@ -2070,7 +2073,7 @@ class TestServer(unittest.TestCase):
         self.assertEqual(2, mock_get_project_names.call_count)
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
-    @patch("requests.post")
+    @patch("httpx.AsyncClient.post")
     @patch("logging.Logger.exception")
     @patch("aind_data_transfer_service.server.get_airflow_jobs")
     @patch("aind_data_transfer_service.server.get_project_names")
@@ -2166,7 +2169,7 @@ class TestServer(unittest.TestCase):
         self.assertEqual(2, mock_get_project_names.call_count)
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
-    @patch("requests.post")
+    @patch("httpx.AsyncClient.post")
     @patch("aind_data_transfer_service.server.get_project_names")
     def test_submit_v1_jobs_200_slurm_settings(
         self,
@@ -2224,7 +2227,7 @@ class TestServer(unittest.TestCase):
         self.assertEqual(200, submit_job_response.status_code)
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
-    @patch("requests.post")
+    @patch("httpx.AsyncClient.post")
     @patch("aind_data_transfer_service.server.get_project_names")
     def test_submit_v1_jobs_200_session_settings_config_file(
         self,
@@ -2292,7 +2295,7 @@ class TestServer(unittest.TestCase):
             self.assertEqual(200, submit_job_response.status_code)
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
-    @patch("requests.post")
+    @patch("httpx.AsyncClient.post")
     @patch("aind_data_transfer_service.server.get_project_names")
     def test_submit_v1_jobs_200_trigger_capsule_configs(
         self,
@@ -2349,7 +2352,7 @@ class TestServer(unittest.TestCase):
         self.assertEqual(200, submit_job_response.status_code)
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
-    @patch("requests.post")
+    @patch("httpx.AsyncClient.post")
     @patch("aind_data_transfer_service.server.get_airflow_jobs")
     @patch("aind_data_transfer_service.server.get_project_names")
     @patch("aind_data_transfer_service.server.get_job_types")
