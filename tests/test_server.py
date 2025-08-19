@@ -4,38 +4,25 @@ import asyncio
 import json
 import os
 import unittest
-import warnings
-from copy import deepcopy
 from datetime import datetime, timedelta, timezone
 from io import BytesIO
 from pathlib import Path, PurePosixPath
 from unittest.mock import AsyncMock, MagicMock, call, patch
 
 from aind_data_schema_models.modalities import Modality
-from aind_data_schema_models.platforms import Platform
-from aind_data_transfer_models import (
-    __version__ as aind_data_transfer_models_version,
-)
-from aind_data_transfer_models.core import (
-    BasicUploadJobConfigs,
-    ModalityConfigs,
-    SubmitJobRequest,
-    V0036JobProperties,
-)
-from aind_data_transfer_models.trigger import TriggerConfigModel, ValidJobType
 from authlib.integrations.starlette_client import OAuthError
 from botocore.exceptions import ClientError
 from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.testclient import TestClient
-from pydantic import SecretStr
 from requests import Response
 
 from aind_data_transfer_service import (
     __version__ as aind_data_transfer_service_version,
 )
-from aind_data_transfer_service.legacy_configs.job_upload_template import (
+from aind_data_transfer_service.configs.job_upload_template import (
     JobUploadTemplate,
 )
+from aind_data_transfer_service.configs.platforms_v1 import Platform
 from aind_data_transfer_service.models.core import (
     SubmitJobRequestV2,
     Task,
@@ -50,7 +37,6 @@ from aind_data_transfer_service.server import (
     get_job_types,
     get_project_names,
 )
-from tests.test_configs import TestJobConfigs
 
 TEST_DIRECTORY = Path(os.path.dirname(os.path.realpath(__file__)))
 SAMPLE_INVALID_EXT = TEST_DIRECTORY / "resources" / "sample_invalid_ext.txt"
@@ -150,10 +136,6 @@ class TestServer(unittest.TestCase):
     with open(GET_SECRETS_RESPONSE) as f:
         get_secrets_response = json.load(f)
 
-    expected_job_configs = deepcopy(TestJobConfigs.expected_job_configs)
-    for config in expected_job_configs:
-        config.aws_param_store_name = None
-
     @classmethod
     def setUpClass(cls) -> None:
         """Set up test class"""
@@ -180,445 +162,6 @@ class TestServer(unittest.TestCase):
             tasks={"make_modality_list": ephys_config},
         )
         cls.example_configs_v2 = example_configs_v2
-
-    @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
-    def test_validate_csv(self):
-        """Tests that valid csv file is returned."""
-        with TestClient(app) as client:
-            with open(SAMPLE_CSV, "rb") as f:
-                files = {
-                    "file": f,
-                }
-                response = client.post(url="/api/validate_csv", files=files)
-        expected_jobs = [
-            j.model_dump_json() for j in self.expected_job_configs
-        ]
-        expected_response = {
-            "message": "Valid Data",
-            "data": {"jobs": expected_jobs, "errors": []},
-        }
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(expected_response, response.json())
-
-    @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
-    def test_validate_csv_xlsx(self):
-        """Tests that valid xlsx file is returned."""
-        with TestClient(app) as client:
-            with open(SAMPLE_XLSX, "rb") as f:
-                files = {
-                    "file": f,
-                }
-                response = client.post(url="/api/validate_csv", files=files)
-        expected_jobs = [
-            j.model_dump_json() for j in self.expected_job_configs
-        ]
-        expected_response = {
-            "message": "Valid Data",
-            "data": {"jobs": expected_jobs, "errors": []},
-        }
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(expected_response, response.json())
-
-    @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
-    def test_validate_csv_xlsx_empty_rows(self):
-        """Tests that empty rows are ignored from valid csv and xlsx files."""
-        for file_path in [SAMPLE_CSV_EMPTY_ROWS, SAMPLE_XLSX_EMPTY_ROWS]:
-            with TestClient(app) as client:
-                with open(file_path, "rb") as f:
-                    files = {
-                        "file": f,
-                    }
-                    response = client.post(
-                        url="/api/validate_csv", files=files
-                    )
-            expected_jobs = [
-                j.model_dump_json() for j in self.expected_job_configs
-            ]
-            expected_response = {
-                "message": "Valid Data",
-                "data": {"jobs": expected_jobs, "errors": []},
-            }
-            self.assertEqual(response.status_code, 200)
-            self.assertEqual(expected_response, response.json())
-
-    @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
-    @patch("aind_data_transfer_service.server.sleep", return_value=None)
-    @patch("aind_data_transfer_service.hpc.client.HpcClient.submit_job")
-    def test_submit_jobs(
-        self, mock_submit_job: MagicMock, mock_sleep: MagicMock
-    ):
-        """Tests submit jobs success."""
-        mock_response = Response()
-        mock_response.status_code = 200
-        mock_response._content = b'{"message": "success"}'
-        mock_submit_job.return_value = mock_response
-        with TestClient(app) as client:
-            with open(SAMPLE_CSV, "rb") as f:
-                files = {
-                    "file": f,
-                }
-                response = client.post(url="/api/validate_csv", files=files)
-                basic_jobs = response.json()["data"]
-                submit_job_response = client.post(
-                    url="/api/submit_basic_jobs", json=basic_jobs
-                )
-        expected_response = {
-            "message": "Submitted Jobs.",
-            "data": {
-                "responses": [
-                    {"message": "success"},
-                    {"message": "success"},
-                    {"message": "success"},
-                ],
-                "errors": [],
-            },
-        }
-        self.assertEqual(expected_response, submit_job_response.json())
-        self.assertEqual(200, submit_job_response.status_code)
-        self.assertEqual(3, mock_sleep.call_count)
-
-    @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
-    @patch("aind_data_transfer_service.server.sleep", return_value=None)
-    @patch("aind_data_transfer_service.hpc.client.HpcClient.submit_job")
-    @patch("logging.Logger.error")
-    def test_submit_jobs_server_error(
-        self,
-        mock_log_error: MagicMock,
-        mock_submit_job: MagicMock,
-        mock_sleep: MagicMock,
-    ):
-        """Tests that submit jobs returns error if there's an issue with hpc"""
-        mock_response = Response()
-        mock_response.status_code = 500
-        mock_submit_job.return_value = mock_response
-        with TestClient(app) as client:
-            with open(SAMPLE_CSV, "rb") as f:
-                files = {
-                    "file": f,
-                }
-                response = client.post(url="/api/validate_csv", files=files)
-                basic_jobs = response.json()["data"]
-                submit_job_response = client.post(
-                    url="/api/submit_basic_jobs", json=basic_jobs
-                )
-        expected_response = {
-            "message": "There were errors submitting jobs to the hpc.",
-            "data": {
-                "responses": [],
-                "errors": [
-                    "Error processing ecephys_123454_2020-10-10_14-10-10",
-                    "Error processing behavior_123456_2020-10-13_13-10-10",
-                    "Error processing behavior_123456_2020-10-13_13-10-10",
-                ],
-            },
-        }
-        self.assertEqual(expected_response, submit_job_response.json())
-        self.assertEqual(500, submit_job_response.status_code)
-        self.assertEqual(0, mock_sleep.call_count)
-        self.assertEqual(3, mock_log_error.call_count)
-
-    @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
-    @patch("aind_data_transfer_service.server.sleep", return_value=None)
-    @patch("aind_data_transfer_service.hpc.client.HpcClient.submit_job")
-    @patch("logging.Logger.error")
-    def test_submit_jobs_malformed_json(
-        self,
-        mock_log_error: MagicMock,
-        mock_submit_job: MagicMock,
-        mock_sleep: MagicMock,
-    ):
-        """Tests that submit jobs returns parsing errors."""
-        mock_response = Response()
-        mock_response.status_code = 500
-        mock_submit_job.return_value = mock_response
-        with TestClient(app) as client:
-            basic_jobs = {"jobs": ['{"malformed_key": "val"}']}
-            submit_job_response = client.post(
-                url="/api/submit_basic_jobs", json=basic_jobs
-            )
-        expected_response = {
-            "message": "There were errors parsing the basic job configs",
-            "data": {
-                "responses": [],
-                "errors": [
-                    (
-                        'Error parsing {"malformed_key": "val"}:'
-                        " ValidationError"
-                    )
-                ],
-            },
-        }
-        self.assertEqual(406, submit_job_response.status_code)
-        self.assertEqual(expected_response, submit_job_response.json())
-        self.assertEqual(0, mock_sleep.call_count)
-        self.assertEqual(0, mock_log_error.call_count)
-
-    @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
-    def test_validate_null_csv(self):
-        """Tests that invalid file type returns FileNotFoundError"""
-        with TestClient(app) as client:
-            with open(SAMPLE_INVALID_EXT, "rb") as f:
-                files = {
-                    "file": f,
-                }
-                response = client.post(url="/api/validate_csv", files=files)
-        self.assertEqual(response.status_code, 406)
-        self.assertEqual(
-            ["Invalid input file type"],
-            response.json()["data"]["errors"],
-        )
-
-    @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
-    def test_validate_malformed_csv(self):
-        """Tests that invalid csv returns errors"""
-        with TestClient(app) as client:
-            with open(MALFORMED_SAMPLE_CSV, "rb") as f:
-                files = {
-                    "file": f,
-                }
-                response = client.post(url="/api/validate_csv", files=files)
-        self.assertEqual(response.status_code, 406)
-        self.assertEqual(
-            ["AttributeError('Unknown Modality: WRONG_MODALITY_HERE',)"],
-            response.json()["data"]["errors"],
-        )
-
-    @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
-    def test_validate_malformed_xlsx(self):
-        """Tests that invalid xlsx returns errors"""
-        with TestClient(app) as client:
-            with open(MALFORMED_SAMPLE_XLSX, "rb") as f:
-                files = {
-                    "file": f,
-                }
-                response = client.post(url="/api/validate_csv", files=files)
-        self.assertEqual(response.status_code, 406)
-        self.assertEqual(
-            ["AttributeError('Unknown Modality: WRONG_MODALITY_HERE',)"],
-            response.json()["data"]["errors"],
-        )
-
-    @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
-    @patch("aind_data_transfer_service.server.sleep", return_value=None)
-    @patch("aind_data_transfer_service.hpc.client.HpcClient.submit_hpc_job")
-    def test_submit_hpc_jobs(
-        self, mock_submit_job: MagicMock, mock_sleep: MagicMock
-    ):
-        """Tests submit hpc jobs success."""
-        mock_response = Response()
-        mock_response.status_code = 200
-        mock_response._content = b'{"message": "success"}'
-        mock_submit_job.return_value = mock_response
-        post_request_content = {
-            "jobs": [
-                {
-                    "hpc_settings": '{"qos":"production", "name": "job1"}',
-                    "upload_job_settings": (
-                        '{"project_name":"Ephys Platform", '
-                        '"process_capsule_id":null, '
-                        '"s3_bucket": "private", '
-                        '"platform": {"name": "Behavior platform", '
-                        '"abbreviation": "behavior"}, '
-                        '"modalities": ['
-                        '{"modality": {"name": "Behavior videos", '
-                        '"abbreviation": "behavior-videos"}, '
-                        '"source": "dir/data_set_2", '
-                        '"compress_raw_data": true, '
-                        '"skip_staging": false}], '
-                        '"subject_id": "123456", '
-                        '"acq_datetime": "2020-10-13T13:10:10", '
-                        '"process_name": "Other", '
-                        '"log_level": "WARNING", '
-                        '"metadata_dir_force": false, '
-                        '"dry_run": false, '
-                        '"force_cloud_sync": false}'
-                    ),
-                    "script": "",
-                },
-                {
-                    "hpc_settings": '{"qos":"production", "name": "job2"}',
-                    "upload_job_settings": "{}",
-                    "script": "run custom script",
-                },
-            ]
-        }
-        with TestClient(app) as client:
-            submit_job_response = client.post(
-                url="/api/submit_hpc_jobs", json=post_request_content
-            )
-        expected_response = {
-            "message": "Submitted Jobs.",
-            "data": {
-                "responses": [{"message": "success"}, {"message": "success"}],
-                "errors": [],
-            },
-        }
-        self.assertEqual(expected_response, submit_job_response.json())
-        self.assertEqual(200, submit_job_response.status_code)
-        self.assertEqual(2, mock_sleep.call_count)
-
-    @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
-    @patch("aind_data_transfer_service.server.sleep", return_value=None)
-    @patch("aind_data_transfer_service.hpc.client.HpcClient.submit_hpc_job")
-    @patch(
-        "aind_data_transfer_service.hpc.models.HpcJobSubmitSettings"
-        ".from_upload_job_configs"
-    )
-    def test_submit_hpc_jobs_open_data(
-        self,
-        mock_from_upload_configs: MagicMock,
-        mock_submit_job: MagicMock,
-        mock_sleep: MagicMock,
-    ):
-        """Tests submit hpc jobs success."""
-        mock_response = Response()
-        mock_response.status_code = 200
-        mock_response._content = b'{"message": "success"}'
-        mock_submit_job.return_value = mock_response
-        # When a user specifies aind-open-data in the upload_job_settings,
-        # use the credentials for that account.
-        post_request_content = {
-            "jobs": [
-                {
-                    "hpc_settings": '{"qos":"production", "name": "job1"}',
-                    "upload_job_settings": (
-                        '{"project_name":"Ephys Platform", '
-                        '"process_capsule_id":null, '
-                        '"s3_bucket": "open", '
-                        '"platform": {"name": "Behavior platform", '
-                        '"abbreviation": "behavior"}, '
-                        '"modalities": ['
-                        '{"modality": {"name": "Behavior videos", '
-                        '"abbreviation": "behavior-videos"}, '
-                        '"source": "dir/data_set_2", '
-                        '"compress_raw_data": true, '
-                        '"skip_staging": false}], '
-                        '"subject_id": "123456", '
-                        '"acq_datetime": "2020-10-13T13:10:10", '
-                        '"process_name": "Other", '
-                        '"log_level": "WARNING", '
-                        '"metadata_dir_force": false, '
-                        '"dry_run": false, '
-                        '"force_cloud_sync": false}'
-                    ),
-                    "script": "",
-                }
-            ]
-        }
-        with TestClient(app) as client:
-            submit_job_response = client.post(
-                url="/api/submit_hpc_jobs", json=post_request_content
-            )
-        expected_response = {
-            "message": "Submitted Jobs.",
-            "data": {
-                "responses": [{"message": "success"}],
-                "errors": [],
-            },
-        }
-        self.assertEqual(expected_response, submit_job_response.json())
-        self.assertEqual(200, submit_job_response.status_code)
-        self.assertEqual(1, mock_sleep.call_count)
-        mock_from_upload_configs.assert_called_with(
-            logging_directory=PurePosixPath("hpc_logs"),
-            aws_secret_access_key=SecretStr("open_data_aws_key"),
-            aws_access_key_id="open_data_aws_key_id",
-            aws_default_region="aws_region",
-            aws_session_token=None,
-            qos="production",
-            name="behavior_123456_2020-10-13_13-10-10",
-        )
-
-    @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
-    @patch("aind_data_transfer_service.server.sleep", return_value=None)
-    @patch("aind_data_transfer_service.hpc.client.HpcClient.submit_hpc_job")
-    @patch("logging.Logger.error")
-    def test_submit_hpc_jobs_error(
-        self,
-        mock_log_error: MagicMock,
-        mock_submit_job: MagicMock,
-        mock_sleep: MagicMock,
-    ):
-        """Tests that submit jobs returns error if there's an issue with hpc"""
-        mock_response = Response()
-        mock_response.status_code = 200
-        mock_submit_job.return_value = mock_response
-        post_request_content = {
-            "jobs": [
-                {
-                    "hpc_settings": '{"qos":"production"}',
-                    "upload_job_settings": '{"temp_directory":"tmp"}',
-                    "script": "run script",
-                },
-                {
-                    "hpc_settings": '{"qos":"production", "name": "job2"}',
-                    "upload_job_settings": '{"temp_directory":"tmp"}',
-                    "script": "run script",
-                },
-            ]
-        }
-        with TestClient(app) as client:
-            submit_job_response = client.post(
-                url="/api/submit_hpc_jobs", json=post_request_content
-            )
-        expected_response = {
-            "message": "There were errors parsing the job configs",
-            "data": {
-                "responses": [],
-                "errors": [
-                    'Error parsing {"temp_directory":"tmp"}: '
-                    "KeyError('name')"
-                ],
-            },
-        }
-        self.assertEqual(expected_response, submit_job_response.json())
-        self.assertEqual(406, submit_job_response.status_code)
-        self.assertEqual(0, mock_sleep.call_count)
-        self.assertEqual(0, mock_log_error.call_count)
-
-    @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
-    @patch("aind_data_transfer_service.server.sleep", return_value=None)
-    @patch("aind_data_transfer_service.hpc.client.HpcClient.submit_hpc_job")
-    @patch("logging.Logger.error")
-    def test_submit_hpc_jobs_server_error(
-        self,
-        mock_log_error: MagicMock,
-        mock_submit_job: MagicMock,
-        mock_sleep: MagicMock,
-    ):
-        """Tests that submit jobs returns error if there's an issue with hpc"""
-        mock_response = Response()
-        mock_response.status_code = 500
-        mock_submit_job.return_value = mock_response
-        post_request_content = {
-            "jobs": [
-                {
-                    "hpc_settings": '{"qos":"production", "name": "job1"}',
-                    "upload_job_settings": '{"temp_directory":"tmp"}',
-                    "script": "run script",
-                },
-                {
-                    "hpc_settings": '{"qos":"production", "name": "job2"}',
-                    "upload_job_settings": '{"temp_directory":"tmp"}',
-                    "script": "run script",
-                },
-            ]
-        }
-        with TestClient(app) as client:
-            submit_job_response = client.post(
-                url="/api/submit_hpc_jobs", json=post_request_content
-            )
-        expected_response = {
-            "message": "There were errors submitting jobs to the hpc.",
-            "data": {
-                "responses": [],
-                "errors": ["Error processing job1", "Error processing job2"],
-            },
-        }
-        self.assertEqual(expected_response, submit_job_response.json())
-        self.assertEqual(500, submit_job_response.status_code)
-        self.assertEqual(0, mock_sleep.call_count)
-        self.assertEqual(2, mock_log_error.call_count)
 
     @patch("httpx.AsyncClient.get")
     def test_get_project_names(self, mock_get: MagicMock):
@@ -1980,7 +1523,7 @@ class TestServer(unittest.TestCase):
         mock_get_job_types.return_value = ["ecephys"]
         mock_get_project_names.return_value = ["Ephys Platform"]
         mock_get_airflow_jobs.return_value = (0, list())
-        for version in ["v1", "v2"]:
+        for version in ["v2"]:
             with TestClient(app) as client:
                 submit_job_response = client.post(
                     url=f"/api/{version}/submit_jobs", json={}
@@ -1992,7 +1535,7 @@ class TestServer(unittest.TestCase):
             )
         mock_get_job_types.assert_called_once_with("v2")
         mock_get_airflow_jobs.assert_called_once()
-        self.assertEqual(2, mock_get_project_names.call_count)
+        self.assertEqual(1, mock_get_project_names.call_count)
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch("httpx.AsyncClient.post")
@@ -2016,44 +1559,11 @@ class TestServer(unittest.TestCase):
             "utf-8"
         )
         mock_post.return_value = mock_response
-        request_json_v1 = {
-            "user_email": None,
-            "email_notification_types": ["fail"],
-            "upload_jobs": [
-                {
-                    "project_name": "Ephys Platform",
-                    "process_capsule_id": None,
-                    "s3_bucket": "private",
-                    "platform": {
-                        "name": "Electrophysiology platform",
-                        "abbreviation": "ecephys",
-                    },
-                    "modalities": [
-                        {
-                            "modality": {
-                                "name": "Extracellular electrophysiology",
-                                "abbreviation": "ecephys",
-                            },
-                            "source": "dir/source1",
-                            "compress_raw_data": True,
-                            "extra_configs": None,
-                            "slurm_settings": None,
-                        },
-                    ],
-                    "subject_id": "655019",
-                    "acq_datetime": "2000-01-01T01:40:04",
-                    "metadata_dir": None,
-                    "metadata_dir_force": False,
-                    "force_cloud_sync": False,
-                },
-            ],
-        }
         job_request_v2 = SubmitJobRequestV2(
             upload_jobs=[self.example_configs_v2]
         )
         request_json_v2 = job_request_v2.model_dump(mode="json")
         jobs = {
-            "v1": request_json_v1,
             "v2": request_json_v2,
         }
         for version, request_json in jobs.items():
@@ -2070,7 +1580,7 @@ class TestServer(unittest.TestCase):
         mock_get_airflow_jobs.assert_called_once_with(
             params=expected_airflow_params, get_confs=True
         )
-        self.assertEqual(2, mock_get_project_names.call_count)
+        self.assertEqual(1, mock_get_project_names.call_count)
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch("httpx.AsyncClient.post")
@@ -2091,38 +1601,6 @@ class TestServer(unittest.TestCase):
         mock_get_project_names.return_value = ["Ephys Platform"]
         mock_get_airflow_jobs.return_value = (0, list())
         mock_post.side_effect = Exception("Something went wrong")
-        request_json_v1 = {
-            "user_email": None,
-            "email_notification_types": ["fail"],
-            "upload_jobs": [
-                {
-                    "project_name": "Ephys Platform",
-                    "process_capsule_id": None,
-                    "s3_bucket": "private",
-                    "platform": {
-                        "name": "Electrophysiology platform",
-                        "abbreviation": "ecephys",
-                    },
-                    "modalities": [
-                        {
-                            "modality": {
-                                "name": "Extracellular electrophysiology",
-                                "abbreviation": "ecephys",
-                            },
-                            "source": "dir/source1",
-                            "compress_raw_data": True,
-                            "extra_configs": None,
-                            "slurm_settings": None,
-                        },
-                    ],
-                    "subject_id": "655019",
-                    "acq_datetime": "2000-01-01T01:40:04",
-                    "metadata_dir": None,
-                    "metadata_dir_force": False,
-                    "force_cloud_sync": False,
-                },
-            ],
-        }
         request_json_v2 = {
             "user_email": None,
             "email_notification_types": ["fail"],
@@ -2154,7 +1632,6 @@ class TestServer(unittest.TestCase):
             ],
         }
         jobs = {
-            "v1": request_json_v1,
             "v2": request_json_v2,
         }
         for version, request_json in jobs.items():
@@ -2166,190 +1643,7 @@ class TestServer(unittest.TestCase):
             mock_log_exception.assert_called()
         mock_get_job_types.assert_called_once_with("v2")
         mock_get_airflow_jobs.assert_called_once()
-        self.assertEqual(2, mock_get_project_names.call_count)
-
-    @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
-    @patch("httpx.AsyncClient.post")
-    @patch("aind_data_transfer_service.server.get_project_names")
-    def test_submit_v1_jobs_200_slurm_settings(
-        self,
-        mock_get_project_names: MagicMock,
-        mock_post: MagicMock,
-    ):
-        """Tests submit jobs success when user adds custom slurm settings."""
-        mock_get_project_names.return_value = ["Ephys Platform"]
-        mock_response = Response()
-        mock_response.status_code = 200
-        mock_response._content = json.dumps({"message": "sent"}).encode(
-            "utf-8"
-        )
-        mock_post.return_value = mock_response
-        ephys_source_dir = PurePosixPath("shared_drive/ephys_data/690165")
-
-        s3_bucket = "private"
-        subject_id = "690165"
-        acq_datetime = datetime(2024, 2, 19, 11, 25, 17)
-        platform = Platform.ECEPHYS
-
-        slurm_settings = V0036JobProperties(
-            environment=dict(),
-            time_limit=720,
-            minimum_cpus_per_node=16,
-        )
-
-        ephys_config = ModalityConfigs(
-            modality=Modality.ECEPHYS,
-            source=ephys_source_dir,
-            slurm_settings=slurm_settings,
-        )
-        project_name = "Ephys Platform"
-
-        upload_job_configs = BasicUploadJobConfigs(
-            project_name=project_name,
-            s3_bucket=s3_bucket,
-            platform=platform,
-            subject_id=subject_id,
-            acq_datetime=acq_datetime,
-            modalities=[ephys_config],
-        )
-
-        upload_jobs = [upload_job_configs]
-        submit_request = SubmitJobRequest(upload_jobs=upload_jobs)
-
-        post_request_content = json.loads(
-            submit_request.model_dump_json(round_trip=True)
-        )
-
-        with TestClient(app) as client:
-            submit_job_response = client.post(
-                url="/api/v1/submit_jobs", json=post_request_content
-            )
-        self.assertEqual(200, submit_job_response.status_code)
-
-    @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
-    @patch("httpx.AsyncClient.post")
-    @patch("aind_data_transfer_service.server.get_project_names")
-    def test_submit_v1_jobs_200_session_settings_config_file(
-        self,
-        mock_get_project_names: MagicMock,
-        mock_post: MagicMock,
-    ):
-        """Tests submit jobs success when user adds aind-metadata-mapper
-        settings pointing to a config file."""
-
-        mock_get_project_names.return_value = ["Ephys Platform"]
-        session_settings = {
-            "session_settings": {
-                "job_settings": {
-                    "user_settings_config_file": "test_bergamo_settings.json",
-                    "job_settings_name": "Bergamo",
-                }
-            }
-        }
-
-        mock_response = Response()
-        mock_response.status_code = 200
-        mock_response._content = json.dumps({"message": "sent"}).encode(
-            "utf-8"
-        )
-        mock_post.return_value = mock_response
-        ephys_source_dir = PurePosixPath("shared_drive/ephys_data/690165")
-
-        s3_bucket = "private"
-        subject_id = "690165"
-        acq_datetime = datetime(2024, 2, 19, 11, 25, 17)
-        platform = Platform.ECEPHYS
-
-        ephys_config = ModalityConfigs(
-            modality=Modality.ECEPHYS,
-            source=ephys_source_dir,
-        )
-        project_name = "Ephys Platform"
-
-        upload_job_configs = BasicUploadJobConfigs(
-            project_name=project_name,
-            s3_bucket=s3_bucket,
-            platform=platform,
-            subject_id=subject_id,
-            acq_datetime=acq_datetime,
-            modalities=[ephys_config],
-            metadata_configs=session_settings,
-        )
-
-        upload_jobs = [upload_job_configs]
-        # Suppress serializer warning when using a dict instead of an object
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", UserWarning)
-            submit_request = SubmitJobRequest(upload_jobs=upload_jobs)
-
-            post_request_content = json.loads(
-                submit_request.model_dump_json(
-                    round_trip=True, warnings=False, exclude_none=True
-                )
-            )
-
-            with TestClient(app) as client:
-                submit_job_response = client.post(
-                    url="/api/v1/submit_jobs", json=post_request_content
-                )
-            self.assertEqual(200, submit_job_response.status_code)
-
-    @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
-    @patch("httpx.AsyncClient.post")
-    @patch("aind_data_transfer_service.server.get_project_names")
-    def test_submit_v1_jobs_200_trigger_capsule_configs(
-        self,
-        mock_get_project_names: MagicMock,
-        mock_post: MagicMock,
-    ):
-        """Tests submission when user adds trigger_capsule_configs"""
-
-        mock_get_project_names.return_value = ["Ephys Platform"]
-
-        mock_response = Response()
-        mock_response.status_code = 200
-        mock_response._content = json.dumps({"message": "sent"}).encode(
-            "utf-8"
-        )
-        mock_post.return_value = mock_response
-        ephys_source_dir = PurePosixPath("shared_drive/ephys_data/690165")
-
-        s3_bucket = "private"
-        subject_id = "690165"
-        acq_datetime = datetime(2024, 2, 19, 11, 25, 17)
-        platform = Platform.ECEPHYS
-
-        trigger_capsule_settings = TriggerConfigModel(
-            job_type=ValidJobType.RUN_GENERIC_PIPELINE, capsule_id="abc-123"
-        )
-        ephys_config = ModalityConfigs(
-            modality=Modality.ECEPHYS,
-            source=ephys_source_dir,
-        )
-        project_name = "Ephys Platform"
-
-        upload_job_configs = BasicUploadJobConfigs(
-            project_name=project_name,
-            s3_bucket=s3_bucket,
-            platform=platform,
-            subject_id=subject_id,
-            acq_datetime=acq_datetime,
-            modalities=[ephys_config],
-            trigger_capsule_configs=trigger_capsule_settings,
-        )
-
-        upload_jobs = [upload_job_configs]
-        submit_request = SubmitJobRequest(upload_jobs=upload_jobs)
-
-        post_request_content = json.loads(
-            submit_request.model_dump_json(round_trip=True)
-        )
-
-        with TestClient(app) as client:
-            submit_job_response = client.post(
-                url="/api/v1/submit_jobs", json=post_request_content
-            )
-        self.assertEqual(200, submit_job_response.status_code)
+        self.assertEqual(1, mock_get_project_names.call_count)
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch("httpx.AsyncClient.post")
@@ -2375,38 +1669,12 @@ class TestServer(unittest.TestCase):
             "utf-8"
         )
         mock_post.return_value = mock_response
-        ephys_source_dir = PurePosixPath("shared_drive/ephys_data/690165")
 
-        s3_bucket = "private"
-        subject_id = "690165"
-        acq_datetime = datetime(2024, 2, 19, 11, 25, 17)
-        platform = Platform.ECEPHYS
-
-        ephys_config = ModalityConfigs(
-            modality=Modality.ECEPHYS,
-            source=ephys_source_dir,
-        )
-        project_name = "Ephys Platform"
-
-        upload_job_configs = BasicUploadJobConfigs(
-            project_name=project_name,
-            s3_bucket=s3_bucket,
-            platform=platform,
-            subject_id=subject_id,
-            acq_datetime=acq_datetime,
-            modalities=[ephys_config],
-        )
-
-        upload_jobs = [upload_job_configs]
-        submit_request = SubmitJobRequest(upload_jobs=upload_jobs)
-
-        post_request_content_v1 = json.loads(submit_request.model_dump_json())
         job_request_v2 = SubmitJobRequestV2(
             upload_jobs=[self.example_configs_v2]
         )
         post_request_content_v2 = job_request_v2.model_dump(mode="json")
         jobs = {
-            "v1": post_request_content_v1,
             "v2": post_request_content_v2,
         }
 
@@ -2418,7 +1686,7 @@ class TestServer(unittest.TestCase):
             self.assertEqual(200, submit_job_response.status_code)
         mock_get_job_types.assert_called_once_with("v2")
         mock_get_airflow_jobs.assert_called_once()
-        self.assertEqual(2, mock_get_project_names.call_count)
+        self.assertEqual(1, mock_get_project_names.call_count)
 
     @patch("aind_data_transfer_service.server.get_airflow_jobs")
     @patch("aind_data_transfer_service.server.get_job_types")
@@ -2435,35 +1703,10 @@ class TestServer(unittest.TestCase):
         mock_get_job_types.return_value = ["ecephys"]
         mock_get_airflow_jobs.return_value = (0, list())
 
-        # v1
-        ephys_source_dir = PurePosixPath("shared_drive/ephys_data/690165")
-        s3_bucket = "private"
-        subject_id = "690165"
-        acq_datetime = datetime(2024, 2, 19, 11, 25, 17)
-        platform = Platform.ECEPHYS
-        project_name = "Ephys Platform"
-        ephys_config = ModalityConfigs(
-            modality=Modality.ECEPHYS,
-            source=ephys_source_dir,
-        )
-        upload_job = BasicUploadJobConfigs(
-            project_name=project_name,
-            s3_bucket=s3_bucket,
-            platform=platform,
-            subject_id=subject_id,
-            acq_datetime=acq_datetime,
-            modalities=[ephys_config],
-        )
-        submit_job_request_v1 = SubmitJobRequest(upload_jobs=[upload_job])
-        # v2
         upload_job = self.example_configs_v2
         submit_job_request_v2 = SubmitJobRequestV2(upload_jobs=[upload_job])
 
         expected_jobs = {
-            "v1": {
-                "request": submit_job_request_v1,
-                "version": aind_data_transfer_models_version,
-            },
             "v2": {
                 "request": submit_job_request_v2,
                 "version": aind_data_transfer_service_version,
@@ -2491,7 +1734,7 @@ class TestServer(unittest.TestCase):
             params=expected_airflow_params, get_confs=True
         )
         mock_get_job_types.assert_called_once_with("v2")
-        self.assertEqual(2, mock_get_project_names.call_count)
+        self.assertEqual(1, mock_get_project_names.call_count)
 
     @patch("logging.Logger.warning")
     @patch("aind_data_transfer_service.server.get_airflow_jobs")
@@ -2510,7 +1753,6 @@ class TestServer(unittest.TestCase):
         mock_get_airflow_jobs.return_value = (0, list())
         content = {"foo": "bar"}
         versions = {
-            "v1": aind_data_transfer_models_version,
             "v2": aind_data_transfer_service_version,
         }
         for version, response_version in versions.items():
@@ -2532,7 +1774,7 @@ class TestServer(unittest.TestCase):
             )
         mock_get_airflow_jobs.assert_called_once()
         mock_get_job_types.assert_called_once_with("v2")
-        self.assertEqual(2, mock_get_project_names.call_count)
+        self.assertEqual(1, mock_get_project_names.call_count)
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch("logging.Logger.warning")
@@ -2600,7 +1842,6 @@ class TestServer(unittest.TestCase):
         mock_get_airflow_jobs.return_value = (0, list())
         mock_model_validate_json.side_effect = Exception("Unknown error")
         versions = {
-            "v1": aind_data_transfer_models_version,
             "v2": aind_data_transfer_service_version,
         }
         for version, response_version in versions.items():
@@ -2627,7 +1868,7 @@ class TestServer(unittest.TestCase):
             mock_log_error.assert_called_with("Internal Server Error.")
         mock_get_airflow_jobs.assert_called_once()
         mock_get_job_types.assert_called_once_with("v2")
-        self.assertEqual(2, mock_get_project_names.call_count)
+        self.assertEqual(1, mock_get_project_names.call_count)
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch("boto3.client")
@@ -2746,6 +1987,50 @@ class TestServer(unittest.TestCase):
         }
         self.assertEqual(response.status_code, 500)
         self.assertEqual(response.json(), expected_response)
+
+    @patch("aind_data_transfer_service.server.proxy")
+    def test_submit_basic_jobs_proxy(self, mock_proxy: MagicMock):
+        """Tests requests to submit_basic_jobs endpoint"""
+        mock_response = JSONResponse({"message": "Success"})
+        mock_response.status_code = 200
+        mock_proxy.return_value = mock_response
+        with TestClient(app) as client:
+            response = client.post("/api/submit_basic_jobs")
+        self.assertEqual(200, response.status_code)
+        mock_proxy.assert_called_once()
+
+    @patch("aind_data_transfer_service.server.proxy")
+    def test_submit_v1_jobs_proxy(self, mock_proxy: MagicMock):
+        """Tests requests to submit_jobs endpoint"""
+        mock_response = JSONResponse({"message": "Success"})
+        mock_response.status_code = 200
+        mock_proxy.return_value = mock_response
+        with TestClient(app) as client:
+            response = client.post("/api/v1/submit_jobs")
+        self.assertEqual(200, response.status_code)
+        mock_proxy.assert_called_once()
+
+    @patch("aind_data_transfer_service.server.proxy")
+    def test_submit_hpc_jobs_proxy(self, mock_proxy: MagicMock):
+        """Tests requests to submit_hpc_jobs endpoint"""
+        mock_response = JSONResponse({"message": "Success"})
+        mock_response.status_code = 200
+        mock_proxy.return_value = mock_response
+        with TestClient(app) as client:
+            response = client.post("/api/submit_hpc_jobs")
+        self.assertEqual(200, response.status_code)
+        mock_proxy.assert_called_once()
+
+    @patch("aind_data_transfer_service.server.proxy")
+    def test_submit_validate_v1_jobs_proxy(self, mock_proxy: MagicMock):
+        """Tests requests to v1 validate_json endpoint"""
+        mock_response = JSONResponse({"message": "Success"})
+        mock_response.status_code = 200
+        mock_proxy.return_value = mock_response
+        with TestClient(app) as client:
+            response = client.post("/api/v1/validate_json")
+        self.assertEqual(200, response.status_code)
+        mock_proxy.assert_called_once()
 
 
 if __name__ == "__main__":

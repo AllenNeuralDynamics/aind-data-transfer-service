@@ -20,7 +20,7 @@ from pydantic import (
 )
 from pydantic_settings import BaseSettings
 
-from aind_data_transfer_service.legacy_configs.platforms_v1 import Platform
+from aind_data_transfer_service.configs.platforms_v1 import Platform
 
 _validation_context: ContextVar[Union[Dict[str, Any], None]] = ContextVar(
     "_validation_context", default=None

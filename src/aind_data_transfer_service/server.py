@@ -1,5 +1,6 @@
 """Starts and Runs Starlette Service"""
 
+import csv
 import io
 import json
 import os
@@ -14,6 +15,7 @@ from fastapi import Request
 from fastapi.responses import JSONResponse, Response, StreamingResponse
 from fastapi.templating import Jinja2Templates
 from httpx import AsyncClient, RequestError
+from openpyxl import load_workbook
 from pydantic import ValidationError
 from starlette.applications import Starlette
 from starlette.config import Config
@@ -24,16 +26,14 @@ from starlette.routing import Route
 from aind_data_transfer_service import (
     __version__ as aind_data_transfer_service_version,
 )
-from aind_data_transfer_service.legacy_configs.job_upload_template import (
+from aind_data_transfer_service.configs.csv_handler import map_csv_row_to_job
+from aind_data_transfer_service.configs.job_upload_template import (
     JobUploadTemplate,
 )
 from aind_data_transfer_service.log_handler import LoggingConfigs, get_logger
 from aind_data_transfer_service.models.core import (
     SubmitJobRequestV2,
-)
-from aind_data_transfer_service.models.core import validation_context
-from aind_data_transfer_service.models.core import (
-    validation_context as validation_context_v2,
+    validation_context,
 )
 from aind_data_transfer_service.models.internal import (
     AirflowDagRunsRequestParameters,
@@ -101,7 +101,6 @@ async def proxy(
     """
 
     # Prepare headers to forward (excluding hop-by-hop headers)
-    print("HERE")
     headers = {
         key: value
         for key, value in request.headers.items()
@@ -120,12 +119,7 @@ async def proxy(
     }
 
     try:
-        print("Here 2")
         body = await request.body()
-        print(request.method)
-        print(path)
-        print(headers)
-        print(body)
         backend_response = await async_client.request(
             method=request.method,
             url=path,
@@ -133,7 +127,6 @@ async def proxy(
             content=body,
             timeout=120,  # Adjust timeout as needed
         )
-        print("HERE 3")
         # Create a FastAPI Response from the backend's response
         response_headers = {
             key: value
@@ -148,14 +141,6 @@ async def proxy(
         )
     except RequestError as exc:
         return Response(f"Proxy request failed: {exc}", status_code=500)
-
-
-async def validate_csv(
-    request: Request,
-):
-    """validate_csv_legacy"""
-    async with AsyncClient(base_url=aind_dts_v1_url) as session:
-        return await proxy(request, "/api/validate_csv", session)
 
 
 async def submit_basic_jobs(
@@ -186,6 +171,75 @@ async def validate_json(request: Request):
     """validate_json_legacy"""
     async with AsyncClient(base_url=aind_dts_v1_url) as session:
         return await proxy(request, "/api/v1/validate_json", session)
+
+
+async def validate_csv(request: Request):
+    """Validate a csv or xlsx file. Return parsed contents as json."""
+    logger.info("Received request to validate csv")
+    async with request.form() as form:
+        basic_jobs = []
+        errors = []
+        if not form["file"].filename.endswith((".csv", ".xlsx")):
+            errors.append("Invalid input file type")
+        else:
+            content = await form["file"].read()
+            if form["file"].filename.endswith(".csv"):
+                # A few csv files created from excel have extra unicode
+                # byte chars. Adding "utf-8-sig" should remove them.
+                data = content.decode("utf-8-sig")
+            else:
+                xlsx_book = load_workbook(io.BytesIO(content), read_only=True)
+                xlsx_sheet = xlsx_book.active
+                csv_io = io.StringIO()
+                csv_writer = csv.writer(csv_io)
+                for r in xlsx_sheet.iter_rows(values_only=True):
+                    if any(r):
+                        csv_writer.writerow(r)
+                xlsx_book.close()
+                data = csv_io.getvalue()
+            csv_reader = csv.DictReader(io.StringIO(data))
+            params = AirflowDagRunsRequestParameters(
+                dag_ids=["transform_and_upload_v2", "run_list_of_jobs"],
+                states=["running", "queued"],
+            )
+            _, current_jobs = await get_airflow_jobs(
+                params=params, get_confs=True
+            )
+            context = {
+                "job_types": get_job_types("v2"),
+                "project_names": await get_project_names(),
+                "current_jobs": current_jobs,
+            }
+            for row in csv_reader:
+                if not any(row.values()):
+                    continue
+                try:
+                    with validation_context(context):
+                        job = map_csv_row_to_job(row=row)
+                    # Construct hpc job setting most of the vars from the env
+                    basic_jobs.append(
+                        json.loads(
+                            job.model_dump_json(
+                                round_trip=True,
+                                exclude_none=True,
+                                warnings=False,
+                            )
+                        )
+                    )
+                except ValidationError as e:
+                    errors.append(e.json())
+                except Exception as e:
+                    errors.append(f"{str(e.args)}")
+        message = "There were errors" if len(errors) > 0 else "Valid Data"
+        status_code = 406 if len(errors) > 0 else 200
+        content = {
+            "message": message,
+            "data": {"jobs": basic_jobs, "errors": errors},
+        }
+        return JSONResponse(
+            content=content,
+            status_code=status_code,
+        )
 
 
 async def get_project_names() -> List[str]:
@@ -356,7 +410,7 @@ async def validate_json_v2(request: Request):
             "project_names": await get_project_names(),
             "current_jobs": current_jobs,
         }
-        with validation_context_v2(context):
+        with validation_context(context):
             validated_model = SubmitJobRequestV2.model_validate_json(
                 json.dumps(content)
             )
@@ -418,7 +472,7 @@ async def submit_jobs_v2(request: Request):
             "project_names": await get_project_names(),
             "current_jobs": current_jobs,
         }
-        with validation_context_v2(context):
+        with validation_context(context):
             model = SubmitJobRequestV2.model_validate_json(json.dumps(content))
         full_content = json.loads(
             model.model_dump_json(warnings=False, exclude_none=True)

@@ -8,7 +8,7 @@ from typing import Any, Dict
 
 from aind_data_schema_models.modalities import Modality
 
-from aind_data_transfer_service.legacy_configs.platforms_v1 import Platform
+from aind_data_transfer_service.configs.platforms_v1 import Platform
 from aind_data_transfer_service.models.core import Task, UploadJobConfigsV2
 
 DATETIME_PATTERN2 = re.compile(

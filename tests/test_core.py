@@ -5,9 +5,9 @@ import unittest
 from datetime import datetime
 
 from aind_data_schema_models.modalities import Modality
-from aind_data_schema_models.platforms import Platform
 from pydantic import ValidationError
 
+from aind_data_transfer_service.configs.platforms_v1 import Platform
 from aind_data_transfer_service.models.core import (
     SubmitJobRequestV2,
     Task,
@@ -310,14 +310,23 @@ class TestSubmitJobRequestV2(unittest.TestCase):
             round_trip=True
         )
         job_settings = SubmitJobRequestV2(
-            user_email="abc@acme.com",
+            user_email="abc@example.com",
             email_notification_types={"begin", "fail"},
             upload_jobs=[UploadJobConfigsV2(**upload_job_configs)],
         )
-        self.assertEqual("abc@acme.com", job_settings.user_email)
+        self.assertEqual("abc@example.com", job_settings.user_email)
         self.assertEqual(
             {"begin", "fail"},
             job_settings.email_notification_types,
+        )
+
+    def test_settings_platform_none(self):
+        """Tests settings when platform is set to None."""
+        upload_job_configs = self.example_upload_config.model_copy(
+            deep=True, update={"platform": None}
+        )
+        self.assertEqual(
+            "123456_2020-10-13_13-10-10", upload_job_configs.s3_prefix
         )
 
     def test_email_validation(self):
@@ -344,12 +353,12 @@ class TestSubmitJobRequestV2(unittest.TestCase):
             exclude={"user_email", "email_notification_types"}, round_trip=True
         )
         new_job = UploadJobConfigsV2(
-            user_email="xyz@acme.org",
+            user_email="xyz@example.org",
             email_notification_types=["all"],
             **example_job_configs,
         )
         job_settings = SubmitJobRequestV2(
-            user_email="abc@acme.org",
+            user_email="abc@example.org",
             email_notification_types={"begin", "fail"},
             upload_jobs=[
                 new_job,
@@ -357,10 +366,10 @@ class TestSubmitJobRequestV2(unittest.TestCase):
             ],
         )
         self.assertEqual(
-            "xyz@acme.org", job_settings.upload_jobs[0].user_email
+            "xyz@example.org", job_settings.upload_jobs[0].user_email
         )
         self.assertEqual(
-            "abc@acme.org", job_settings.upload_jobs[1].user_email
+            "abc@example.org", job_settings.upload_jobs[1].user_email
         )
         self.assertEqual(
             {"all"}, job_settings.upload_jobs[0].email_notification_types

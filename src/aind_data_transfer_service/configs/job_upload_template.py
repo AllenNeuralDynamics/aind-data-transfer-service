@@ -11,7 +11,7 @@ from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.datavalidation import DataValidation
 from pydantic import BaseModel
 
-from aind_data_transfer_service.legacy_configs.platforms_v1 import Platform
+from aind_data_transfer_service.configs.platforms_v1 import Platform
 
 
 class JobUploadTemplate(BaseModel):
