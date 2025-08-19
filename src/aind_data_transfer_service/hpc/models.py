@@ -148,10 +148,10 @@ class HpcJobSubmitSettings(BaseSettings):
             "Specifies a comma delimited list of generic consumable resources."
         ),
     )
-    gres_flags: Optional[
-        Literal["disable-binding", "enforce-binding"]
-    ] = Field(
-        None, description="Specify generic resource task binding options."
+    gres_flags: Optional[Literal["disable-binding", "enforce-binding"]] = (
+        Field(
+            None, description="Specify generic resource task binding options."
+        )
     )
     gpu_binding: Optional[str] = Field(
         None, description="Requested binding of tasks to GPU."
@@ -425,9 +425,9 @@ class HpcJobSubmitSettings(BaseSettings):
             "SINGULARITYENV_AWS_DEFAULT_REGION": aws_default_region,
         }
         if aws_session_token is not None:
-            hpc_env[
-                "SINGULARITYENV_AWS_SESSION_TOKEN"
-            ] = aws_session_token.get_secret_value()
+            hpc_env["SINGULARITYENV_AWS_SESSION_TOKEN"] = (
+                aws_session_token.get_secret_value()
+            )
         cls._set_default_val(kwargs, "environment", hpc_env)
         cls._set_default_val(
             kwargs,

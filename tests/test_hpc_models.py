@@ -11,11 +11,11 @@ from aind_data_schema_models.platforms import Platform
 from aind_data_schema_models.process_names import ProcessName
 from pydantic import SecretStr
 
-from aind_data_transfer_service.configs.job_configs import (
+from aind_data_transfer_service.hpc.models import HpcJobSubmitSettings
+from aind_data_transfer_service.legacy_configs.job_configs import (
     BasicUploadJobConfigs,
     ModalityConfigs,
 )
-from aind_data_transfer_service.hpc.models import HpcJobSubmitSettings
 
 TEST_DIRECTORY = Path(os.path.dirname(os.path.realpath(__file__)))
 MOCK_DB_FILE = TEST_DIRECTORY / "test_server" / "db.json"

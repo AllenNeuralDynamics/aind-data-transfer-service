@@ -7,8 +7,8 @@ from datetime import datetime
 from typing import Any, Dict
 
 from aind_data_schema_models.modalities import Modality
-from aind_data_schema_models.platforms import Platform
 
+from aind_data_transfer_service.legacy_configs.platforms_v1 import Platform
 from aind_data_transfer_service.models.core import Task, UploadJobConfigsV2
 
 DATETIME_PATTERN2 = re.compile(
@@ -147,9 +147,9 @@ def map_csv_row_to_job(row: dict) -> UploadJobConfigsV2:
         "gather_preliminary_metadata": metadata_task,
         "check_s3_folder_exists": check_s3_folder_exists_task,
         "modality_transformation_settings": modality_tasks,
-        "codeocean_pipeline_settings": None
-        if codeocean_tasks == dict()
-        else codeocean_tasks,
+        "codeocean_pipeline_settings": (
+            None if codeocean_tasks == dict() else codeocean_tasks
+        ),
     }
     job_configs.update(
         {

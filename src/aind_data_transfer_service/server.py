@@ -1,27 +1,20 @@
 """Starts and Runs Starlette Service"""
 
-import csv
 import io
 import json
 import os
 import re
-from asyncio import gather, sleep
-from pathlib import PurePosixPath
+from asyncio import gather
 from typing import Any, List, Optional, Union
 
 import boto3
-from aind_data_transfer_models import (
-    __version__ as aind_data_transfer_models_version,
-)
-from aind_data_transfer_models.core import SubmitJobRequest, validation_context
 from authlib.integrations.starlette_client import OAuth
 from botocore.exceptions import ClientError
 from fastapi import Request
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import JSONResponse, Response, StreamingResponse
 from fastapi.templating import Jinja2Templates
-from httpx import AsyncClient
-from openpyxl import load_workbook
-from pydantic import SecretStr, ValidationError
+from httpx import AsyncClient, RequestError
+from pydantic import ValidationError
 from starlette.applications import Starlette
 from starlette.config import Config
 from starlette.middleware.sessions import SessionMiddleware
@@ -29,27 +22,16 @@ from starlette.responses import RedirectResponse
 from starlette.routing import Route
 
 from aind_data_transfer_service import (
-    OPEN_DATA_BUCKET_NAME,
-)
-from aind_data_transfer_service import (
     __version__ as aind_data_transfer_service_version,
 )
-from aind_data_transfer_service.configs.csv_handler import map_csv_row_to_job
-from aind_data_transfer_service.configs.job_configs import (
-    BasicUploadJobConfigs as LegacyBasicUploadJobConfigs,
-)
-from aind_data_transfer_service.configs.job_configs import (
-    HpcJobConfigs,
-)
-from aind_data_transfer_service.configs.job_upload_template import (
+from aind_data_transfer_service.legacy_configs.job_upload_template import (
     JobUploadTemplate,
 )
-from aind_data_transfer_service.hpc.client import HpcClient, HpcClientConfigs
-from aind_data_transfer_service.hpc.models import HpcJobSubmitSettings
 from aind_data_transfer_service.log_handler import LoggingConfigs, get_logger
 from aind_data_transfer_service.models.core import (
     SubmitJobRequestV2,
 )
+from aind_data_transfer_service.models.core import validation_context
 from aind_data_transfer_service.models.core import (
     validation_context as validation_context_v2,
 )
@@ -90,9 +72,120 @@ templates = Jinja2Templates(directory=template_directory)
 # LOKI_URI
 # ENV_NAME
 # LOG_LEVEL
+# AIND_DATA_TRANSFER_SERVICE_V1_URL
 
 logger = get_logger(log_configs=LoggingConfigs())
 project_names_url = os.getenv("AIND_METADATA_SERVICE_PROJECT_NAMES_URL")
+aind_dts_v1_url = os.getenv(
+    "AIND_DATA_TRANSFER_SERVICE_V1_URL", "http://aind-data-transfer-service-v1"
+)
+
+
+async def proxy(
+    request: Request,
+    path: str,
+    async_client: AsyncClient,
+) -> Response:
+    """
+    Proxy request to v1 aind-metadata-service-server
+    Parameters
+    ----------
+    request : Request
+    path : str
+    async_client : AsyncClient
+
+    Returns
+    -------
+    Response
+
+    """
+
+    # Prepare headers to forward (excluding hop-by-hop headers)
+    print("HERE")
+    headers = {
+        key: value
+        for key, value in request.headers.items()
+        if key.lower()
+        not in [
+            "host",
+            "connection",
+            "keep-alive",
+            "proxy-authenticate",
+            "proxy-authorization",
+            "te",
+            "trailers",
+            "transfer-encoding",
+            "upgrade",
+        ]
+    }
+
+    try:
+        print("Here 2")
+        body = await request.body()
+        print(request.method)
+        print(path)
+        print(headers)
+        print(body)
+        backend_response = await async_client.request(
+            method=request.method,
+            url=path,
+            headers=headers,
+            content=body,
+            timeout=120,  # Adjust timeout as needed
+        )
+        print("HERE 3")
+        # Create a FastAPI Response from the backend's response
+        response_headers = {
+            key: value
+            for key, value in backend_response.headers.items()
+            if key.lower() not in ["content-encoding", "content-length"]
+        }
+        return Response(
+            content=backend_response.content,
+            status_code=backend_response.status_code,
+            headers=response_headers,
+            media_type=backend_response.headers.get("content-type"),
+        )
+    except RequestError as exc:
+        return Response(f"Proxy request failed: {exc}", status_code=500)
+
+
+async def validate_csv(
+    request: Request,
+):
+    """validate_csv_legacy"""
+    async with AsyncClient(base_url=aind_dts_v1_url) as session:
+        return await proxy(request, "/api/validate_csv", session)
+
+
+async def submit_basic_jobs(
+    request: Request,
+):
+    """submit_basic_jobs_legacy"""
+    async with AsyncClient(base_url=aind_dts_v1_url) as session:
+        return await proxy(request, "/api/submit_basic_jobs", session)
+
+
+async def submit_jobs(
+    request: Request,
+):
+    """submit_basic_jobs_legacy"""
+    async with AsyncClient(base_url=aind_dts_v1_url) as session:
+        return await proxy(request, "/api/v1/submit_jobs", session)
+
+
+async def submit_hpc_jobs(
+    request: Request,
+):
+    """submit_hpc_jobs_legacy"""
+    async with AsyncClient(base_url=aind_dts_v1_url) as session:
+        return await proxy(request, "/api/submit_hpc_jobs", session)
+
+
+async def validate_json(request: Request):
+    """validate_json_legacy"""
+    async with AsyncClient(base_url=aind_dts_v1_url) as session:
+        return await proxy(request, "/api/v1/validate_json", session)
 
 
 async def get_project_names() -> List[str]:
@@ -247,121 +340,6 @@ async def get_airflow_jobs(
     return (total_entries, jobs_list)
 
 
-async def validate_csv(request: Request):
-    """Validate a csv or xlsx file. Return parsed contents as json."""
-    logger.info("Received request to validate csv")
-    async with request.form() as form:
-        basic_jobs = []
-        errors = []
-        if not form["file"].filename.endswith((".csv", ".xlsx")):
-            errors.append("Invalid input file type")
-        else:
-            content = await form["file"].read()
-            if form["file"].filename.endswith(".csv"):
-                # A few csv files created from excel have extra unicode
-                # byte chars. Adding "utf-8-sig" should remove them.
-                data = content.decode("utf-8-sig")
-            else:
-                xlsx_book = load_workbook(io.BytesIO(content), read_only=True)
-                xlsx_sheet = xlsx_book.active
-                csv_io = io.StringIO()
-                csv_writer = csv.writer(csv_io)
-                for r in xlsx_sheet.iter_rows(values_only=True):
-                    if any(r):
-                        csv_writer.writerow(r)
-                xlsx_book.close()
-                data = csv_io.getvalue()
-            csv_reader = csv.DictReader(io.StringIO(data))
-            params = AirflowDagRunsRequestParameters(
-                dag_ids=["transform_and_upload_v2", "run_list_of_jobs"],
-                states=["running", "queued"],
-            )
-            _, current_jobs = await get_airflow_jobs(
-                params=params, get_confs=True
-            )
-            context = {
-                "job_types": get_job_types("v2"),
-                "project_names": await get_project_names(),
-                "current_jobs": current_jobs,
-            }
-            for row in csv_reader:
-                if not any(row.values()):
-                    continue
-                try:
-                    with validation_context_v2(context):
-                        job = map_csv_row_to_job(row=row)
-                    # Construct hpc job setting most of the vars from the env
-                    basic_jobs.append(
-                        json.loads(
-                            job.model_dump_json(
-                                round_trip=True,
-                                exclude_none=True,
-                                warnings=False,
-                            )
-                        )
-                    )
-                except ValidationError as e:
-                    errors.append(e.json())
-                except Exception as e:
-                    errors.append(f"{str(e.args)}")
-        message = "There were errors" if len(errors) > 0 else "Valid Data"
-        status_code = 406 if len(errors) > 0 else 200
-        content = {
-            "message": message,
-            "data": {"jobs": basic_jobs, "errors": errors},
-        }
-        return JSONResponse(
-            content=content,
-            status_code=status_code,
-        )
-
-
-# TODO: Deprecate this endpoint
-async def validate_csv_legacy(request: Request):
-    """Validate a csv or xlsx file. Return parsed contents as json."""
-    async with request.form() as form:
-        basic_jobs = []
-        errors = []
-        if not form["file"].filename.endswith((".csv", ".xlsx")):
-            errors.append("Invalid input file type")
-        else:
-            content = await form["file"].read()
-            if form["file"].filename.endswith(".csv"):
-                # A few csv files created from excel have extra unicode
-                # byte chars. Adding "utf-8-sig" should remove them.
-                data = content.decode("utf-8-sig")
-            else:
-                xlsx_book = load_workbook(io.BytesIO(content), read_only=True)
-                xlsx_sheet = xlsx_book.active
-                csv_io = io.StringIO()
-                csv_writer = csv.writer(csv_io)
-                for r in xlsx_sheet.iter_rows(values_only=True):
-                    if any(r):
-                        csv_writer.writerow(r)
-                xlsx_book.close()
-                data = csv_io.getvalue()
-            csv_reader = csv.DictReader(io.StringIO(data))
-            for row in csv_reader:
-                if not any(row.values()):
-                    continue
-                try:
-                    job = LegacyBasicUploadJobConfigs.from_csv_row(row=row)
-                    # Construct hpc job setting most of the vars from the env
-                    basic_jobs.append(job.model_dump_json())
-                except Exception as e:
-                    errors.append(f"{e.__class__.__name__}{e.args}")
-        message = "There were errors" if len(errors) > 0 else "Valid Data"
-        status_code = 406 if len(errors) > 0 else 200
-        content = {
-            "message": message,
-            "data": {"jobs": basic_jobs, "errors": errors},
-        }
-        return JSONResponse(
-            content=content,
-            status_code=status_code,
-        )
-
-
 async def validate_json_v2(request: Request):
     """Validate raw json against data transfer models. Returns validated
     json or errors if request is invalid."""
@@ -418,60 +396,6 @@ async def validate_json_v2(request: Request):
                 "message": "There was an internal server error",
                 "data": {
                     "version": aind_data_transfer_service_version,
-                    "model_json": content,
-                    "errors": str(e.args),
-                },
-            },
-        )
-
-
-async def validate_json(request: Request):
-    """Validate raw json against aind-data-transfer-models. Returns validated
-    json or errors if request is invalid."""
-    logger.info("Received request to validate json")
-    content = await request.json()
-    try:
-        project_names = await get_project_names()
-        with validation_context({"project_names": project_names}):
-            validated_model = SubmitJobRequest.model_validate_json(
-                json.dumps(content)
-            )
-        validated_content = json.loads(
-            validated_model.model_dump_json(warnings=False, exclude_none=True)
-        )
-        logger.info("Valid model detected")
-        return JSONResponse(
-            status_code=200,
-            content={
-                "message": "Valid model",
-                "data": {
-                    "version": aind_data_transfer_models_version,
-                    "model_json": content,
-                    "validated_model_json": validated_content,
-                },
-            },
-        )
-    except ValidationError as e:
-        logger.warning(f"There were validation errors processing {content}")
-        return JSONResponse(
-            status_code=406,
-            content={
-                "message": "There were validation errors",
-                "data": {
-                    "version": aind_data_transfer_models_version,
-                    "model_json": content,
-                    "errors": e.json(),
-                },
-            },
-        )
-    except Exception as e:
-        logger.exception("Internal Server Error.")
-        return JSONResponse(
-            status_code=500,
-            content={
-                "message": "There was an internal server error",
-                "data": {
-                    "version": aind_data_transfer_models_version,
                     "model_json": content,
                     "errors": str(e.args),
                 },
@@ -547,258 +471,6 @@ async def submit_jobs_v2(request: Request):
                 "data": {"responses": [], "errors": str(e.args)},
             },
         )
-
-
-async def submit_jobs(request: Request):
-    """Post BasicJobConfigs raw json to hpc server to process."""
-    logger.info("Received request to submit jobs")
-    content = await request.json()
-    try:
-        project_names = await get_project_names()
-        with validation_context({"project_names": project_names}):
-            model = SubmitJobRequest.model_validate_json(json.dumps(content))
-        full_content = json.loads(
-            model.model_dump_json(warnings=False, exclude_none=True)
-        )
-        logger.info(
-            f"Valid request detected. Sending list of jobs. "
-            f"Job Type: {model.job_type}"
-        )
-        total_jobs = len(model.upload_jobs)
-        for job_index, job in enumerate(model.upload_jobs, 1):
-            logger.info(
-                f"{job.s3_prefix} sending to airflow. "
-                f"{job_index} of {total_jobs}."
-            )
-
-        async with AsyncClient(
-            auth=(
-                os.getenv("AIND_AIRFLOW_SERVICE_USER"),
-                os.getenv("AIND_AIRFLOW_SERVICE_PASSWORD"),
-            )
-        ) as async_client:
-            response = await async_client.post(
-                url=os.getenv("AIND_AIRFLOW_SERVICE_URL"),
-                json={"conf": full_content},
-            )
-            status_code = response.status_code
-            response_json = response.json()
-        return JSONResponse(
-            status_code=status_code,
-            content={
-                "message": "Submitted request to airflow",
-                "data": {"responses": [response_json], "errors": []},
-            },
-        )
-
-    except ValidationError as e:
-        logger.warning(f"There were validation errors processing {content}")
-        return JSONResponse(
-            status_code=406,
-            content={
-                "message": "There were validation errors",
-                "data": {"responses": [], "errors": e.json()},
-            },
-        )
-    except Exception as e:
-        logger.exception("Internal Server Error.")
-        return JSONResponse(
-            status_code=500,
-            content={
-                "message": "There was an internal server error",
-                "data": {"responses": [], "errors": str(e.args)},
-            },
-        )
-
-
-# TODO: Deprecate this endpoint
-async def submit_basic_jobs(request: Request):
-    """Post BasicJobConfigs raw json to hpc server to process."""
-    content = await request.json()
-    hpc_client_conf = HpcClientConfigs()
-    hpc_client = HpcClient(configs=hpc_client_conf)
-    basic_jobs = content["jobs"]
-    hpc_jobs = []
-    parsing_errors = []
-    for job in basic_jobs:
-        try:
-            basic_upload_job = LegacyBasicUploadJobConfigs.model_validate_json(
-                job
-            )
-            # Add aws_param_store_name and temp_dir
-            basic_upload_job.aws_param_store_name = os.getenv(
-                "HPC_AWS_PARAM_STORE_NAME"
-            )
-            basic_upload_job.temp_directory = os.getenv(
-                "HPC_STAGING_DIRECTORY"
-            )
-            hpc_job = HpcJobConfigs(basic_upload_job_configs=basic_upload_job)
-            hpc_jobs.append(hpc_job)
-        except Exception as e:
-            parsing_errors.append(
-                f"Error parsing {job}: {e.__class__.__name__}"
-            )
-    if parsing_errors:
-        status_code = 406
-        message = "There were errors parsing the basic job configs"
-        content = {
-            "message": message,
-            "data": {"responses": [], "errors": parsing_errors},
-        }
-    else:
-        responses = []
-        hpc_errors = []
-        for hpc_job in hpc_jobs:
-            try:
-                job_def = hpc_job.job_definition
-                response = await hpc_client.submit_job(job_def)
-                response_json = response.json()
-                responses.append(response_json)
-                # Add pause to stagger job requests to the hpc
-                await sleep(0.2)
-            except Exception as e:
-                logger.error(f"{e.__class__.__name__}{e.args}")
-                hpc_errors.append(
-                    f"Error processing "
-                    f"{hpc_job.basic_upload_job_configs.s3_prefix}"
-                )
-        message = (
-            "There were errors submitting jobs to the hpc."
-            if len(hpc_errors) > 0
-            else "Submitted Jobs."
-        )
-        status_code = 500 if len(hpc_errors) > 0 else 200
-        content = {
-            "message": message,
-            "data": {"responses": responses, "errors": hpc_errors},
-        }
-    return JSONResponse(
-        content=content,
-        status_code=status_code,
-    )
-
-
-# TODO: Deprecate this endpoint
-async def submit_hpc_jobs(request: Request):  # noqa: C901
-    """Post HpcJobSubmitSettings to hpc server to process."""
-
-    content = await request.json()
-    # content should have
-    # {
-    #   "jobs": [{"hpc_settings": str, upload_job_settings: str, script: str}]
-    # }
-    hpc_client_conf = HpcClientConfigs()
-    hpc_client = HpcClient(configs=hpc_client_conf)
-    job_configs = content["jobs"]
-    hpc_jobs = []
-    parsing_errors = []
-    for job in job_configs:
-        try:
-            base_script = job.get("script")
-            # If script is empty, assume that the job type is a basic job
-            basic_job_name = None
-            if base_script is None or base_script == "":
-                base_script = HpcJobSubmitSettings.script_command_str(
-                    sif_loc_str=os.getenv("HPC_SIF_LOCATION")
-                )
-                basic_job_name = (
-                    LegacyBasicUploadJobConfigs.model_validate_json(
-                        job["upload_job_settings"]
-                    ).s3_prefix
-                )
-            upload_job_configs = json.loads(job["upload_job_settings"])
-            # This will set the bucket to the private data one
-            if upload_job_configs.get("s3_bucket") is not None:
-                upload_job_configs = json.loads(
-                    LegacyBasicUploadJobConfigs.model_validate(
-                        upload_job_configs
-                    ).model_dump_json()
-                )
-            # The aws creds to use are different for aind-open-data and
-            # everything else
-            if upload_job_configs.get("s3_bucket") == OPEN_DATA_BUCKET_NAME:
-                aws_secret_access_key = SecretStr(
-                    os.getenv("OPEN_DATA_AWS_SECRET_ACCESS_KEY")
-                )
-                aws_access_key_id = os.getenv("OPEN_DATA_AWS_ACCESS_KEY_ID")
-            else:
-                aws_secret_access_key = SecretStr(
-                    os.getenv("HPC_AWS_SECRET_ACCESS_KEY")
-                )
-                aws_access_key_id = os.getenv("HPC_AWS_ACCESS_KEY_ID")
-            hpc_settings = json.loads(job["hpc_settings"])
-            if basic_job_name is not None:
-                hpc_settings["name"] = basic_job_name
-            hpc_job = HpcJobSubmitSettings.from_upload_job_configs(
-                logging_directory=PurePosixPath(
-                    os.getenv("HPC_LOGGING_DIRECTORY")
-                ),
-                aws_secret_access_key=aws_secret_access_key,
-                aws_access_key_id=aws_access_key_id,
-                aws_default_region=os.getenv("HPC_AWS_DEFAULT_REGION"),
-                aws_session_token=(
-                    (
-                        None
-                        if os.getenv("HPC_AWS_SESSION_TOKEN") is None
-                        else SecretStr(os.getenv("HPC_AWS_SESSION_TOKEN"))
-                    )
-                ),
-                **hpc_settings,
-            )
-            if not upload_job_configs:
-                script = base_script
-            else:
-                script = hpc_job.attach_configs_to_script(
-                    script=base_script,
-                    base_configs=upload_job_configs,
-                    upload_configs_aws_param_store_name=os.getenv(
-                        "HPC_AWS_PARAM_STORE_NAME"
-                    ),
-                    staging_directory=os.getenv("HPC_STAGING_DIRECTORY"),
-                )
-            hpc_jobs.append((hpc_job, script))
-        except Exception as e:
-            parsing_errors.append(
-                f"Error parsing {job['upload_job_settings']}: {repr(e)}"
-            )
-    if parsing_errors:
-        status_code = 406
-        message = "There were errors parsing the job configs"
-        content = {
-            "message": message,
-            "data": {"responses": [], "errors": parsing_errors},
-        }
-    else:
-        responses = []
-        hpc_errors = []
-        for hpc_job in hpc_jobs:
-            hpc_job_def = hpc_job[0]
-            try:
-                script = hpc_job[1]
-                response = await hpc_client.submit_hpc_job(
-                    job=hpc_job_def, script=script
-                )
-                response_json = response.json()
-                responses.append(response_json)
-                # Add pause to stagger job requests to the hpc
-                await sleep(0.2)
-            except Exception as e:
-                logger.error(repr(e))
-                hpc_errors.append(f"Error processing " f"{hpc_job_def.name}")
-        message = (
-            "There were errors submitting jobs to the hpc."
-            if len(hpc_errors) > 0
-            else "Submitted Jobs."
-        )
-        status_code = 500 if len(hpc_errors) > 0 else 200
-        content = {
-            "message": message,
-            "data": {"responses": responses, "errors": hpc_errors},
-        }
-    return JSONResponse(
-        content=content,
-        status_code=status_code,
-    )
 
 
 async def get_job_status_list(request: Request):
@@ -1277,7 +949,7 @@ async def auth(request: Request):
 
 routes = [
     Route("/", endpoint=index, methods=["GET", "POST"]),
-    Route("/api/validate_csv", endpoint=validate_csv_legacy, methods=["POST"]),
+    Route("/api/validate_csv", endpoint=validate_csv, methods=["POST"]),
     Route(
         "/api/submit_basic_jobs", endpoint=submit_basic_jobs, methods=["POST"]
     ),

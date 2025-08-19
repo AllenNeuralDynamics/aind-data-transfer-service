@@ -10,7 +10,7 @@ from aind_data_schema_models.modalities import Modality
 from aind_data_schema_models.platforms import Platform
 from aind_data_schema_models.process_names import ProcessName
 
-from aind_data_transfer_service.configs.job_configs import (
+from aind_data_transfer_service.legacy_configs.job_configs import (
     BasicUploadJobConfigs,
     HpcJobConfigs,
     ModalityConfigs,

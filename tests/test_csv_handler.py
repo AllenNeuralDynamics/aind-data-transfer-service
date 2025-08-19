@@ -9,7 +9,7 @@ from pathlib import Path
 from aind_data_schema_models.modalities import Modality
 from aind_data_schema_models.platforms import Platform
 
-from aind_data_transfer_service.configs.csv_handler import (
+from aind_data_transfer_service.legacy_configs.csv_handler import (
     create_nested_dict,
     map_csv_row_to_job,
     nested_update,

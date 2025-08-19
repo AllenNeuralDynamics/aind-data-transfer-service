@@ -16,7 +16,9 @@ from aind_metadata_mapper.bergamo.models import (
 from aind_metadata_mapper.models import (
     JobSettings as GatherMetadataJobSettings,
 )
-from aind_metadata_mapper.models import SessionSettings
+from aind_metadata_mapper.models import (
+    SessionSettings,
+)
 
 from aind_data_transfer_service.models.core import (
     SubmitJobRequestV2,

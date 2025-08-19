@@ -7,7 +7,7 @@ from pathlib import Path
 from openpyxl import load_workbook
 from openpyxl.utils import range_boundaries
 
-from aind_data_transfer_service.configs.job_upload_template import (
+from aind_data_transfer_service.legacy_configs.job_upload_template import (
     JobUploadTemplate,
 )
 

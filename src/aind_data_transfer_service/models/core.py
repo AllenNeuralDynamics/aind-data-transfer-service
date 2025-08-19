@@ -8,7 +8,6 @@ from typing import Any, Dict, List, Literal, Optional, Set, Union
 
 from aind_data_schema_models.data_name_patterns import build_data_name
 from aind_data_schema_models.modalities import Modality
-from aind_data_schema_models.platforms import Platform
 from pydantic import (
     BaseModel,
     ConfigDict,
@@ -20,6 +19,8 @@ from pydantic import (
     model_validator,
 )
 from pydantic_settings import BaseSettings
+
+from aind_data_transfer_service.legacy_configs.platforms_v1 import Platform
 
 _validation_context: ContextVar[Union[Dict[str, Any], None]] = ContextVar(
     "_validation_context", default=None
@@ -163,8 +164,13 @@ class UploadJobConfigsV2(BaseSettings):
     project_name: str = Field(
         ..., description="Name of project", title="Project Name"
     )
-    platform: Platform.ONE_OF = Field(
-        ..., description="Platform", title="Platform"
+    platform: Optional[Platform.ONE_OF] = Field(
+        default=None,
+        title="Platform",
+        description=(
+            "Legacy field required for aind-data-schema v1. Will be removed"
+            " in future versions."
+        ),
     )
     modalities: List[Modality.ONE_OF] = Field(
         ...,
@@ -190,8 +196,12 @@ class UploadJobConfigsV2(BaseSettings):
     @computed_field
     def s3_prefix(self) -> str:
         """Construct s3_prefix from configs."""
+        if self.platform is not None:
+            label = f"{self.platform.abbreviation}_{self.subject_id}"
+        else:
+            label = self.subject_id
         return build_data_name(
-            label=f"{self.platform.abbreviation}_{self.subject_id}",
+            label=label,
             creation_datetime=self.acq_datetime,
         )
 
