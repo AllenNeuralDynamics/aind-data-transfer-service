@@ -17,9 +17,9 @@ class LoggingConfigs(BaseSettings):
     loki_uri: Optional[str] = Field(
         default=None, description="URI of Loki logging server."
     )
-    log_level: Literal[
-        "DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"
-    ] = Field(default="INFO", description="Log level")
+    log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = (
+        Field(default="DEBUG", description="Log level")
+    )
 
     @property
     def app_name(self):
