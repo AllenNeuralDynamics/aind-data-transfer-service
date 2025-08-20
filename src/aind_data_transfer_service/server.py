@@ -77,7 +77,8 @@ templates = Jinja2Templates(directory=template_directory)
 logger = get_logger(log_configs=LoggingConfigs())
 project_names_url = os.getenv("AIND_METADATA_SERVICE_PROJECT_NAMES_URL")
 aind_dts_v1_url = os.getenv(
-    "AIND_DATA_TRANSFER_SERVICE_V1_URL", "http://aind-data-transfer-service-v1"
+    "AIND_DATA_TRANSFER_SERVICE_V1_URL",
+    "http://aind-data-transfer-service-v1:5000",
 )
 
 

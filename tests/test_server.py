@@ -1506,6 +1506,31 @@ class TestServer(unittest.TestCase):
         self.assertEqual(response.status_code, 406)
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
+    @patch("aind_data_transfer_service.server.get_airflow_jobs")
+    @patch("aind_data_transfer_service.server.get_job_types")
+    @patch("aind_data_transfer_service.server.get_project_names")
+    @patch("aind_data_transfer_service.server.map_csv_row_to_job")
+    def test_validate_v2_malformed_csv2_with_exception(
+        self,
+        mock_map_row_to_job: MagicMock,
+        mock_get_project_names: MagicMock,
+        mock_get_job_types: MagicMock,
+        mock_get_airflow_jobs: MagicMock,
+    ):
+        """Tests that invalid csv returns errors"""
+        mock_map_row_to_job.side_effect = Exception("Error")
+        mock_get_project_names.return_value = ["Ephys Platform"]
+        mock_get_job_types.return_value = ["default"]
+        mock_get_airflow_jobs.return_value = (0, list())
+        with TestClient(app) as client:
+            with open(MALFORMED_SAMPLE_CSV_2, "rb") as f:
+                files = {
+                    "file": f,
+                }
+                response = client.post(url="/api/v2/validate_csv", files=files)
+        self.assertEqual(response.status_code, 406)
+
+    @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch("logging.Logger.warning")
     @patch("httpx.AsyncClient.post")
     @patch("aind_data_transfer_service.server.get_airflow_jobs")

@@ -151,9 +151,14 @@ def map_csv_row_to_job(row: dict) -> UploadJobConfigsV2:
             None if codeocean_tasks == dict() else codeocean_tasks
         ),
     }
+    platform = (
+        None
+        if job_configs.get("platform") is None
+        else Platform.from_abbreviation(job_configs["platform"])
+    )
     job_configs.update(
         {
-            "platform": Platform.from_abbreviation(job_configs["platform"]),
+            "platform": platform,
             "modalities": [
                 Modality.from_abbreviation(m) for m in modality_tasks.keys()
             ],
