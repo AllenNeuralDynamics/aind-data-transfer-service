@@ -3,6 +3,7 @@
 import json
 import unittest
 from datetime import datetime
+from unittest.mock import MagicMock
 
 from aind_data_schema_models.modalities import Modality
 from pydantic import ValidationError
@@ -112,6 +113,22 @@ class TestUploadJobConfigsV2(unittest.TestCase):
             "behavior_123456_2020-10-13_13-10-10",
             self.example_configs.s3_prefix,
         )
+
+    def test_platform_backward_compatibility(self):
+        """
+        Tests that aind_data_schema_models.platforms will be coerced correctly.
+        """
+        mock_platform = MagicMock()
+        mock_platform.model_dump.return_value = Platform.ECEPHYS.model_dump()
+        mock_platform.__class__.__module__ = (
+            "aind_data_schema_models.platforms"
+        )
+        base_configs = self.example_configs.model_dump(
+            exclude={"s3_bucket": True, "s3_prefix": True}
+        )
+        base_configs["platform"] = mock_platform
+        configs = UploadJobConfigsV2.model_validate(base_configs)
+        self.assertEqual(Platform.ECEPHYS, configs.platform)
 
     def test_job_type_default(self):
         """Tests default, valid, and invalid job_type property"""

@@ -205,6 +205,17 @@ class UploadJobConfigsV2(BaseSettings):
             creation_datetime=self.acq_datetime,
         )
 
+    @field_validator("platform", mode="before")
+    def validate_platform(cls, v):
+        """
+        For backwards compatibility, allow a user to input an
+        aind-data-schema-model platform and then convert it.
+        """
+        if type(v).__module__ == "aind_data_schema_models.platforms":
+            return v.model_dump()
+        else:
+            return v
+
     @field_validator("job_type", "project_name", mode="before")
     def validate_with_context(cls, v: str, info: ValidationInfo) -> str:
         """
