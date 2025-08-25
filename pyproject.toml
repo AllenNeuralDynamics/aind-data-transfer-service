@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "aind-data-transfer-service"
 description = "Service that handles requests to upload data to the cloud"
 license = {text = "MIT"}
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 authors = [
     {name = "Allen Institute for Neural Dynamics"}
 ]
@@ -17,7 +17,7 @@ readme = "README.md"
 dynamic = ["version"]
 
 dependencies = [
-    'aind-data-schema-models>=0.3.2,<1.0.0',
+    'aind-data-schema-models>=0.3.2',
     'email-validator',
     'pydantic>=2.0',
     'pydantic-settings>=2.0',
@@ -39,9 +39,7 @@ docs = [
 ]
 
 server = [
-    'aind-data-schema>=1.0.0,<2.0',
-    'aind-data-transfer-models==0.17.0',
-    'aind-metadata-mapper>=0.23.0',
+    'aind-data-schema==2.0.0',
     'boto3',
     'boto3-stubs[ssm]',
     'fastapi>=0.115.13', 

@@ -7,13 +7,13 @@ from datetime import datetime
 from pathlib import Path
 
 from aind_data_schema_models.modalities import Modality
-from aind_data_schema_models.platforms import Platform
 
 from aind_data_transfer_service.configs.csv_handler import (
     create_nested_dict,
     map_csv_row_to_job,
     nested_update,
 )
+from aind_data_transfer_service.configs.platforms_v1 import Platform
 from aind_data_transfer_service.models.core import Task, UploadJobConfigsV2
 
 RESOURCES_DIR = Path(os.path.dirname(os.path.realpath(__file__))) / "resources"

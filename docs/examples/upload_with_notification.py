@@ -7,6 +7,9 @@ from datetime import datetime
 
 import requests
 from aind_data_schema_models.modalities import Modality
+
+# Note, the platform field is optional and will be deprecated. If adding a
+# platform please use aind-data-transfer-service <= 1.17.2
 from aind_data_schema_models.platforms import Platform
 
 from aind_data_transfer_service.models.core import (
