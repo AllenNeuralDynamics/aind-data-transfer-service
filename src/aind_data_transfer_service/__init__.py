@@ -2,7 +2,7 @@
 
 import os
 
-__version__ = "1.17.2"
+__version__ = "1.18.0"
 
 # Global constants
 OPEN_DATA_BUCKET_NAME = os.getenv("OPEN_DATA_BUCKET_NAME", "open")
