@@ -39,6 +39,7 @@ class TestTask(unittest.TestCase):
         self.assertDictEqual(
             {
                 "skip_task": False,
+                "retry_count": 0,
                 "image": "some_image",
                 "image_version": "1.0.0",
                 "image_resources": {"key": "value"},
@@ -53,6 +54,7 @@ class TestTask(unittest.TestCase):
         # skippable task
         expected_configs = {
             "skip_task": True,
+            "retry_count": 0,
             "image": None,
             "image_version": None,
             "image_resources": None,
