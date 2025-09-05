@@ -93,6 +93,13 @@ class Task(BaseModel):
             """
         ),
     )
+    retry_count: int = Field(
+        default=0,
+        description=(
+            "Experimental parameter to retry failed compression jobs. Please "
+            "ask a member of Scientific Computing for more info before using."
+        ),
+    )
 
     @field_validator(
         "image_resources",
