@@ -122,8 +122,6 @@ portal can accessed at
    -  subject_id: The LabTracks ID of the mouse
    -  acq_datetime: The date and time the data was acquired. Should be
       in ISO format, for example, 2024-05-27T16:07:59
-   -  platform: Standardized way of collecting and processing data
-      (chosen from drop down menu)
    -  **modalities**: Two columns must be added per modality. A
       **modality** (chosen from drop down menu) and a Posix style path
       to the data source. For example,
@@ -140,6 +138,8 @@ portal can accessed at
 
 -  Optional fields
 
+   -  platform: Standardized way of collecting and processing data
+      (chosen from drop down menu)
    -  metadata_dir: If metadata files are pre-compiled and saved to a
       directory, you can add the Posix style path to the directory under
       this column
