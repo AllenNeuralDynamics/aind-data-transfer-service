@@ -1,5 +1,5 @@
-User Guide V2
-=============
+User Guide
+==========
 
 Thank you for using ``aind-data-transfer-service``! This guide is
 intended for scientists and engineers in AIND that wish to upload data
@@ -73,7 +73,7 @@ Prerequisites
 -  It's assumed that raw data is already stored and organized on a
    shared network drive such as VAST.
 -  The raw data should be organized by modality.
--  Please see `aind-file-standards <https://allenneuraldynamics.github.io/aind-file-standards/file_formats/behavior_videos/#file-quality-assurances>`__ for more information.
+-  Please see `aind-file-standards <https://allenneuraldynamics.github.io/aind-file-standards>`__ for more information.
    -  Example 1:
 
       .. code:: bash
