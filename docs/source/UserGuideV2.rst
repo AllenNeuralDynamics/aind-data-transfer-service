@@ -47,9 +47,9 @@ job_types.
       metadata.nd.json file.
    -  check_metadata_files: Checks that the metadata files exist and are json.
    -  upload_data_to_s3: Uploads the data to S3.
-   -  register_data_asset_to_codeocean: Registers the data asset to Code Ocean.
-   -  update_docdb_record: Updates the DocDB record with the Code Ocean Data
-      Asset ID.
+   -  upload_metadata_nd_to_s3: Uploads metadata.nd.json file to S3, which will
+      also register the record to DocDB and Code Ocean.
+   -  get_codeocean_asset_id: Retrieve the Code Ocean data asset ID from DocDB.
    -  **codeocean_pipeline_settings**: As with the
       modality_transformation_settings, the parameters to send to the
       codeocean pipeline monitor capsule.
@@ -73,27 +73,17 @@ Prerequisites
 -  It's assumed that raw data is already stored and organized on a
    shared network drive such as VAST.
 -  The raw data should be organized by modality.
-
+-  Please see `aind-file-standards <https://allenneuraldynamics.github.io/aind-file-standards/file_formats/behavior_videos/#file-quality-assurances>`__ for more information.
    -  Example 1:
 
       .. code:: bash
 
          - /allen/aind/scratch/working_group/session_123456_2024-06-19
-           - /ecephys_data
-           - /behavior_data
+           - /ecephys
+           - /behavior
            - /behavior_videos
-           - /aind_metadata
-
-   -  Example 2:
-
-      .. code:: bash
-
-         - /allen/aind/scratch/ecephys_data/session_123456_2024-06-19
-         - /allen/aind/scratch/behavior_data/session_123456_2024-06-19
-         - /allen/aind/scratch/behavior_videos/session_123456_2024-06-19
-         - /allen/aind/scratch/aind_metadata/session_123456_2024-06-19
-
--  The different modalities should not be nested
+           - session.json
+           - rig.json
 
 Using the web portal
 --------------------
