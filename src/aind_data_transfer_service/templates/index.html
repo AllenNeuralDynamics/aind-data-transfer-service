@@ -1,7 +1,10 @@
 <!DOCTYPE html>
 <html>
 <head>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.8.1/font/bootstrap-icons.min.css" rel="stylesheet">
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.4/jquery.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <meta charset="UTF-8">
     <title>{% block title %} {% endblock %} AIND Data Transfer Service</title>
     <style>
@@ -25,7 +28,7 @@
         background-color: #E8EAF6;
         color: #3F51B5;
     }
-    #submit { 
+    #submit {
         border: none;
         border-radius: 6px;
         color: #ffffff;
@@ -85,6 +88,21 @@
     <button id="submit" type="button" onclick="submitJobs()">Submit</button>
     <div id="message"></div><br>
     <div id="response"></div>
+
+        <!-- Modality Settings Modal -->
+    <div class="modal fade" id="settings-modal" tabindex="-1" aria-labelledby="settings-modal-label">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header p-2">
+                    <h5 class="modal-title" id="settings-modal-label">modality settings</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-2">
+                    <iframe id="settings-iframe" class="w-100" style="height:400px; border:none;"></iframe>
+                </div>
+            </div>
+        </div>
+    </div>
     <script>
         var jobs = []
         var parsing_errors = []
@@ -106,29 +124,54 @@
                 $("#message").addClass("error");
             }
         };
-        addTableRow = function(data, table, tr, td, isHeader) {
+        addTableRow = function(data, table, tr, td, isHeader, modalities = null) {
             tr = document.createElement('tr');
+
+            // First column: Modality Settings
+            const tdModal = document.createElement(isHeader ? 'th' : 'td');
+            if (!isHeader && modalities && modalities.length > 0) {
+                const openModalButton = document.createElement("button");
+                openModalButton.type = "button";
+                openModalButton.className = "btn btn-outline-primary btn-sm";
+                openModalButton.dataset.bsToggle = "modal";
+                openModalButton.dataset.bsTarget = "#settings-modal";
+                openModalButton.innerHTML = `<i class="bi bi-box-arrow-up-right"></i>`;
+                openModalButton.modalitiesData = modalities;
+
+                tdModal.appendChild(openModalButton);
+
+                // Apply rowspan if more than one modality row
+                if (data.rowspan) tdModal.setAttribute("rowspan", data.rowspan);
+            } else if (isHeader) {
+                tdModal.innerHTML = "modal";
+            }
+            tr.appendChild(tdModal);
+
+            // Other columns
             for (var d of data) {
                 td = document.createElement(isHeader ? 'th' : 'td');
                 td.innerHTML = d.value ?? d;
                 if (d.rowspan) {
                     td.setAttribute("rowspan", d.rowspan);
                 }
-                tr.append(td);
+                tr.appendChild(td);
             }
             table.appendChild(tr);
         };
+
         validateJobs = function(fileElement) {
             if (fileElement.files.length != 1) {
                 // File attach was cancelled by user
                 return;
-            } 
+            }
             if (![".csv", ".xlsx"].some(ext => fileElement.files[0].name.endsWith(ext))) {
                 fileElement.value = null;
                 alert("Invalid file type. Please attach a .csv or .xlsx file.");
                 return;
             }
+
             var formData = new FormData(document.getElementById("file_form"));
+
             $.ajax({
                 url: "/api/v2/validate_csv",
                 type: "POST",
@@ -143,13 +186,16 @@
                 success: function(data) {
                     setMessage(msgTypes.validateSuccess);
                     jobs = data["data"]["jobs"];
-                    parsing_errors = []
+                    parsing_errors = [];
                     let jobsLength = jobs.length;
                     var table = document.createElement('table'), tr, td, row;
+
+                    // Header row
                     addTableRow(
-                        [ "job_type", "project_name", "s3_bucket", "platform", "subject_id", "acq_datetime", "metadata_dir", "modality", "modality.input_source" ],
+                        ["modal", "job_type", "project_name", "s3_bucket", "platform", "subject_id", "acq_datetime", "metadata_dir", "modality", "modality.input_source" ],
                         table, tr, td, true
                     );
+
                     for (row = 0; row < jobsLength; row++) {
                         let job = jobs[row];
                         let modalities = job.tasks?.modality_transformation_settings;
@@ -157,43 +203,47 @@
                             modalities = Object.entries(modalities).map(([key, value]) => ({
                                 abbreviation: key,
                                 input_source: value.job_settings?.input_source
-                            }))
+                            }));
                         }
+
+                        let modalitiesJobJSON = job
                         let modalitiesLength = modalities ? modalities.length: 0;
-                        let metadata_dir = job.tasks?.gather_preliminary_metadata?.job_settings?.metadata_dir
+                        let metadata_dir = job.tasks?.gather_preliminary_metadata?.job_settings?.metadata_dir;
+
+                        // First row: job info + first modality
                         addTableRow(
-                            [
+                            [   { value: "hello world",                rowspan: modalitiesLength},
                                 { value: job.job_type,                 rowspan: modalitiesLength },
                                 { value: job.project_name,             rowspan: modalitiesLength },
                                 { value: job.s3_bucket,                rowspan: modalitiesLength },
-                                { value: job.platform?.abbreviation ?? "",    rowspan: modalitiesLength },
+                                { value: job.platform?.abbreviation ?? "", rowspan: modalitiesLength },
                                 { value: job.subject_id,               rowspan: modalitiesLength },
                                 { value: job.acq_datetime,             rowspan: modalitiesLength },
                                 { value: metadata_dir ?? "",           rowspan: modalitiesLength },
                                 modalities ? modalities[0].abbreviation : "",
                                 modalities ? modalities[0].input_source : ""
-                            ], table, tr, td, false
+                            ], table, tr, td, false, modalities
                         );
-                        for (mRow = 1; mRow < modalitiesLength; mRow++) {
-                            let modality = modalities[mRow]
+                        for (let mRow = 1; mRow < modalities.length; mRow++) {
+                            let modality = modalities[mRow];
                             addTableRow(
                                 [ modality.abbreviation, modality.input_source ],
                                 table, tr, td, false
                             );
                         }
                     }
+
                     $("#response").html(table);
                 },
                 error: function(data) {
-                    jobs = []
-                    parsing_errors = data.responseJSON["data"]["errors"]
+                    jobs = [];
+                    parsing_errors = data.responseJSON["data"]["errors"];
                     setMessage(msgTypes.validateError);
-                    $("#response").html(parsing_errors.map((err) => {
-                        return `<li>${err}</li>`
-                    }));
+                    $("#response").html(parsing_errors.map(err => `<li>${err}</li>`));
                 }
             });
-        };
+};
+
         submitJobs = function() {
             if(jobs.length > 0 && parsing_errors.length == 0){
                 let job_settings = {};
@@ -253,6 +303,27 @@
                 return;
             }
         };
+
+        document.addEventListener("DOMContentLoaded", () => {
+            var settingsModal = document.getElementById('settings-modal');
+
+            settingsModal.addEventListener('show.bs.modal', function(event) {
+                var button = event.relatedTarget;
+                if (!button || !button.modalitiesData) return;
+
+                var modalities = button.modalitiesData;
+                var iframe = document.getElementById("settings-iframe");
+                const blob = new Blob(
+                    [`<pre style="white-space: pre-wrap; font-size: small;">${JSON.stringify(modalities, null, 2)}</pre>`],
+                    { type: "text/html" }
+                );
+                iframe.src = URL.createObjectURL(blob);
+            });
+
+            settingsModal.addEventListener('hidden.bs.modal', function() {
+                document.getElementById("settings-iframe").src = '';
+            });
+        });
     </script>
 </body>
 </html>
