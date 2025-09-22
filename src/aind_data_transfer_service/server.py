@@ -764,7 +764,7 @@ async def job_params(request: Request):
                     "AIND_METADATA_SERVICE_PROJECT_NAMES_URL"
                 ),
                 "versions": ["v1", "v2"],
-                "default_version": "v1",
+                "default_version": "v2",
                 "modalities": JobParamInfo._MODALITIES_LIST,
                 "modality_tasks": JobParamInfo._MODALITY_TASKS,
             }

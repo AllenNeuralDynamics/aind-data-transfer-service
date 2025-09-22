@@ -44,17 +44,6 @@
     </nav>
     <div class="content">
         <h4 class="mb-2">
-            <!-- dropdown to switch version -->
-            <div id="version-dropdown" class="btn-group mb-2">
-                <button id="version-button" type="button" class="btn btn-primary dropdown-toggle" data-bs-toggle="dropdown">
-                    {{default_version}}
-                </button>
-                <ul class="dropdown-menu">
-                    {% for v in versions %}
-                    <button class="dropdown-item" type="button">{{ v }}</button>
-                    {% endfor %}
-                </ul>
-            </div>
             <span>Job Parameters</span>
         </h4>
         <!-- button and modal for adding new parameters-->
@@ -148,7 +137,7 @@
                 modal.data('bs-action', action); // save action type
                 const isNew = action === 'new';
                 modal.find(`#${MODAL_ID}-label`).text(isNew ? 'Add New Parameter' : eventTarget.data('bs-param-name'));
-                modal.find(`#${MODAL_ID}-version`).text(getCurrentVersion()).toggle(isNew);
+                modal.find(`#${MODAL_ID}-version`).text('v2').toggle(isNew);
                 modal.find(`#${MODAL_ID}-dropdowns`).toggle(isNew);
                 if (isNew) {
                     ['Job Type', 'Task ID'].forEach(field => {
@@ -173,7 +162,7 @@
                 const action = modal.data('bs-action');
                 let url;
                 if (action === "new") {
-                    const version = getCurrentVersion();
+                    const version = 'v2';
                     const jobType = getValidatedInputValue('Job Type', modal);
                     const taskId = getValidatedInputValue('Task ID', modal);
                     const modality = MODALITY_TASKS.includes(taskId) ? getValidatedInputValue('Modality', modal) : null;
@@ -196,14 +185,6 @@
             });
             $(`#${MODAL_ID}-modality-select`).on('change', function() {
                 handleExistingParam();
-            });
-            // Event listener for version dropdown
-            $('#version-dropdown .dropdown-item').on('click', function() {
-                var version = $(this).text();
-                if (version != getCurrentVersion()) {
-                    $('#version-button').text(version);
-                    $('#job-params-table').DataTable().ajax.url(`/api/${version}/parameters`).load();
-                }
             });
         });
         // Create DataTable for job params table
@@ -259,12 +240,12 @@
         function renderParameterButton(data, type, row) {
             if (type == 'display') {
                 return (
-                    `<button type="button" class="btn btn-link btn-sm" 
-                        data-bs-toggle="modal" 
+                    `<button type="button" class="btn btn-link btn-sm"
+                        data-bs-toggle="modal"
                         data-bs-target="#${MODAL_ID}"
                         data-bs-action="edit"
-                        data-bs-param-name=${data} 
-                        data-bs-job-type=${row.job_type} 
+                        data-bs-param-name=${data}
+                        data-bs-job-type=${row.job_type}
                         data-bs-task-id=${row.task_id}
                         data-bs-modality=${row.modality}
                     >${data}
@@ -280,7 +261,7 @@
         }
         function getParamUrlFromParamName(paramName) {
             const match = paramName.match(/job_types\/(v\d+)?\/?(.*)/);
-            const version = match && match[1] ? match[1] : 'v1';
+            const version = match && match[1] ? match[1] : 'v2';
             const cleanedParamName = match ? match[2] : paramName;
             return `/api/${version}/parameters/job_types/${cleanedParamName}`;
         }
@@ -338,7 +319,7 @@
         function handleExistingParam() {
             let exists = false;
             const modal = $(`#${MODAL_ID}`);
-            const version = getCurrentVersion();
+            const version = 'v2';
             const jobType = getInputValues('Job Type', modal).input;
             const taskId = getInputValues('Task ID', modal).input;
             const modality = MODALITY_TASKS.includes(taskId) ? getInputValues('Modality', modal).input : null;
@@ -368,9 +349,6 @@
             }
         }
         // Helper methods to get current values
-        function getCurrentVersion() {
-            return $('#version-button').text().trim();
-        }
         function getUniqueColumnValues(columnTitle) {
             return Array.from(new Set($('#job-params-table').DataTable().column(`${columnTitle}:title`).data().toArray()));
         }
