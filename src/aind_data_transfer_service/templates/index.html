@@ -166,7 +166,7 @@
                                 { value: job.job_type,                 rowspan: modalitiesLength },
                                 { value: job.project_name,             rowspan: modalitiesLength },
                                 { value: job.s3_bucket,                rowspan: modalitiesLength },
-                                { value: job.platform.abbreviation,    rowspan: modalitiesLength },
+                                { value: job.platform?.abbreviation ?? "",    rowspan: modalitiesLength },
                                 { value: job.subject_id,               rowspan: modalitiesLength },
                                 { value: job.acq_datetime,             rowspan: modalitiesLength },
                                 { value: metadata_dir ?? "",           rowspan: modalitiesLength },
