@@ -124,6 +124,7 @@
     </div>
     <script>
         const MODALITY_TASKS = {{ modality_tasks | tojson }}; // from Jinja context
+        const DEFAULT_VERSION = "{{ default_version }}";
         const MODAL_ID = 'param-modal';
         $(document).ready(function() {
             createJobParamsTable();
@@ -137,7 +138,7 @@
                 modal.data('bs-action', action); // save action type
                 const isNew = action === 'new';
                 modal.find(`#${MODAL_ID}-label`).text(isNew ? 'Add New Parameter' : eventTarget.data('bs-param-name'));
-                modal.find(`#${MODAL_ID}-version`).text('v2').toggle(isNew);
+                modal.find(`#${MODAL_ID}-version`).text(DEFAULT_VERSION).toggle(isNew);
                 modal.find(`#${MODAL_ID}-dropdowns`).toggle(isNew);
                 if (isNew) {
                     ['Job Type', 'Task ID'].forEach(field => {
@@ -162,7 +163,7 @@
                 const action = modal.data('bs-action');
                 let url;
                 if (action === "new") {
-                    const version = 'v2';
+                    const version = DEFAULT_VERSION;
                     const jobType = getValidatedInputValue('Job Type', modal);
                     const taskId = getValidatedInputValue('Task ID', modal);
                     const modality = MODALITY_TASKS.includes(taskId) ? getValidatedInputValue('Modality', modal) : null;
@@ -261,7 +262,7 @@
         }
         function getParamUrlFromParamName(paramName) {
             const match = paramName.match(/job_types\/(v\d+)?\/?(.*)/);
-            const version = match && match[1] ? match[1] : 'v2';
+            const version = match && match[1] ? match[1] : DEFAULT_VERSION;
             const cleanedParamName = match ? match[2] : paramName;
             return `/api/${version}/parameters/job_types/${cleanedParamName}`;
         }
@@ -319,7 +320,7 @@
         function handleExistingParam() {
             let exists = false;
             const modal = $(`#${MODAL_ID}`);
-            const version = 'v2';
+            const version = DEFAULT_VERSION
             const jobType = getInputValues('Job Type', modal).input;
             const taskId = getInputValues('Task ID', modal).input;
             const modality = MODALITY_TASKS.includes(taskId) ? getInputValues('Modality', modal).input : null;
