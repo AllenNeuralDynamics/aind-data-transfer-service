@@ -47,8 +47,7 @@ job_types.
       metadata.nd.json file.
    -  check_metadata_files: Checks that the metadata files exist and are json.
    -  upload_data_to_s3: Uploads the data to S3.
-   -  upload_metadata_nd_to_s3: Uploads metadata.nd.json file to S3, which will
-      also register the record to DocDB and Code Ocean.
+   -  register_data_asset: Registers the record to DocDB and Code Ocean.
    -  get_codeocean_asset_id: Retrieve the Code Ocean data asset ID from DocDB.
    -  **codeocean_pipeline_settings**: As with the
       modality_transformation_settings, the parameters to send to the
