@@ -125,7 +125,7 @@
                 $("#message").addClass("error");
             }
         };
-        addTableRow = function(data, table, tr, td, isHeader, modalitiesLength = null) {
+        addTableRow = function(data, table, tr, td, isHeader, modalitiesLength = null, job = null) {
             tr = document.createElement('tr');
 
 
@@ -148,14 +148,13 @@
                     openModalButton.dataset.bsToggle = "modal";
                     openModalButton.dataset.bsTarget = "#json-modal";
                     openModalButton.innerHTML = `<i class="bi bi-box-arrow-up-right"></i>`;
-                    // openModalButton.modalitiesData = modalities;
+                    openModalButton.dataset.jobJSON = JSON.stringify(job, null, 2);
 
                     tdModal.appendChild(openModalButton);
 
                     // Apply rowspan if more than one modality row
                     tdModal.setAttribute("rowspan", modalitiesLength);
-                // } else if (isHeader) {
-                //     tdModal.innerHTML = "json";
+
                 }
                 tr.appendChild(tdModal);
             }
@@ -225,7 +224,7 @@
                                 { value: metadata_dir ?? "",           rowspan: modalitiesLength },
                                 modalities ? modalities[0].abbreviation : "",
                                 modalities ? modalities[0].input_source : ""
-                            ], table, tr, td, false, modalitiesLength
+                            ], table, tr, td, false, modalitiesLength, job
                         );
                         for (let mRow = 1; mRow < modalities.length; mRow++) {
                             let modality = modalities[mRow];
@@ -312,19 +311,21 @@
 
             jsonModal.addEventListener('show.bs.modal', function(event) {
                 var button = event.relatedTarget;
-                if (!button || !button.modalitiesData) return;
+                if (!button) return;
 
-                var modalities = button.modalitiesData;
+                var jobJSON = button.dataset.jobJSON;
+                console.log("Job JSON:", jobJSON)
+
                 var jsonContentDiv = document.getElementById("json-content");
-                const blob = new Blob(
-                    [`<pre style="white-space: pre-wrap; font-size: small;">${JSON.stringify(modalities, null, 2)}</pre>`],
-                    { type: "text/html" }
-                );
-                jsonContentDiv.src = URL.createObjectURL(blob);
+                // const blob = new Blob(
+                //     [`<pre style="white-space: pre-wrap; font-size: small;">${JSON.stringify(modalities, null, 2)}</pre>`],
+                //     { type: "text/html" }
+                // );
+                jsonContentDiv.textContent = jobJSON;
             });
 
             jsonModal.addEventListener('hidden.bs.modal', function() {
-                document.getElementById("json-content").src = '';
+                document.getElementById("json-content").textContent = '';
             });
         });
     </script>
