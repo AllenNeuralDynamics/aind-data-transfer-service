@@ -90,15 +90,16 @@
     <div id="response"></div>
 
         <!-- Modality Settings Modal -->
-    <div class="modal fade" id="settings-modal" tabindex="-1" aria-labelledby="settings-modal-label">
+    <div class="modal fade" id="json-modal" tabindex="-1" aria-labelledby="json-modal-label">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
                 <div class="modal-header p-2">
-                    <h5 class="modal-title" id="settings-modal-label">modality settings</h5>
+                    <h5 class="modal-title" id="json-modal-label">json</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body p-2">
-                    <iframe id="settings-iframe" class="w-100" style="height:400px; border:none;"></iframe>
+                    <!-- <div id="json-content" class="w-100" style="height:400px; border:none;"></div> -->
+                    <pre id="json-content" style="white-space: pre-wrap; font-size: small;"></pre>
                 </div>
             </div>
         </div>
@@ -124,28 +125,9 @@
                 $("#message").addClass("error");
             }
         };
-        addTableRow = function(data, table, tr, td, isHeader, modalities = null) {
+        addTableRow = function(data, table, tr, td, isHeader, modalitiesLength = null) {
             tr = document.createElement('tr');
 
-            // First column: Modality Settings
-            const tdModal = document.createElement(isHeader ? 'th' : 'td');
-            if (!isHeader && modalities && modalities.length > 0) {
-                const openModalButton = document.createElement("button");
-                openModalButton.type = "button";
-                openModalButton.className = "btn btn-outline-primary btn-sm";
-                openModalButton.dataset.bsToggle = "modal";
-                openModalButton.dataset.bsTarget = "#settings-modal";
-                openModalButton.innerHTML = `<i class="bi bi-box-arrow-up-right"></i>`;
-                openModalButton.modalitiesData = modalities;
-
-                tdModal.appendChild(openModalButton);
-
-                // Apply rowspan if more than one modality row
-                if (data.rowspan) tdModal.setAttribute("rowspan", data.rowspan);
-            } else if (isHeader) {
-                tdModal.innerHTML = "modal";
-            }
-            tr.appendChild(tdModal);
 
             // Other columns
             for (var d of data) {
@@ -155,6 +137,27 @@
                     td.setAttribute("rowspan", d.rowspan);
                 }
                 tr.appendChild(td);
+            }
+            // Last column displays full job json
+            if (modalitiesLength) {
+                const tdModal = document.createElement(isHeader ? 'th' : 'td');
+                if (!isHeader) {
+                    const openModalButton = document.createElement("button");
+                    openModalButton.type = "button";
+                    openModalButton.className = "btn btn-outline-primary btn-sm";
+                    openModalButton.dataset.bsToggle = "modal";
+                    openModalButton.dataset.bsTarget = "#json-modal";
+                    openModalButton.innerHTML = `<i class="bi bi-box-arrow-up-right"></i>`;
+                    // openModalButton.modalitiesData = modalities;
+
+                    tdModal.appendChild(openModalButton);
+
+                    // Apply rowspan if more than one modality row
+                    tdModal.setAttribute("rowspan", modalitiesLength);
+                // } else if (isHeader) {
+                //     tdModal.innerHTML = "json";
+                }
+                tr.appendChild(tdModal);
             }
             table.appendChild(tr);
         };
@@ -192,7 +195,7 @@
 
                     // Header row
                     addTableRow(
-                        ["modal", "job_type", "project_name", "s3_bucket", "platform", "subject_id", "acq_datetime", "metadata_dir", "modality", "modality.input_source" ],
+                        ["job_type", "project_name", "s3_bucket", "platform", "subject_id", "acq_datetime", "metadata_dir", "modality", "modality.input_source", "json"],
                         table, tr, td, true
                     );
 
@@ -212,7 +215,7 @@
 
                         // First row: job info + first modality
                         addTableRow(
-                            [   { value: "hello world",                rowspan: modalitiesLength},
+                            [
                                 { value: job.job_type,                 rowspan: modalitiesLength },
                                 { value: job.project_name,             rowspan: modalitiesLength },
                                 { value: job.s3_bucket,                rowspan: modalitiesLength },
@@ -222,7 +225,7 @@
                                 { value: metadata_dir ?? "",           rowspan: modalitiesLength },
                                 modalities ? modalities[0].abbreviation : "",
                                 modalities ? modalities[0].input_source : ""
-                            ], table, tr, td, false, modalities
+                            ], table, tr, td, false, modalitiesLength
                         );
                         for (let mRow = 1; mRow < modalities.length; mRow++) {
                             let modality = modalities[mRow];
@@ -305,23 +308,23 @@
         };
 
         document.addEventListener("DOMContentLoaded", () => {
-            var settingsModal = document.getElementById('settings-modal');
+            var jsonModal = document.getElementById('json-modal');
 
-            settingsModal.addEventListener('show.bs.modal', function(event) {
+            jsonModal.addEventListener('show.bs.modal', function(event) {
                 var button = event.relatedTarget;
                 if (!button || !button.modalitiesData) return;
 
                 var modalities = button.modalitiesData;
-                var iframe = document.getElementById("settings-iframe");
+                var jsonContentDiv = document.getElementById("json-content");
                 const blob = new Blob(
                     [`<pre style="white-space: pre-wrap; font-size: small;">${JSON.stringify(modalities, null, 2)}</pre>`],
                     { type: "text/html" }
                 );
-                iframe.src = URL.createObjectURL(blob);
+                jsonContentDiv.src = URL.createObjectURL(blob);
             });
 
-            settingsModal.addEventListener('hidden.bs.modal', function() {
-                document.getElementById("settings-iframe").src = '';
+            jsonModal.addEventListener('hidden.bs.modal', function() {
+                document.getElementById("json-content").src = '';
             });
         });
     </script>
