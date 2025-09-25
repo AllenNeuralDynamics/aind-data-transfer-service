@@ -13,7 +13,9 @@
         font-family: arial, sans-serif;
     }
     fieldset {
-      display:inline
+      display:inline;
+      border:1px solid #dddddd;
+      padding: 10px 15px;
     }
     table {
       border-collapse: collapse;
@@ -59,7 +61,7 @@
     <div>
         <p1>For instructions on how to submit jobs click on the Help tab</p1>
     </div>
-    <h2>Submit Jobs</h2>
+    <h4 class="my-3 fw-bold">Submit Jobs</h4>
         <div>
         <fieldset>
             <legend>Mail Notifications (optional)</legend><br>
@@ -88,8 +90,6 @@
     <button id="submit" type="button" onclick="submitJobs()">Submit</button>
     <div id="message"></div><br>
     <div id="response"></div>
-
-        <!-- Modality Settings Modal -->
     <div class="modal fade" id="json-modal" tabindex="-1" aria-labelledby="json-modal-label">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
@@ -98,7 +98,6 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body p-2">
-                    <!-- <div id="json-content" class="w-100" style="height:400px; border:none;"></div> -->
                     <pre id="json-content" style="white-space: pre-wrap; font-size: small;"></pre>
                 </div>
             </div>
@@ -125,11 +124,8 @@
                 $("#message").addClass("error");
             }
         };
-        addTableRow = function(data, table, tr, td, isHeader, modalitiesLength = null, job = null) {
+        addTableRow = function(data, table, tr, td, isHeader, job = null) {
             tr = document.createElement('tr');
-
-
-            // Other columns
             for (var d of data) {
                 td = document.createElement(isHeader ? 'th' : 'td');
                 td.innerHTML = d.value ?? d;
@@ -138,8 +134,7 @@
                 }
                 tr.appendChild(td);
             }
-            // Last column displays full job json
-            if (modalitiesLength) {
+            if (job) {
                 const tdModal = document.createElement(isHeader ? 'th' : 'td');
                 if (!isHeader) {
                     const openModalButton = document.createElement("button");
@@ -149,18 +144,16 @@
                     openModalButton.dataset.bsTarget = "#json-modal";
                     openModalButton.innerHTML = `<i class="bi bi-box-arrow-up-right"></i>`;
                     openModalButton.dataset.jobJSON = JSON.stringify(job, null, 2);
-
                     tdModal.appendChild(openModalButton);
-
-                    // Apply rowspan if more than one modality row
-                    tdModal.setAttribute("rowspan", modalitiesLength);
-
+                    const modalitiesLength = job.tasks?.modality_transformation_settings
+                        ? Object.keys(job.tasks.modality_transformation_settings).length
+                        : 0;
+                    tdModal.setAttribute("rowspan", modalitiesLength || 1);
                 }
                 tr.appendChild(tdModal);
             }
             table.appendChild(tr);
         };
-
         validateJobs = function(fileElement) {
             if (fileElement.files.length != 1) {
                 // File attach was cancelled by user
@@ -171,9 +164,7 @@
                 alert("Invalid file type. Please attach a .csv or .xlsx file.");
                 return;
             }
-
             var formData = new FormData(document.getElementById("file_form"));
-
             $.ajax({
                 url: "/api/v2/validate_csv",
                 type: "POST",
@@ -191,13 +182,10 @@
                     parsing_errors = [];
                     let jobsLength = jobs.length;
                     var table = document.createElement('table'), tr, td, row;
-
-                    // Header row
                     addTableRow(
                         ["job_type", "project_name", "s3_bucket", "platform", "subject_id", "acq_datetime", "metadata_dir", "modality", "modality.input_source", "json"],
                         table, tr, td, true
                     );
-
                     for (row = 0; row < jobsLength; row++) {
                         let job = jobs[row];
                         let modalities = job.tasks?.modality_transformation_settings;
@@ -207,12 +195,9 @@
                                 input_source: value.job_settings?.input_source
                             }));
                         }
-
                         let modalitiesJobJSON = job
                         let modalitiesLength = modalities ? modalities.length: 0;
                         let metadata_dir = job.tasks?.gather_preliminary_metadata?.job_settings?.metadata_dir;
-
-                        // First row: job info + first modality
                         addTableRow(
                             [
                                 { value: job.job_type,                 rowspan: modalitiesLength },
@@ -234,7 +219,6 @@
                             );
                         }
                     }
-
                     $("#response").html(table);
                 },
                 error: function(data) {
@@ -245,7 +229,6 @@
                 }
             });
 };
-
         submitJobs = function() {
             if(jobs.length > 0 && parsing_errors.length == 0){
                 let job_settings = {};
@@ -305,25 +288,15 @@
                 return;
             }
         };
-
         document.addEventListener("DOMContentLoaded", () => {
             var jsonModal = document.getElementById('json-modal');
-
             jsonModal.addEventListener('show.bs.modal', function(event) {
                 var button = event.relatedTarget;
                 if (!button) return;
-
                 var jobJSON = button.dataset.jobJSON;
-                console.log("Job JSON:", jobJSON)
-
                 var jsonContentDiv = document.getElementById("json-content");
-                // const blob = new Blob(
-                //     [`<pre style="white-space: pre-wrap; font-size: small;">${JSON.stringify(modalities, null, 2)}</pre>`],
-                //     { type: "text/html" }
-                // );
                 jsonContentDiv.textContent = jobJSON;
             });
-
             jsonModal.addEventListener('hidden.bs.modal', function() {
                 document.getElementById("json-content").textContent = '';
             });
