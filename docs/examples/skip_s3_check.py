@@ -55,7 +55,6 @@ upload_job_configs_v2 = UploadJobConfigsV2(
     tasks={
         "modality_transformation_settings": modality_transformation_settings,
         "check_s3_folder_exists": {"skip_task": True},
-        "final_check_s3_folder_exist": {"skip_task": True},
         "gather_preliminary_metadata": gather_preliminary_metadata,
     },
 )
