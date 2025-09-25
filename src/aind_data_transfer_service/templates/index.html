@@ -132,7 +132,7 @@
                 if (d.rowspan) {
                     td.setAttribute("rowspan", d.rowspan);
                 }
-                tr.appendChild(td);
+                tr.append(td);
             }
             if (job) {
                 const tdModal = document.createElement(isHeader ? 'th' : 'td');
@@ -144,13 +144,13 @@
                     openModalButton.dataset.bsTarget = "#json-modal";
                     openModalButton.innerHTML = `<i class="bi bi-box-arrow-up-right"></i>`;
                     openModalButton.dataset.jobJSON = JSON.stringify(job, null, 2);
-                    tdModal.appendChild(openModalButton);
+                    tdModal.append(openModalButton);
                     const modalitiesLength = job.tasks?.modality_transformation_settings
                         ? Object.keys(job.tasks.modality_transformation_settings).length
                         : 0;
                     tdModal.setAttribute("rowspan", modalitiesLength || 1);
                 }
-                tr.appendChild(tdModal);
+                tr.append(tdModal);
             }
             table.appendChild(tr);
         };
@@ -195,7 +195,6 @@
                                 input_source: value.job_settings?.input_source
                             }));
                         }
-                        let modalitiesJobJSON = job
                         let modalitiesLength = modalities ? modalities.length: 0;
                         let metadata_dir = job.tasks?.gather_preliminary_metadata?.job_settings?.metadata_dir;
                         addTableRow(
@@ -209,9 +208,9 @@
                                 { value: metadata_dir ?? "",           rowspan: modalitiesLength },
                                 modalities ? modalities[0].abbreviation : "",
                                 modalities ? modalities[0].input_source : ""
-                            ], table, tr, td, false, modalitiesLength, job
+                            ], table, tr, td, false, job
                         );
-                        for (let mRow = 1; mRow < modalities.length; mRow++) {
+                        for (let mRow = 1; mRow < modalitiesLength; mRow++) {
                             let modality = modalities[mRow];
                             addTableRow(
                                 [ modality.abbreviation, modality.input_source ],
@@ -228,7 +227,7 @@
                     $("#response").html(parsing_errors.map(err => `<li>${err}</li>`));
                 }
             });
-};
+        };
         submitJobs = function() {
             if(jobs.length > 0 && parsing_errors.length == 0){
                 let job_settings = {};
