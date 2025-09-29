@@ -142,7 +142,7 @@
                 openModalButton.dataset.bsToggle = "modal";
                 openModalButton.dataset.bsTarget = "#json-modal";
                 openModalButton.innerHTML = `<i class="bi bi-box-arrow-up-right"></i>`;
-                openModalButton.dataset.jobJSON = JSON.stringify(job, null, 2);
+                openModalButton.dataset.jobJSON = JSON.stringify(job, null, 3);
                 tdModal.append(openModalButton);
                 const modalitiesLength = job.tasks?.modality_transformation_settings
                     ? Object.keys(job.tasks.modality_transformation_settings).length
