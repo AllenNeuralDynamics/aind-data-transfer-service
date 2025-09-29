@@ -1,7 +1,10 @@
 <!DOCTYPE html>
 <html>
 <head>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.8.1/font/bootstrap-icons.min.css" rel="stylesheet">
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.4/jquery.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <meta charset="UTF-8">
     <title>{% block title %} {% endblock %} AIND Data Transfer Service</title>
     <style>
@@ -10,7 +13,9 @@
         font-family: arial, sans-serif;
     }
     fieldset {
-      display:inline
+      display:inline;
+      border:1px solid #dddddd;
+      padding: 10px 15px;
     }
     table {
       border-collapse: collapse;
@@ -25,7 +30,7 @@
         background-color: #E8EAF6;
         color: #3F51B5;
     }
-    #submit { 
+    #submit {
         border: none;
         border-radius: 6px;
         color: #ffffff;
@@ -56,7 +61,7 @@
     <div>
         <p1>For instructions on how to submit jobs click on the Help tab</p1>
     </div>
-    <h2>Submit Jobs</h2>
+    <h4 class="my-3 fw-bold">Submit Jobs</h4>
         <div>
         <fieldset>
             <legend>Mail Notifications (optional)</legend><br>
@@ -85,6 +90,19 @@
     <button id="submit" type="button" onclick="submitJobs()">Submit</button>
     <div id="message"></div><br>
     <div id="response"></div>
+    <div class="modal fade" id="json-modal" tabindex="-1" aria-labelledby="json-modal-label">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header p-2">
+                    <h5 class="modal-title" id="json-modal-label">json</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-2">
+                    <pre id="json-content" style="white-space: pre-wrap; font-size: small;"></pre>
+                </div>
+            </div>
+        </div>
+    </div>
     <script>
         var jobs = []
         var parsing_errors = []
@@ -106,7 +124,7 @@
                 $("#message").addClass("error");
             }
         };
-        addTableRow = function(data, table, tr, td, isHeader) {
+        addTableRow = function(data, table, tr, td, isHeader, job = null) {
             tr = document.createElement('tr');
             for (var d of data) {
                 td = document.createElement(isHeader ? 'th' : 'td');
@@ -116,13 +134,29 @@
                 }
                 tr.append(td);
             }
+            if (job && !isHeader) {
+                const tdModal = document.createElement(isHeader ? 'th' : 'td');
+                const openModalButton = document.createElement("button");
+                openModalButton.type = "button";
+                openModalButton.className = "btn btn-outline-primary btn-sm";
+                openModalButton.dataset.bsToggle = "modal";
+                openModalButton.dataset.bsTarget = "#json-modal";
+                openModalButton.innerHTML = `<i class="bi bi-box-arrow-up-right"></i>`;
+                openModalButton.dataset.jobJSON = JSON.stringify(job, null, 3);
+                tdModal.append(openModalButton);
+                const modalitiesLength = job.tasks?.modality_transformation_settings
+                    ? Object.keys(job.tasks.modality_transformation_settings).length
+                    : 1;
+                tdModal.setAttribute("rowspan", modalitiesLength);
+                tr.append(tdModal);
+            }
             table.appendChild(tr);
         };
         validateJobs = function(fileElement) {
             if (fileElement.files.length != 1) {
                 // File attach was cancelled by user
                 return;
-            } 
+            }
             if (![".csv", ".xlsx"].some(ext => fileElement.files[0].name.endsWith(ext))) {
                 fileElement.value = null;
                 alert("Invalid file type. Please attach a .csv or .xlsx file.");
@@ -143,11 +177,11 @@
                 success: function(data) {
                     setMessage(msgTypes.validateSuccess);
                     jobs = data["data"]["jobs"];
-                    parsing_errors = []
+                    parsing_errors = [];
                     let jobsLength = jobs.length;
                     var table = document.createElement('table'), tr, td, row;
                     addTableRow(
-                        [ "job_type", "project_name", "s3_bucket", "platform", "subject_id", "acq_datetime", "metadata_dir", "modality", "modality.input_source" ],
+                        ["job_type", "project_name", "s3_bucket", "platform", "subject_id", "acq_datetime", "metadata_dir", "modality", "modality.input_source", "json"],
                         table, tr, td, true
                     );
                     for (row = 0; row < jobsLength; row++) {
@@ -157,10 +191,10 @@
                             modalities = Object.entries(modalities).map(([key, value]) => ({
                                 abbreviation: key,
                                 input_source: value.job_settings?.input_source
-                            }))
+                            }));
                         }
                         let modalitiesLength = modalities ? modalities.length: 0;
-                        let metadata_dir = job.tasks?.gather_preliminary_metadata?.job_settings?.metadata_dir
+                        let metadata_dir = job.tasks?.gather_preliminary_metadata?.job_settings?.metadata_dir;
                         addTableRow(
                             [
                                 { value: job.job_type,                 rowspan: modalitiesLength },
@@ -172,10 +206,10 @@
                                 { value: metadata_dir ?? "",           rowspan: modalitiesLength },
                                 modalities ? modalities[0].abbreviation : "",
                                 modalities ? modalities[0].input_source : ""
-                            ], table, tr, td, false
+                            ], table, tr, td, false, job
                         );
-                        for (mRow = 1; mRow < modalitiesLength; mRow++) {
-                            let modality = modalities[mRow]
+                        for (let mRow = 1; mRow < modalitiesLength; mRow++) {
+                            let modality = modalities[mRow];
                             addTableRow(
                                 [ modality.abbreviation, modality.input_source ],
                                 table, tr, td, false
@@ -185,12 +219,10 @@
                     $("#response").html(table);
                 },
                 error: function(data) {
-                    jobs = []
-                    parsing_errors = data.responseJSON["data"]["errors"]
+                    jobs = [];
+                    parsing_errors = data.responseJSON["data"]["errors"];
                     setMessage(msgTypes.validateError);
-                    $("#response").html(parsing_errors.map((err) => {
-                        return `<li>${err}</li>`
-                    }));
+                    $("#response").html(parsing_errors.map(err => `<li>${err}</li>`));
                 }
             });
         };
@@ -253,6 +285,19 @@
                 return;
             }
         };
+        document.addEventListener("DOMContentLoaded", () => {
+            var jsonModal = document.getElementById('json-modal');
+            jsonModal.addEventListener('show.bs.modal', function(event) {
+                var button = event.relatedTarget;
+                if (!button) return;
+                var jobJSON = button.dataset.jobJSON;
+                var jsonContentDiv = document.getElementById("json-content");
+                jsonContentDiv.textContent = jobJSON;
+            });
+            jsonModal.addEventListener('hidden.bs.modal', function() {
+                document.getElementById("json-content").textContent = '';
+            });
+        });
     </script>
 </body>
 </html>
