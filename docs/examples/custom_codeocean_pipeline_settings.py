@@ -36,6 +36,10 @@ ecephys_task = Task(
 )
 
 modality_transformation_settings = {"ecephys": ecephys_task}
+target = None
+# For capturing results to external bucket, set target.
+# target = {"aws": {"bucket": "aind-open-data-dev-u5u0i5"}}  # For testing
+# target = {"aws": {"bucket": "aind-open-data"}}  # For production
 
 gather_preliminary_metadata = Task(
     job_settings={
@@ -60,6 +64,7 @@ ecephys_codeocean_pipeline_settings = Task(
                 "capsule_id": "87cbe6ce-9b38-4266-8d4a-62f0e23ba2d6",
             },
             "capture_settings": {
+                "target": target,
                 "permissions": {"everyone": "viewer"},
                 "tags": ["derived", "test"],
                 "custom_metadata": {
