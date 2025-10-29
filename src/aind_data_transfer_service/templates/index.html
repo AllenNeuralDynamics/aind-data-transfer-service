@@ -48,15 +48,7 @@
     </style>
 </head>
 <body>
-    <nav>
-        <a href="/">Submit Jobs</a> |
-        <a href="/jobs">Job Status</a> |
-        <a href="/job_params">Job Parameters</a> |
-        <a title="Download job template as .xslx" href= "/api/job_upload_template" download>Job Submit Template</a> |
-        <a title="List of project names" href= "{{ project_names_url }}" target="_blank" >Project Names</a> |
-        <a title="For more information click here" href="https://aind-data-transfer-service.readthedocs.io"  target="_blank" >Help</a> |
-        <a href="/admin">Admin</a>
-    </nav>
+    {% include 'nav_bar.html' %}
     <br>
     <div>
         <p1>For instructions on how to submit jobs click on the Help tab</p1>
