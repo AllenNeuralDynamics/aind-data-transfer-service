@@ -686,11 +686,13 @@ async def get_task_logs(request: Request):
 
 async def index(request: Request):
     """GET|POST /: form handler"""
+    user = request.session.get("user")
     return templates.TemplateResponse(
         request=request,
         name="index.html",
         context=(
             {
+                "user_signed_in": user is not None,
                 "project_names_url": project_names_url,
             }
         ),
@@ -738,12 +740,14 @@ async def task_logs(request: Request):
 
 async def jobs(request: Request):
     """Get Job Status page with pagination"""
+    user = request.session.get("user")
     dag_ids = AirflowDagRunsRequestParameters.model_fields["dag_ids"].default
     return templates.TemplateResponse(
         request=request,
         name="job_status.html",
         context=(
             {
+                "user_signed_in": user is not None,
                 "project_names_url": project_names_url,
                 "dag_ids": dag_ids,
             }
@@ -955,9 +959,10 @@ async def admin(request: Request):
             name="admin.html",
             context=(
                 {
-                    "project_names_url": project_names_url,
+                    "user_signed_in": user is not None,
                     "user_name": user.get("name", "unknown"),
                     "user_email": user.get("email", "unknown"),
+                    "project_names_url": project_names_url,
                 }
             ),
         )
