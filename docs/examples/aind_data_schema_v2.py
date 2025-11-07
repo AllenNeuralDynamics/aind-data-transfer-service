@@ -108,6 +108,7 @@ upload_job_configs_v2 = UploadJobConfigsV2(
     tasks={
         "modality_transformation_settings": modality_transformation_settings,
         "gather_preliminary_metadata": gather_preliminary_metadata,
+        "register_data_asset": register_data_asset,
         "codeocean_pipeline_settings": codeocean_pipeline_settings,
     },
 )
