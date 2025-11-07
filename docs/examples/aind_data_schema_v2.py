@@ -45,9 +45,14 @@ gather_preliminary_metadata = Task(
     }
 )
 
-# Register the raw asset to DocDB and Code Ocean
+# Set docdb_version to register assets to the v2 docdb metadata collection
+docdb_version = "v2"
+
 register_data_asset = Task(
-    job_settings={"docdb_version": "v2"}
+    job_settings={"docdb_version": docdb_version}
+)
+get_codeocean_asset_id = Task(
+    job_settings={"docdb_version": docdb_version}
 )
 
 # For extra validation on the pipeline_monitor_settings field, you can import
@@ -61,7 +66,7 @@ target = None
 # target = {"aws": {"bucket": "aind-open-data-dev-u5u0i5"}}  # For testing
 # target = {"aws": {"bucket": "aind-open-data"}}  # For production
 
-# To register captured results to the appropriate docdb collection:
+# To register captured results to the v2 docdb collection:
 # docdb_settings = {
 #     "docdb_api_gateway": "api.allenneuraldynamics-test.org",
 #     "docdb_version": "v2",
@@ -69,7 +74,7 @@ target = None
 # }
 docdb_settings = {
     "docdb_api_gateway": "api.allenneuraldynamics.org",
-    "docdb_version": "v2",
+    "docdb_version": docdb_version,
     "results_bucket": "codeocean-s3datasetsbucket-1u41qdg42ur9",
 }
 
@@ -109,6 +114,7 @@ upload_job_configs_v2 = UploadJobConfigsV2(
         "modality_transformation_settings": modality_transformation_settings,
         "gather_preliminary_metadata": gather_preliminary_metadata,
         "register_data_asset": register_data_asset,
+        "get_codeocean_asset_id": get_codeocean_asset_id,
         "codeocean_pipeline_settings": codeocean_pipeline_settings,
     },
 )
