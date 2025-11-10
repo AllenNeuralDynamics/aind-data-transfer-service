@@ -36,13 +36,29 @@ ecephys_task = Task(
 
 modality_transformation_settings = {"ecephys": ecephys_task}
 
+# Please specify the release and commit hash of the aind_metadata_mapper to use
+aind_metadata_mapper_version = "v1-45ce06a"
+
+# Runs the aind_metadata_mapper.gather_metadata module
 gather_preliminary_metadata = Task(
+    image_version=aind_metadata_mapper_version,
     job_settings={
         "metadata_dir": (
             "/allen/aind/scratch/svc_aind_upload/test_data_sets/"
             "ecephys/655019_2023-04-03_18-17-07"
         )
-    }
+    },
+)
+
+# Runs the aind_metadata_mapper.gather_processing_job module
+gather_final_metadata = Task(
+    image_version=aind_metadata_mapper_version,
+    command_script=(
+        "#!/bin/bash \nsingularity exec --cleanenv "
+        "docker://%IMAGE:%IMAGE_VERSION "
+        "python -m aind_metadata_mapper.gather_processing_job "
+        "--job-settings ' %JOB_SETTINGS '"
+    ),
 )
 
 # Set docdb_version to register assets to the v2 docdb metadata collection
@@ -109,6 +125,7 @@ upload_job_configs_v2 = UploadJobConfigsV2(
     tasks={
         "modality_transformation_settings": modality_transformation_settings,
         "gather_preliminary_metadata": gather_preliminary_metadata,
+        "gather_final_metadata": gather_final_metadata,
         "register_data_asset": register_data_asset,
         "get_codeocean_asset_id": get_codeocean_asset_id,
         "codeocean_pipeline_settings": codeocean_pipeline_settings,
