@@ -48,12 +48,8 @@ gather_preliminary_metadata = Task(
 # Set docdb_version to register assets to the v2 docdb metadata collection
 docdb_version = "v2"
 
-register_data_asset = Task(
-    job_settings={"docdb_version": docdb_version}
-)
-get_codeocean_asset_id = Task(
-    job_settings={"docdb_version": docdb_version}
-)
+register_data_asset = Task(job_settings={"docdb_version": docdb_version})
+get_codeocean_asset_id = Task(job_settings={"docdb_version": docdb_version})
 
 # For extra validation on the pipeline_monitor_settings field, you can import
 # the pydantic model by pip installing aind-codeocean-pipeline-monitor

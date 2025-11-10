@@ -1006,6 +1006,62 @@ async def auth(request: Request):
     return RedirectResponse(url="/admin")
 
 
+async def cancel_job(request: Request):
+    """Cancel a running job."""
+    request_json = await request.json()
+    logger.info(f"Received request to cancel job: {request_json}")
+    try:
+        dag_run_id = request_json["dag_run_id"]
+        dag_id = request_json["dag_id"]
+        s3_prefix = request_json["s3_prefix"]
+        partition = request_json.get("partition", "aind")
+        airflow_url = os.getenv("AIND_AIRFLOW_SERVICE_JOBS_URL", "").strip("/")
+        cancel_slurm_jobs_DAG_ID = os.getenv(
+            "AIND_AIRFLOW_SERVICE_CANCEL_JOBS_DAG_ID", "cancel_slurm_jobs"
+        )
+        async with AsyncClient(
+            auth=(
+                os.getenv("AIND_AIRFLOW_SERVICE_USER"),
+                os.getenv("AIND_AIRFLOW_SERVICE_PASSWORD"),
+            )
+        ) as async_client:
+            cancel_dag_url = f"{airflow_url}/{dag_id}/dagRuns/{dag_run_id}"
+            cancel_dag_response = await async_client.patch(
+                url=cancel_dag_url, json={"state": "failed"}
+            )
+            cancel_dag_response.raise_for_status()
+            cancel_slurm_jobs_url = (
+                f"{airflow_url}/{cancel_slurm_jobs_DAG_ID}/dagRuns"
+            )
+            cancel_slurm_jobs_response = await async_client.post(
+                url=cancel_slurm_jobs_url,
+                json={
+                    "conf": {
+                        "dag_run_id": dag_run_id,
+                        "s3_prefix": s3_prefix,
+                        "partition": partition,
+                    }
+                },
+            )
+            cancel_slurm_jobs_response.raise_for_status()
+            return JSONResponse(
+                content={
+                    "message": "Success",
+                    "data": dict(),
+                },
+                status_code=200,
+            )
+    except Exception as e:
+        logger.exception(e)
+        return JSONResponse(
+            content={
+                "message": "Error canceling job.",
+                "data": {"error": str(e)},
+            },
+            status_code=500,
+        )
+
+
 routes = [
     Route("/", endpoint=index, methods=["GET", "POST"]),
     Route("/api/validate_csv", endpoint=validate_csv, methods=["POST"]),
@@ -1039,6 +1095,7 @@ routes = [
         "/api/v2/validate_json", endpoint=validate_json_v2, methods=["POST"]
     ),
     Route("/api/v2/submit_jobs", endpoint=submit_jobs_v2, methods=["POST"]),
+    Route("/api/v2/cancel_job", endpoint=cancel_job, methods=["POST"]),
     Route("/api/v2/parameters", endpoint=list_parameters_v2, methods=["GET"]),
     Route(
         "/api/v2/parameters/job_types/{job_type:str}/tasks/{task_id:str}",

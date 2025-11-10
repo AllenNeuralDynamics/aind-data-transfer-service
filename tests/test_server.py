@@ -2057,6 +2057,107 @@ class TestServer(unittest.TestCase):
         self.assertEqual(200, response.status_code)
         mock_proxy.assert_called_once()
 
+    @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
+    @patch("logging.Logger.exception")
+    @patch("logging.Logger.info")
+    @patch("httpx.AsyncClient.patch")
+    @patch("httpx.AsyncClient.post")
+    def test_cancel_jobs_200(
+        self,
+        mock_post: MagicMock,
+        mock_patch: MagicMock,
+        mock_log_info: MagicMock,
+        mock_log_exception: MagicMock,
+    ):
+        """Tests cancel_job success."""
+        mock_patch_response = Response()
+        mock_patch_response.status_code = 200
+        mock_patch.return_value = mock_patch_response
+        mock_post_response = Response()
+        mock_post_response.status_code = 200
+        mock_post.return_value = mock_post_response
+        request_json = {
+            "s3_prefix": "abc_123",
+            "dag_id": "transform_and_upload_v2",
+            "dag_run_id": "manual__2025-11-08T18:20:55.367146+00:00",
+        }
+        with TestClient(app) as client:
+            cancel_job_response = client.post(
+                url="/api/v2/cancel_job", json=request_json
+            )
+        self.assertEqual(200, cancel_job_response.status_code)
+        mock_patch.assert_called_with(
+            url=(
+                "airflow_jobs_url/transform_and_upload_v2/dagRuns/"
+                "manual__2025-11-08T18:20:55.367146+00:00"
+            ),
+            json={"state": "failed"},
+        )
+        mock_post.assert_called_with(
+            url="airflow_jobs_url/cancel_slurm_jobs/dagRuns",
+            json={
+                "conf": {
+                    "dag_run_id": "manual__2025-11-08T18:20:55.367146+00:00",
+                    "s3_prefix": "abc_123",
+                    "partition": "aind",
+                }
+            },
+        )
+        mock_log_info.assert_called()
+        mock_log_exception.assert_not_called()
+
+    @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
+    @patch("logging.Logger.exception")
+    @patch("logging.Logger.info")
+    @patch("httpx.AsyncClient.patch")
+    @patch("httpx.AsyncClient.post")
+    def test_cancel_jobs_500(
+        self,
+        mock_post: MagicMock,
+        mock_patch: MagicMock,
+        mock_log_info: MagicMock,
+        mock_log_exception: MagicMock,
+    ):
+        """Tests cancel_job error."""
+        mock_patch_response = Response()
+        mock_patch_response.status_code = 200
+        mock_patch.return_value = mock_patch_response
+        mock_post_response = Response()
+        mock_post_response.status_code = 500
+        mock_post.return_value = mock_post_response
+        request_json = {
+            "s3_prefix": "abc_123",
+            "dag_id": "transform_and_upload_v2",
+            "dag_run_id": "manual__2025-11-08T18:20:55.367146+00:00",
+        }
+        with TestClient(app) as client:
+            cancel_job_response = client.post(
+                url="/api/v2/cancel_job", json=request_json
+            )
+        self.assertEqual(500, cancel_job_response.status_code)
+        self.assertEqual(
+            "Error canceling job.", cancel_job_response.json()["message"]
+        )
+        mock_patch.assert_called_with(
+            url=(
+                "airflow_jobs_url/transform_and_upload_v2/dagRuns/"
+                "manual__2025-11-08T18:20:55.367146+00:00"
+            ),
+            json={"state": "failed"},
+        )
+        mock_post.assert_called_with(
+            url="airflow_jobs_url/cancel_slurm_jobs/dagRuns",
+            json={
+                "conf": {
+                    "dag_run_id": "manual__2025-11-08T18:20:55.367146+00:00",
+                    "s3_prefix": "abc_123",
+                    "partition": "aind",
+                }
+            },
+        )
+        mock_log_info.assert_called()
+        mock_log_exception.assert_called_once()
+
 
 if __name__ == "__main__":
     unittest.main()
