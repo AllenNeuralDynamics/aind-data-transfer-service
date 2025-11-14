@@ -40,7 +40,7 @@
                 <!-- filter by job status -->
                 <div class="input-group input-group-sm mb-1">
                     <span class="input-group-text" style="width:35%">Status</span>
-                    <select class="form-select" onchange="filterJobsByColumn(4, this.value);this.blur();">
+                    <select class="form-select" onchange="filterJobsByColumn(5, this.value);this.blur();">
                         {% for s in [
                             {"label": "all", "value": "", "class": "text-dark"},
                             {"label": "queued", "value": "queued", "class": "text-secondary"},
@@ -61,31 +61,31 @@
                 <hr class="flex-grow-1 border-secondary">
                 <div class="input-group input-group-sm mb-1">
                     <span class="input-group-text" style="width:35%">Asset Name</span>
-                    <input id="filter-name-input" type="text" class="form-control" placeholder="asset name" oninput="filterJobsByColumn(0, this.value)">
-                    <button id="filter-name-clear" class="btn btn-outline-secondary" type="button" title="Clear" onclick="clearFilterJobsByColumn(0, '#filter-name-input')">
+                    <input id="filter-name-input" type="text" class="form-control" placeholder="asset name" oninput="filterJobsByColumn(1, this.value)">
+                    <button id="filter-name-clear" class="btn btn-outline-secondary" type="button" title="Clear" onclick="clearFilterJobsByColumn(1, '#filter-name-input')">
                         <i class="bi bi-x-lg"></i>
                     </button>
                 </div>
                 <!-- filter by job id-->
                 <div class="input-group input-group-sm mb-1">
                     <span class="input-group-text" style="width:35%">Job ID</span>
-                    <input id="filter-id-input" type="text" class="form-control" placeholder="job id" oninput="filterJobsByColumn(1, this.value)">
-                    <button id="filter-id-clear" class="btn btn-outline-secondary" type="button" title="Clear" onclick="clearFilterJobsByColumn(1, '#filter-id-input')">
+                    <input id="filter-id-input" type="text" class="form-control" placeholder="job id" oninput="filterJobsByColumn(2, this.value)">
+                    <button id="filter-id-clear" class="btn btn-outline-secondary" type="button" title="Clear" onclick="clearFilterJobsByColumn(2, '#filter-id-input')">
                         <i class="bi bi-x-lg"></i>
                     </button>
                 </div>
                 <!-- filter by job type-->
                 <div class="input-group input-group-sm mb-1">
                     <span class="input-group-text" style="width:35%">Job Type</span>
-                    <input id="filter-job-type-input" type="text" class="form-control" placeholder="job type" oninput="filterJobsByColumn(2, this.value)">
-                    <button id="filter-job-type-clear" class="btn btn-outline-secondary" type="button" title="Clear" onclick="clearFilterJobsByColumn(2, '#filter-job-type-input')">
+                    <input id="filter-job-type-input" type="text" class="form-control" placeholder="job type" oninput="filterJobsByColumn(3, this.value)">
+                    <button id="filter-job-type-clear" class="btn btn-outline-secondary" type="button" title="Clear" onclick="clearFilterJobsByColumn(3, '#filter-job-type-input')">
                         <i class="bi bi-x-lg"></i>
                     </button>
                 </div>
                 <!-- filter by dag id -->
                 <div class="input-group input-group-sm mb-1">
                     <span class="input-group-text" style="width:35%">Dag ID</span>
-                    <select class="form-select" onchange="filterJobsByColumn(3, this.value);this.blur();">
+                    <select class="form-select" onchange="filterJobsByColumn(4, this.value);this.blur();">
                         <option class="text-dark" value="">all</option>
                         {% for dag_id in dag_ids %}
                         <option class="text-secondary" value="^{{ dag_id }}$">{{ dag_id }}</option>
@@ -247,7 +247,7 @@
                 initComplete: (settings, json) => updateJobsCount(json),
                 // layout options
                 pageLength: 25,
-                order: [5, 'desc'], // submit time descending
+                order: [6, 'desc'], // submit time descending
                 layout: {
                     topStart: null,
                     topEnd: null,
@@ -320,7 +320,7 @@
         }
         // Filters
         function filterJobsByColumn(columnIndex, value) {
-            if (columnIndex == 3 || columnIndex == 4) {
+            if (columnIndex == 4 || columnIndex == 5) {
                 //exact match for dag_id and job_state dropdowns
                 $('#searchJobsTable').DataTable().columns(columnIndex).search(value.trim(), true, false).draw();
             } else {
