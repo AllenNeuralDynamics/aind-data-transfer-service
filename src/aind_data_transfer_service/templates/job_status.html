@@ -145,10 +145,17 @@
                                 <div><strong>Asset Name:</strong> <span id="cancel-modal-job-name"></span></div>
                                 <div><strong>Job ID:</strong> <span id="cancel-modal-job-id"></span></div>
                             </div>
-                            <div>
+                            <div class="mb-3">
                                 If data has already begun uploading to the cloud, please contact a data administrator to
                                 remove the partial upload.
                             </div>
+                            <div class="mb-3">
+                                Please type <strong>YES</strong> to confirm:
+                                <input id="cancel-confirm-input" type="text" class="form-control"placeholder="YES"
+                                    oninput="onCancelConfirmationInput(this.value)"
+                                >
+                            </div>
+                            <button id="cancel-confirm-button" type="button" class="btn btn-danger" disabled>Confirm</button>
                         </div>
                     </div>
                 </div>
@@ -341,6 +348,8 @@
         function resetCancelJobModal() {
             document.getElementById('cancel-modal-job-name').textContent = '';
             document.getElementById('cancel-modal-job-id').textContent = '';
+            document.getElementById('cancel-confirm-input').value = '';
+            document.getElementById('cancel-confirm-button').disabled = true;
         }
         // EVENT HANDLERS ------------------------------------------------
         function updateJobStatusTable(newParams) {
@@ -381,6 +390,12 @@
                 execution_date_gte: start.toISOString(),
                 execution_date_lte: end.toISOString(),
             });
+        }
+        function onCancelConfirmationInput(inputValue) {
+            // enable cancel jobs confirm button only if input is "YES"
+            const confirmButton = $('#cancel-confirm-button');
+            const disabled = inputValue !== 'YES';
+            confirmButton.prop('disabled', disabled);
         }
     </script>
     </body>
