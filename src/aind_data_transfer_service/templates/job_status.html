@@ -139,8 +139,16 @@
                             <div class="modal-title fw-bold" id="cancel-modal-full-label" style="font-size: small">Cancel Upload Job</div>
                             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                         </div>
-                        <div class="cancel-modal-body p-3">
-                            TODO: warning message
+                        <div class="cancel-modal-body p-3" style="font-size: small">
+                            <div class="alert alert-danger mb-3" role="alert">
+                                <div class="mb-2"><strong>WARNING!</strong> You are about to cancel the following upload job:</div>
+                                <div><strong>Asset Name:</strong> <span id="cancel-modal-job-name"></span></div>
+                                <div><strong>Job ID:</strong> <span id="cancel-modal-job-id"></span></div>
+                            </div>
+                            <div>
+                                If data has already begun uploading to the cloud, please contact a data administrator to
+                                remove the partial upload.
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -186,6 +194,15 @@
             tasksModal.addEventListener('hidden.bs.modal', function (event) {
                 updateJobTasksModal(null, null, null, null);
             })
+            // cancel modal
+            var cancelModal = document.getElementById('cancel-modal-full');
+            cancelModal.addEventListener('show.bs.modal', function (event) {
+                var sourceData = event.relatedTarget?.dataset;
+                updateCancelJobModal(sourceData?.dagId, sourceData?.jobId, sourceData?.jobName);
+            })
+            cancelModal.addEventListener('hidden.bs.modal', function (event) {
+                resetCancelJobModal();
+            })
         });
         // FULL JOBS TABLE -----------------------------------------------
         // Helper functions for custom column rendering
@@ -225,6 +242,9 @@
                     title="Cancel running job"
                     data-bs-toggle="modal"
                     data-bs-target="#cancel-modal-full"
+                    data-dag-id="${row.dag_id}"
+                    data-job-id="${row.job_id}"
+                    data-job-name="${row.name}"
                 >
                     <i class="bi bi-x-lg"></i>
                 </button>
@@ -312,6 +332,15 @@
             } else {
                 tasksIframe.src = "";
             }
+        }
+        // Modal for cancelling a job from full jobs table
+        function updateCancelJobModal(dagId, jobId, jobName) {
+            document.getElementById('cancel-modal-job-name').textContent = jobName;
+            document.getElementById('cancel-modal-job-id').textContent = jobId;
+        }
+        function resetCancelJobModal() {
+            document.getElementById('cancel-modal-job-name').textContent = '';
+            document.getElementById('cancel-modal-job-id').textContent = '';
         }
         // EVENT HANDLERS ------------------------------------------------
         function updateJobStatusTable(newParams) {
