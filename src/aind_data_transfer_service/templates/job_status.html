@@ -131,6 +131,20 @@
                 </div>
                 </div>
             </div>
+            <!-- modal for cancelling a running job -->
+            <div class="modal fade" id="cancel-modal-full" tabindex="-1" aria-labelledby="cancel-modal-full-label" aria-hidden="true">
+                <div class="modal-dialog modal-l">
+                    <div class="modal-content">
+                        <div class="modal-header p-2">
+                            <div class="modal-title fw-bold" id="cancel-modal-full-label" style="font-size: small">Cancel Upload Job</div>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="cancel-modal-body p-3">
+                            TODO: warning message
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
     <script>
@@ -200,17 +214,17 @@
         function renderCancelJobButton(data, type, row) {
             // Only generate HTML for the UI display
             if (type !== 'display') {
-                return row.job_id; // fallback for sorting/searching/export
+                return data; // fallback
             }
-
             const disabled = row.job_state !== "running" && row.job_state !== "queued";
-
             return `
                 <button
                     type="button"
                     class="btn btn-outline-danger btn-sm rounded-circle"
                     ${disabled ? "disabled" : ""}
                     title="Cancel running job"
+                    data-bs-toggle="modal"
+                    data-bs-target="#cancel-modal-full"
                 >
                     <i class="bi bi-x-lg"></i>
                 </button>
@@ -230,7 +244,6 @@
                         orderable: false,
                         searchable: false,
                         width: '40px',
-                        className: 'text-center',
                         render: renderCancelJobButton
                     },
                     { data: 'name', searchable: true },
