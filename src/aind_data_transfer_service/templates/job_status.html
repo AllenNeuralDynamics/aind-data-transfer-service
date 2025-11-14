@@ -354,10 +354,16 @@
             document.getElementById('cancel-modal-job-id').textContent = cancelModal.dataset.jobId;
         }
         function resetCancelJobModal() {
+            // clear modal content
             document.getElementById('cancel-modal-job-name').textContent = '';
             document.getElementById('cancel-modal-job-id').textContent = '';
             document.getElementById('cancel-confirm-input').value = '';
             document.getElementById('cancel-confirm-button').disabled = true;
+            // clear stored data in modal dataset
+            const cancelModal = document.getElementById('cancel-modal-full');
+            cancelModal.dataset.dagId = '';
+            cancelModal.dataset.jobId = '';
+            cancelModal.dataset.jobName = '';
         }
         function cancelUploadJob() {
             // Get job data from modal dataset
