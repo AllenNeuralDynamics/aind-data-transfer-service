@@ -23,26 +23,6 @@
         .modal-body {
             height: calc(100vh - 100px);
         }
-
-        /* Cancel job button styles */
-        .cancel-job-btn {
-            background-color: red;
-            color: white;
-            border: none;
-            width: 30px;
-            height: 30px;
-            border-radius: 50%;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            padding: 0;
-        }
-
-        .cancel-job-btn:disabled {
-            background-color: #6c757d; /* gray */
-            color: #343a40; /* darker gray "x" */
-            cursor: not-allowed;
-        }
     </style>
 </head>
 <body>
@@ -216,6 +196,26 @@
             }
             return data;
         }
+        // Cancel Job Button Renderer
+        function renderCancelJobButton(data, type, row) {
+            // Only generate HTML for the UI display
+            if (type !== 'display') {
+                return row.job_id; // fallback for sorting/searching/export
+            }
+
+            const disabled = row.job_state !== "running" && row.job_state !== "queued";
+
+            return `
+                <button
+                    type="button"
+                    class="btn btn-outline-danger btn-sm rounded-circle"
+                    ${disabled ? "disabled" : ""}
+                    title="Cancel running job"
+                >
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            `;
+        }
         // Create DataTable for full jobs table
         function createFullJobsTable() {
             $('#searchJobsTable').DataTable({
@@ -231,21 +231,7 @@
                         searchable: false,
                         width: '40px',
                         className: 'text-center',
-                        render: function(data, type, row) {
-                            const disabled = row.job_state === "success" || row.job_state === "failed";
-
-                            return `
-                                <button
-                                    type="button"
-                                    class="cancel-job-btn rounded-circle d-flex justify-content-center align-items-center p-0"
-                                    style="width:30px; height:30px;"
-                                    ${disabled ? "disabled" : 'data-bs-toggle="tooltip" data-bs-title="Cancel"'}
-                                    data-job-id="${row.job_id}"
-                                >
-                                    <i class="bi bi-x-lg"></i>
-                                </button>
-                            `;
-                        }
+                        render: renderCancelJobButton
                     },
                     { data: 'name', searchable: true },
                     { data: 'job_id', searchable: true },
@@ -284,12 +270,6 @@
                         last: 'Last &raquo;'
                     },
                 },
-                drawCallback: function () {
-                    const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
-                    const tooltipList = [...tooltipTriggerList].map(
-                        el => new bootstrap.Tooltip(el)
-                    );
-                }
             });
         }
         // Modal for tasks per job from full jobs table
