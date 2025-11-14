@@ -99,6 +99,7 @@
             <table id="searchJobsTable" class="display compact table table-bordered table-sm" style="font-size: small">
                 <thead>
                     <tr>
+                        <th></th>
                         <th>Asset Name</th>
                         <th>Job ID</th>
                         <th>Job Type</th>
@@ -195,6 +196,26 @@
             }
             return data;
         }
+        // Cancel Job Button Renderer
+        function renderCancelJobButton(data, type, row) {
+            // Only generate HTML for the UI display
+            if (type !== 'display') {
+                return row.job_id; // fallback for sorting/searching/export
+            }
+
+            const disabled = row.job_state !== "running" && row.job_state !== "queued";
+
+            return `
+                <button
+                    type="button"
+                    class="btn btn-outline-danger btn-sm rounded-circle"
+                    ${disabled ? "disabled" : ""}
+                    title="Cancel running job"
+                >
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            `;
+        }
         // Create DataTable for full jobs table
         function createFullJobsTable() {
             $('#searchJobsTable').DataTable({
@@ -204,6 +225,14 @@
                 },
                 processing: true,
                 columns: [
+                    {
+                        data: null,
+                        orderable: false,
+                        searchable: false,
+                        width: '40px',
+                        className: 'text-center',
+                        render: renderCancelJobButton
+                    },
                     { data: 'name', searchable: true },
                     { data: 'job_id', searchable: true },
                     { data: 'job_type', searchable: true },
