@@ -155,7 +155,9 @@
                                     oninput="onCancelConfirmationInput(this.value)"
                                 >
                             </div>
-                            <button id="cancel-confirm-button" type="button" class="btn btn-danger" disabled>Confirm</button>
+                            <button id="cancel-confirm-button" type="button" class="btn btn-danger" disabled
+                                onclick="cancelUploadJob()"
+                            >Confirm</button>
                         </div>
                     </div>
                 </div>
@@ -204,8 +206,13 @@
             // cancel modal
             var cancelModal = document.getElementById('cancel-modal-full');
             cancelModal.addEventListener('show.bs.modal', function (event) {
+                // store source data in the modal's dataset
                 var sourceData = event.relatedTarget?.dataset;
-                updateCancelJobModal(sourceData?.dagId, sourceData?.jobId, sourceData?.jobName);
+                cancelModal.dataset.dagId = sourceData?.dagId;
+                cancelModal.dataset.jobId = sourceData?.jobId;
+                cancelModal.dataset.jobName = sourceData?.jobName;
+                // update modal content
+                updateCancelJobModal();
             })
             cancelModal.addEventListener('hidden.bs.modal', function (event) {
                 resetCancelJobModal();
@@ -341,15 +348,32 @@
             }
         }
         // Modal for cancelling a job from full jobs table
-        function updateCancelJobModal(dagId, jobId, jobName) {
-            document.getElementById('cancel-modal-job-name').textContent = jobName;
-            document.getElementById('cancel-modal-job-id').textContent = jobId;
+        function updateCancelJobModal() {
+            const cancelModal = document.getElementById('cancel-modal-full');
+            document.getElementById('cancel-modal-job-name').textContent = cancelModal.dataset.jobName;
+            document.getElementById('cancel-modal-job-id').textContent = cancelModal.dataset.jobId;
         }
         function resetCancelJobModal() {
             document.getElementById('cancel-modal-job-name').textContent = '';
             document.getElementById('cancel-modal-job-id').textContent = '';
             document.getElementById('cancel-confirm-input').value = '';
             document.getElementById('cancel-confirm-button').disabled = true;
+        }
+        function cancelUploadJob() {
+            // Get job data from modal dataset
+            const cancelModal = document.getElementById('cancel-modal-full');
+            const dagId = cancelModal.dataset.dagId;
+            const jobId = cancelModal.dataset.jobId;
+            const jobName = cancelModal.dataset.jobName;
+            if (!dagId || !jobId || !jobName) {
+                alert($`Error: Missing data to cancel job!\n\nDag ID: ${dagId}\nJob ID: ${jobId}\nAsset Name: ${jobName}`);
+                return;
+            }
+            
+            // TODO: implement api call to cancel the job
+            // TODO: display pending, success, or failure message to user
+            console.log('Clicked cancel job for', dagId, jobId, jobName);
+            alert(`Clicked cancel job for:\n\nDag ID: ${dagId}\nJob ID: ${jobId}\nAsset Name: ${jobName}`);
         }
         // EVENT HANDLERS ------------------------------------------------
         function updateJobStatusTable(newParams) {
