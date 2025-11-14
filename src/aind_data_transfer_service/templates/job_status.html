@@ -23,6 +23,26 @@
         .modal-body {
             height: calc(100vh - 100px);
         }
+
+        /* Cancel job button styles */
+        .cancel-job-btn {
+            background-color: red;
+            color: white;
+            border: none;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 0;
+        }
+
+        .cancel-job-btn:disabled {
+            background-color: #6c757d; /* gray */
+            color: #343a40; /* darker gray "x" */
+            cursor: not-allowed;
+        }
     </style>
 </head>
 <body>
@@ -99,6 +119,7 @@
             <table id="searchJobsTable" class="display compact table table-bordered table-sm" style="font-size: small">
                 <thead>
                     <tr>
+                        <th></th>
                         <th>Asset Name</th>
                         <th>Job ID</th>
                         <th>Job Type</th>
@@ -204,6 +225,28 @@
                 },
                 processing: true,
                 columns: [
+                    {
+                        data: null,
+                        orderable: false,
+                        searchable: false,
+                        width: '40px',
+                        className: 'text-center',
+                        render: function(data, type, row) {
+                            const disabled = row.job_state === "success" || row.job_state === "failed";
+
+                            return `
+                                <button
+                                    type="button"
+                                    class="cancel-job-btn rounded-circle d-flex justify-content-center align-items-center p-0"
+                                    style="width:30px; height:30px;"
+                                    ${disabled ? "disabled" : 'data-bs-toggle="tooltip" data-bs-title="Cancel"'}
+                                    data-job-id="${row.job_id}"
+                                >
+                                    <i class="bi bi-x-lg"></i>
+                                </button>
+                            `;
+                        }
+                    },
                     { data: 'name', searchable: true },
                     { data: 'job_id', searchable: true },
                     { data: 'job_type', searchable: true },
@@ -241,6 +284,12 @@
                         last: 'Last &raquo;'
                     },
                 },
+                drawCallback: function () {
+                    const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
+                    const tooltipList = [...tooltipTriggerList].map(
+                        el => new bootstrap.Tooltip(el)
+                    );
+                }
             });
         }
         // Modal for tasks per job from full jobs table
