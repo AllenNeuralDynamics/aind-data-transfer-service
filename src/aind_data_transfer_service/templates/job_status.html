@@ -40,7 +40,7 @@
                 <!-- filter by job status -->
                 <div class="input-group input-group-sm mb-1">
                     <span class="input-group-text" style="width:35%">Status</span>
-                    <select class="form-select" onchange="filterJobsByColumn(4, this.value);this.blur();">
+                    <select class="form-select" onchange="filterJobsByColumn(5, this.value);this.blur();">
                         {% for s in [
                             {"label": "all", "value": "", "class": "text-dark"},
                             {"label": "queued", "value": "queued", "class": "text-secondary"},
@@ -61,31 +61,31 @@
                 <hr class="flex-grow-1 border-secondary">
                 <div class="input-group input-group-sm mb-1">
                     <span class="input-group-text" style="width:35%">Asset Name</span>
-                    <input id="filter-name-input" type="text" class="form-control" placeholder="asset name" oninput="filterJobsByColumn(0, this.value)">
-                    <button id="filter-name-clear" class="btn btn-outline-secondary" type="button" title="Clear" onclick="clearFilterJobsByColumn(0, '#filter-name-input')">
+                    <input id="filter-name-input" type="text" class="form-control" placeholder="asset name" oninput="filterJobsByColumn(1, this.value)">
+                    <button id="filter-name-clear" class="btn btn-outline-secondary" type="button" title="Clear" onclick="clearFilterJobsByColumn(1, '#filter-name-input')">
                         <i class="bi bi-x-lg"></i>
                     </button>
                 </div>
                 <!-- filter by job id-->
                 <div class="input-group input-group-sm mb-1">
                     <span class="input-group-text" style="width:35%">Job ID</span>
-                    <input id="filter-id-input" type="text" class="form-control" placeholder="job id" oninput="filterJobsByColumn(1, this.value)">
-                    <button id="filter-id-clear" class="btn btn-outline-secondary" type="button" title="Clear" onclick="clearFilterJobsByColumn(1, '#filter-id-input')">
+                    <input id="filter-id-input" type="text" class="form-control" placeholder="job id" oninput="filterJobsByColumn(2, this.value)">
+                    <button id="filter-id-clear" class="btn btn-outline-secondary" type="button" title="Clear" onclick="clearFilterJobsByColumn(2, '#filter-id-input')">
                         <i class="bi bi-x-lg"></i>
                     </button>
                 </div>
                 <!-- filter by job type-->
                 <div class="input-group input-group-sm mb-1">
                     <span class="input-group-text" style="width:35%">Job Type</span>
-                    <input id="filter-job-type-input" type="text" class="form-control" placeholder="job type" oninput="filterJobsByColumn(2, this.value)">
-                    <button id="filter-job-type-clear" class="btn btn-outline-secondary" type="button" title="Clear" onclick="clearFilterJobsByColumn(2, '#filter-job-type-input')">
+                    <input id="filter-job-type-input" type="text" class="form-control" placeholder="job type" oninput="filterJobsByColumn(3, this.value)">
+                    <button id="filter-job-type-clear" class="btn btn-outline-secondary" type="button" title="Clear" onclick="clearFilterJobsByColumn(3, '#filter-job-type-input')">
                         <i class="bi bi-x-lg"></i>
                     </button>
                 </div>
                 <!-- filter by dag id -->
                 <div class="input-group input-group-sm mb-1">
                     <span class="input-group-text" style="width:35%">Dag ID</span>
-                    <select class="form-select" onchange="filterJobsByColumn(3, this.value);this.blur();">
+                    <select class="form-select" onchange="filterJobsByColumn(4, this.value);this.blur();">
                         <option class="text-dark" value="">all</option>
                         {% for dag_id in dag_ids %}
                         <option class="text-secondary" value="^{{ dag_id }}$">{{ dag_id }}</option>
@@ -131,6 +131,37 @@
                 </div>
                 </div>
             </div>
+            <!-- modal for cancelling a running job -->
+            <div class="modal fade" id="cancel-modal-full" tabindex="-1" aria-labelledby="cancel-modal-full-label" aria-hidden="true">
+                <div class="modal-dialog modal-l">
+                    <div class="modal-content">
+                        <div class="modal-header p-2">
+                            <div class="modal-title fw-bold" id="cancel-modal-full-label" style="font-size: small">Cancel Upload Job</div>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="cancel-modal-body p-3" style="font-size: small">
+                            <div class="alert alert-danger mb-3" role="alert">
+                                <div class="mb-2"><strong>WARNING!</strong> You are about to cancel the following upload job:</div>
+                                <div><strong>Asset Name:</strong> <span id="cancel-modal-job-name"></span></div>
+                                <div><strong>Job ID:</strong> <span id="cancel-modal-job-id"></span></div>
+                            </div>
+                            <div class="mb-3">
+                                If data has already begun uploading to the cloud, please contact a data administrator to
+                                remove the partial upload.
+                            </div>
+                            <div class="mb-3">
+                                Please type <strong>YES</strong> to confirm:
+                                <input id="cancel-confirm-input" type="text" class="form-control"placeholder="YES"
+                                    oninput="onCancelConfirmationInput(this.value)"
+                                >
+                            </div>
+                            <button id="cancel-confirm-button" type="button" class="btn btn-danger" disabled
+                                onclick="cancelUploadJob()"
+                            >Confirm</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
     <script>
@@ -172,6 +203,20 @@
             tasksModal.addEventListener('hidden.bs.modal', function (event) {
                 updateJobTasksModal(null, null, null, null);
             })
+            // cancel modal
+            var cancelModal = document.getElementById('cancel-modal-full');
+            cancelModal.addEventListener('show.bs.modal', function (event) {
+                // store source data in the modal's dataset
+                var sourceData = event.relatedTarget?.dataset;
+                cancelModal.dataset.dagId = sourceData?.dagId;
+                cancelModal.dataset.jobId = sourceData?.jobId;
+                cancelModal.dataset.jobName = sourceData?.jobName;
+                // update modal content
+                updateCancelJobModal();
+            })
+            cancelModal.addEventListener('hidden.bs.modal', function (event) {
+                resetCancelJobModal();
+            })
         });
         // FULL JOBS TABLE -----------------------------------------------
         // Helper functions for custom column rendering
@@ -200,17 +245,20 @@
         function renderCancelJobButton(data, type, row) {
             // Only generate HTML for the UI display
             if (type !== 'display') {
-                return row.job_id; // fallback for sorting/searching/export
+                return data; // fallback
             }
-
             const disabled = row.job_state !== "running" && row.job_state !== "queued";
-
             return `
                 <button
                     type="button"
                     class="btn btn-outline-danger btn-sm rounded-circle"
                     ${disabled ? "disabled" : ""}
                     title="Cancel running job"
+                    data-bs-toggle="modal"
+                    data-bs-target="#cancel-modal-full"
+                    data-dag-id="${row.dag_id}"
+                    data-job-id="${row.job_id}"
+                    data-job-name="${row.name}"
                 >
                     <i class="bi bi-x-lg"></i>
                 </button>
@@ -230,7 +278,6 @@
                         orderable: false,
                         searchable: false,
                         width: '40px',
-                        className: 'text-center',
                         render: renderCancelJobButton
                     },
                     { data: 'name', searchable: true },
@@ -247,7 +294,7 @@
                 initComplete: (settings, json) => updateJobsCount(json),
                 // layout options
                 pageLength: 25,
-                order: [5, 'desc'], // submit time descending
+                order: [6, 'desc'], // submit time descending
                 layout: {
                     topStart: null,
                     topEnd: null,
@@ -300,6 +347,40 @@
                 tasksIframe.src = "";
             }
         }
+        // Modal for cancelling a job from full jobs table
+        function updateCancelJobModal() {
+            const cancelModal = document.getElementById('cancel-modal-full');
+            document.getElementById('cancel-modal-job-name').textContent = cancelModal.dataset.jobName;
+            document.getElementById('cancel-modal-job-id').textContent = cancelModal.dataset.jobId;
+        }
+        function resetCancelJobModal() {
+            // clear modal content
+            document.getElementById('cancel-modal-job-name').textContent = '';
+            document.getElementById('cancel-modal-job-id').textContent = '';
+            document.getElementById('cancel-confirm-input').value = '';
+            document.getElementById('cancel-confirm-button').disabled = true;
+            // clear stored data in modal dataset
+            const cancelModal = document.getElementById('cancel-modal-full');
+            cancelModal.dataset.dagId = '';
+            cancelModal.dataset.jobId = '';
+            cancelModal.dataset.jobName = '';
+        }
+        function cancelUploadJob() {
+            // Get job data from modal dataset
+            const cancelModal = document.getElementById('cancel-modal-full');
+            const dagId = cancelModal.dataset.dagId;
+            const jobId = cancelModal.dataset.jobId;
+            const jobName = cancelModal.dataset.jobName;
+            if (!dagId || !jobId || !jobName) {
+                alert($`Error: Missing data to cancel job!\n\nDag ID: ${dagId}\nJob ID: ${jobId}\nAsset Name: ${jobName}`);
+                return;
+            }
+            
+            // TODO: implement api call to cancel the job
+            // TODO: display pending, success, or failure message to user
+            console.log('Clicked cancel job for', dagId, jobId, jobName);
+            alert(`Clicked cancel job for:\n\nDag ID: ${dagId}\nJob ID: ${jobId}\nAsset Name: ${jobName}`);
+        }
         // EVENT HANDLERS ------------------------------------------------
         function updateJobStatusTable(newParams) {
             Object.entries(newParams).forEach(([key, value]) => {
@@ -320,7 +401,7 @@
         }
         // Filters
         function filterJobsByColumn(columnIndex, value) {
-            if (columnIndex == 3 || columnIndex == 4) {
+            if (columnIndex == 4 || columnIndex == 5) {
                 //exact match for dag_id and job_state dropdowns
                 $('#searchJobsTable').DataTable().columns(columnIndex).search(value.trim(), true, false).draw();
             } else {
@@ -339,6 +420,12 @@
                 execution_date_gte: start.toISOString(),
                 execution_date_lte: end.toISOString(),
             });
+        }
+        function onCancelConfirmationInput(inputValue) {
+            // enable cancel jobs confirm button only if input is "YES"
+            const confirmButton = $('#cancel-confirm-button');
+            const disabled = inputValue !== 'YES';
+            confirmButton.prop('disabled', disabled);
         }
     </script>
     </body>
