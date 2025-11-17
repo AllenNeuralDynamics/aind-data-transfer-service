@@ -172,7 +172,7 @@
             const today = moment();
             const twoWeeksAgo = moment().subtract(13, 'days');
 
-            // initialize daterangepicker for submit date filter
+            // Initialize daterangepicker for submit date filter
             $('#submit-date-range').daterangepicker({
                 startDate: twoWeeksAgo,
                 endDate: today,
@@ -186,7 +186,7 @@
                 }
             }, filterJobsBySubmitTimeRange);
 
-            // initialize job status table with default values
+            // Initialize job status table with default values
             const initialParams = {
                 // set default submit date range client-side for browser's local time
                 execution_date_gte: twoWeeksAgo.startOf('day').toISOString(),
@@ -194,7 +194,7 @@
             };
             updateJobStatusTable(initialParams);
 
-            // tasks modal for full jobs table
+            // Tasks modal for full jobs table
             var tasksModal = document.getElementById('tasks-modal-full');
             tasksModal.addEventListener('show.bs.modal', function (event) {
                 var sourceData = event.relatedTarget?.dataset;
@@ -203,10 +203,10 @@
             tasksModal.addEventListener('hidden.bs.modal', function (event) {
                 updateJobTasksModal(null, null, null, null);
             })
-            // cancel modal
+            // Cancel modal
             var cancelModal = document.getElementById('cancel-modal-full');
             cancelModal.addEventListener('show.bs.modal', function (event) {
-                // store source data in the modal's dataset
+                // Store source data in the modal's dataset
                 var sourceData = event.relatedTarget?.dataset;
                 cancelModal.dataset.dagId = sourceData?.dagId;
                 cancelModal.dataset.jobId = sourceData?.jobId;
@@ -354,12 +354,12 @@
             document.getElementById('cancel-modal-job-id').textContent = cancelModal.dataset.jobId;
         }
         function resetCancelJobModal() {
-            // clear modal content
+            // Clear modal content
             document.getElementById('cancel-modal-job-name').textContent = '';
             document.getElementById('cancel-modal-job-id').textContent = '';
             document.getElementById('cancel-confirm-input').value = '';
             document.getElementById('cancel-confirm-button').disabled = true;
-            // clear stored data in modal dataset
+            // Clear stored data in modal dataset
             const cancelModal = document.getElementById('cancel-modal-full');
             cancelModal.dataset.dagId = '';
             cancelModal.dataset.jobId = '';
@@ -376,7 +376,7 @@
                 return;
             }
 
-            // disable confirm button to prevent double submission
+            // Disable confirm button to prevent double submission
             const confirmButton = $('#cancel-confirm-button');
             confirmButton.prop('disabled', true);
             confirmButton.text('Cancelling...');
@@ -388,7 +388,7 @@
                 data: JSON.stringify({
                     dag_run_id: jobId,
                     dag_id: dagId,
-                    asset_name: jobName
+                    s3_prefix: jobName
                 }),
                 success: function(response) {
                     confirmButton.text('Cancel Request Sent');
@@ -403,7 +403,7 @@
                 }
             });
         }
-        // attach Enter key listener ONCE; triggers only if the user types "YES"
+        // Attach Enter key listener ONCE; triggers only if the user types "YES"
         $('#cancel-confirm-input').on('keypress', function(e) {
             if (e.key === 'Enter' && this.value === 'YES') {
                 cancelUploadJob();
@@ -416,7 +416,7 @@
                 tableUrl.searchParams.set(key, value);
             });
             if (DataTable.isDataTable('#searchJobsTable')) {
-                // load the table with new params and update total entries
+                // Load the table with new params and update total entries
                 $('#searchJobsTable').DataTable().ajax.url(tableUrl.toString()).load(
                     (data) => updateJobsCount(data)
                 );
@@ -425,7 +425,7 @@
             }
         }
         function updateJobsCount(data) {
-            // data is the response from the server after ajax call
+            // Data is the response from the server after ajax call
             $('#total-entries').text(data?.data?.total_entries);
         }
         // Filters
@@ -451,7 +451,7 @@
             });
         }
         function onCancelConfirmationInput(inputValue) {
-            // enable cancel jobs confirm button only if input is "YES"
+            // Enable cancel jobs confirm button only if input is "YES"
             const confirmButton = $('#cancel-confirm-button');
             const disabled = inputValue !== 'YES';
             confirmButton.prop('disabled', disabled);
