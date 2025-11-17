@@ -159,6 +159,9 @@
                                 onclick="cancelUploadJob()"
                             >Confirm</button>
                             <div id="cancel-feedback" class="mt-2">
+                                <div id="cancel-spinner" class="spinner-border text-primary ms-2" role="status" style="display: none;">
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
                                 <div id="success-message" class="text-success mt-2" style="display: none;">
                                     Cancel Request Sent
                                 </div>
@@ -388,6 +391,10 @@
             const confirmButton = $('#cancel-confirm-button');
             confirmButton.prop('disabled', true);
 
+            // Show spinner while waiting for server response to cancel job
+            const spinner = document.getElementById('cancel-spinner');
+            spinner.style.display = 'inline-block';
+
             // Hide messages when unneeded
             document.getElementById('success-message').style.display = 'none';
             document.getElementById('error-message').style.display = 'none';
@@ -402,6 +409,7 @@
                     s3_prefix: jobName
                 }),
                 success: function(response) {
+                    spinner.style.display = 'none';
                     document.getElementById('success-message').style.display = 'block';
                     // Refresh table to reflect job cancellation
                     $('#searchJobsTable').DataTable().ajax.reload(null, false);
