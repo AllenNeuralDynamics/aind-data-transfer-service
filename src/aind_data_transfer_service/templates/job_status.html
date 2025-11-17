@@ -158,6 +158,14 @@
                             <button id="cancel-confirm-button" type="button" class="btn btn-danger" disabled
                                 onclick="cancelUploadJob()"
                             >Confirm</button>
+                            <div id="cancel-feedback" class="mt-2">
+                                <div id="success-message" class="text-success mt-2" style="display: none;">
+                                    Cancel Request Sent
+                                </div>
+                                <div id="error-message" class="alert alert-danger mt-2 p-2" style="display: none;">
+                                    Error sending Cancel Request
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -379,7 +387,10 @@
             // Disable confirm button to prevent double submission
             const confirmButton = $('#cancel-confirm-button');
             confirmButton.prop('disabled', true);
-            confirmButton.text('Cancelling...');
+
+            // Hide messages when unneeded
+            document.getElementById('success-message').style.display = 'none';
+            document.getElementById('error-message').style.display = 'none';
 
             $.ajax({
                 type: 'POST',
@@ -391,14 +402,16 @@
                     s3_prefix: jobName
                 }),
                 success: function(response) {
-                    confirmButton.text('Cancel Request Sent');
-                    // refresh table to reflect job cancellation
+                    document.getElementById('success-message').style.display = 'block';
+                    // Refresh table to reflect job cancellation
                     $('#searchJobsTable').DataTable().ajax.reload(null, false);
                 },
                 error: function(xhr, status, error) {
+                    spinner.style.display = 'none'; // hide spinner
                     const errMsg = xhr.responseJSON?.data?.error || error;
-                    console.error(`Error cancelling job: ${errMsg}`);
-                    confirmButton.text(`Error sending Cancel Request: ${errMsg}`);
+                    const errorDiv = document.getElementById('error-message');
+                    errorDiv.textContent = `Error sending Cancel Request: ${errMsg}`;
+                    errorDiv.style.display = 'block';
                     confirmButton.prop('disabled', false);
                 }
             });
