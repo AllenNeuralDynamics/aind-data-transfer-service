@@ -375,12 +375,41 @@
                 alert($`Error: Missing data to cancel job!\n\nDag ID: ${dagId}\nJob ID: ${jobId}\nAsset Name: ${jobName}`);
                 return;
             }
-            
-            // TODO: implement api call to cancel the job
-            // TODO: display pending, success, or failure message to user
-            console.log('Clicked cancel job for', dagId, jobId, jobName);
-            alert(`Clicked cancel job for:\n\nDag ID: ${dagId}\nJob ID: ${jobId}\nAsset Name: ${jobName}`);
+
+            // disable confirm button to prevent double submission
+            const confirmButton = $('#cancel-confirm-button');
+            confirmButton.prop('disabled', true);
+            confirmButton.text('Cancelling...');
+
+            $.ajax({
+                type: 'POST',
+                url: '{{ url_for("cancel_job") }}',
+                contentType: 'application/json',
+                data: JSON.stringify({
+                    dag_run_id: jobId,
+                    dag_id: dagId,
+                    asset_name: jobName
+                }),
+                success: function(response) {
+                    confirmButton.text('Cancel Request Sent');
+                    // refresh table to reflect job cancellation
+                    $('#searchJobsTable').DataTable().ajax.reload(null, false);
+                },
+                error: function(xhr, status, error) {
+                    const errMsg = xhr.responseJSON?.data?.error || error;
+                    console.error(`Error cancelling job: ${errMsg}`);
+                    confirmButton.text(`Error sending Cancel Request: ${errMsg}`);
+                    confirmButton.prop('disabled', false);
+                }
+            });
         }
+        // attach Enter key listener ONCE; triggers only if the user types "YES"
+        $('#cancel-confirm-input').on('keypress', function(e) {
+            if (e.key === 'Enter' && this.value === 'YES') {
+                cancelUploadJob();
+            }
+        });
+
         // EVENT HANDLERS ------------------------------------------------
         function updateJobStatusTable(newParams) {
             Object.entries(newParams).forEach(([key, value]) => {
