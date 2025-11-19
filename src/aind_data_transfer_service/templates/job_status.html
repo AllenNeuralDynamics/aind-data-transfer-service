@@ -367,6 +367,12 @@
             document.getElementById('cancel-modal-job-id').textContent = '';
             document.getElementById('cancel-confirm-input').value = '';
             document.getElementById('cancel-confirm-button').disabled = true;
+
+            // Hide messages and spinner
+            document.getElementById('success-message').hidden = true;
+            document.getElementById('error-message').hidden = true;
+            document.getElementById('cancel-spinner').hidden = true;
+
             // Clear stored data in modal dataset
             const cancelModal = document.getElementById('cancel-modal-full');
             cancelModal.dataset.dagId = '';
@@ -392,9 +398,13 @@
             const spinner = document.getElementById('cancel-spinner');
             spinner.hidden = false;
 
-            // Hide messages when unneeded
-            document.getElementById('success-message').hidden = true;
-            document.getElementById('error-message').hidden = true;
+            // Log the payload for debugging
+            const payload = {
+                dag_run_id: jobId,
+                dag_id: dagId,
+                s3_prefix: jobName
+            };
+            console.log('Sending cancellation payload:', payload);
 
             $.ajax({
                 type: 'POST',
