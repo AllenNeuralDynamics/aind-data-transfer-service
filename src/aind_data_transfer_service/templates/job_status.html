@@ -159,14 +159,11 @@
                                 onclick="cancelUploadJob()"
                             >Confirm</button>
                             <div id="cancel-feedback" class="mt-2">
-                                <div id="cancel-spinner" class="spinner-border text-primary ms-2" role="status" style="display: none;">
-                                    <span class="visually-hidden">Loading...</span>
+                                <div id="cancel-spinner" class="spinner-border text-primary ms-2" role="status" hidden><span class="visually-hidden">Loading...</span></div>
                                 </div>
-                                <div id="success-message" class="text-success mt-2" style="display: none;">
-                                    Cancel Request Sent
+                                <div id="success-message" class="text-success mt-2" hidden>Cancellation request sent
                                 </div>
-                                <div id="error-message" class="alert alert-danger mt-2 p-2" style="display: none;">
-                                    Error sending Cancel Request
+                                <div id="error-message" class="alert alert-danger mt-2 p-2" hidden>Error sending cancellation request
                                 </div>
                             </div>
                         </div>
@@ -393,11 +390,11 @@
 
             // Show spinner while waiting for server response to cancel job
             const spinner = document.getElementById('cancel-spinner');
-            spinner.style.display = 'inline-block';
+            spinner.hidden = false;
 
             // Hide messages when unneeded
-            document.getElementById('success-message').style.display = 'none';
-            document.getElementById('error-message').style.display = 'none';
+            document.getElementById('success-message').hidden = true;
+            document.getElementById('error-message').hidden = true;
 
             $.ajax({
                 type: 'POST',
@@ -409,17 +406,17 @@
                     s3_prefix: jobName
                 }),
                 success: function(response) {
-                    spinner.style.display = 'none';
-                    document.getElementById('success-message').style.display = 'block';
+                    spinner.hidden = true;
+                    document.getElementById('success-message').hidden = false;
                     // Refresh table to reflect job cancellation
                     $('#searchJobsTable').DataTable().ajax.reload(null, false);
                 },
                 error: function(xhr, status, error) {
-                    spinner.style.display = 'none'; // hide spinner
+                    spinner.hidden = true;
                     const errMsg = xhr.responseJSON?.data?.error || error;
                     const errorDiv = document.getElementById('error-message');
-                    errorDiv.textContent = `Error sending Cancel Request: ${errMsg}`;
-                    errorDiv.style.display = 'block';
+                    errorDiv.textContent = `Error sending cancellation requestt: ${errMsg}`;
+                    errorDiv.hidden = false;
                     confirmButton.prop('disabled', false);
                 }
             });
