@@ -425,7 +425,7 @@
                     spinner.hidden = true;
                     const errMsg = xhr.responseJSON?.data?.error || error;
                     const errorDiv = document.getElementById('error-message');
-                    errorDiv.textContent = `Error sending cancellation requestt: ${errMsg}`;
+                    errorDiv.textContent = `Error sending cancellation request: ${errMsg}`;
                     errorDiv.hidden = false;
                     confirmButton.prop('disabled', false);
                 }
