@@ -5,7 +5,7 @@ on:
       - main
 
 jobs:
-  tag_and_publish:
+  get_tag_version:
     name: Parse version
     runs-on: ubuntu-latest
     outputs:
@@ -23,24 +23,17 @@ jobs:
         git tag "v${{ env.docker_tag }}"
     - name: Push git tag
       run: git push origin "v${{ env.docker_tag }}"
-    - name: Set up Docker Buildx
-      id: buildx
-      uses: docker/setup-buildx-action@v2
-    - name: Login to Github Packages
-      uses: docker/login-action@v2
-      with:
-        registry: ghcr.io
-        username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
-    - name: Build image and push to GitHub Container Registry
-      uses: docker/build-push-action@v3
-      with:
-        # relative path to the place where source code with Dockerfile is located
-        context: .
-        push: true
-        tags: |
-          ghcr.io/allenneuraldynamics/aind-data-transfer-service:${{ env.docker_tag }}
-          ghcr.io/allenneuraldynamics/aind-data-transfer-service:latest
+  publish_docker:
+    needs: get_tag_version
+    uses: AllenNeuralDynamics/.github/.github/workflows/release-publish-docker-image.yml@main
+    with:
+      docker-tag: ${{ needs.get_tag_version.outputs.pkg_version }}
+    secrets:
+      repo-token: ${{ secrets.GITHUB_TOKEN }}
+  publish_pypi:
+    needs: get_tag_version
+    runs-on: ubuntu-latest
+    steps:
     - name: Set up Python 3.10
       uses: actions/setup-python@v5
       with:
