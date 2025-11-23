@@ -252,6 +252,8 @@ class UploadJobConfigsV2(BaseSettings):
         ]
         for task_id, task_value in v.items():
             if task_id in modality_tasks:
+                if isinstance(task_value, Task) and task_value.skip_task:
+                    continue
                 if not isinstance(task_value, dict):
                     raise ValueError(
                         f"{task_id} must be a dictionary of modality "
