@@ -240,6 +240,33 @@ class UploadJobConfigsV2(BaseSettings):
         else:
             return v
 
+    @field_validator("tasks", mode="after")
+    def validate_tasks(
+        cls, v: Dict[str, Union[Task, Dict[str, Task]]]
+    ) -> Dict[str, Union[Task, Dict[str, Task]]]:
+        """Validate that modality-specific tasks are keyed by valid
+        modality abbreviations."""
+        modality_tasks = [
+            "modality_transformation_settings",
+            "codeocean_pipeline_settings",
+        ]
+        for task_id, task_value in v.items():
+            if task_id in modality_tasks:
+                if isinstance(task_value, Task) and task_value.skip_task:
+                    continue
+                if not isinstance(task_value, dict):
+                    raise ValueError(
+                        f"{task_id} must be a dictionary of modality "
+                        f"abbreviations to Task objects."
+                    )
+                for modality_key in task_value.keys():
+                    if modality_key not in Modality.abbreviation_map:
+                        raise ValueError(
+                            f'Key {modality_key} in tasks["{task_id}"] is not '
+                            f"a valid modality abbreviation."
+                        )
+        return v
+
 
 class SubmitJobRequestV2(BaseSettings):
     """Main request that will be sent to the backend. Bundles jobs into a list

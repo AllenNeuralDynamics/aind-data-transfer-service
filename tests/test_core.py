@@ -2,6 +2,7 @@
 
 import json
 import unittest
+from copy import deepcopy
 from datetime import datetime
 from unittest.mock import MagicMock
 
@@ -71,7 +72,7 @@ class TestTask(unittest.TestCase):
             "job_settings",
         ]:
             expected_error = f"Value error, {field} must be json serializable!"
-            invalid_configs = self.custom_task_configs.copy()
+            invalid_configs = deepcopy(self.custom_task_configs)
             invalid_configs[field] = {"param1": list}
             with self.assertRaises(ValidationError) as e:
                 Task(**invalid_configs)
@@ -233,7 +234,7 @@ class TestUploadJobConfigsV2(unittest.TestCase):
 
     def test_check_tasks(self):
         """Tests that tasks can be set correctly"""
-        configs = self.base_configs.copy()
+        configs = deepcopy(self.base_configs)
         configs["tasks"] = {
             "modality_transformation_settings": {
                 "behavior-videos": Task(
@@ -260,6 +261,51 @@ class TestUploadJobConfigsV2(unittest.TestCase):
             len(job_configs.tasks["modality_transformation_settings"].items()),
         )
 
+    def test_check_modality_tasks(self):
+        """Tests that modality tasks must be provided as dict of tasks"""
+        configs = deepcopy(self.base_configs)
+        configs["tasks"] = {
+            "modality_transformation_settings": Task(
+                job_settings={"input_source": "dir/data_set_1"}
+            ),
+        }
+        with self.assertRaises(ValidationError) as e:
+            UploadJobConfigsV2(**configs)
+        expected_message = (
+            "modality_transformation_settings must be a dictionary of "
+            "modality abbreviations to Task objects."
+        )
+        self.assertIn(expected_message, str(e.exception))
+
+    def test_check_modality_tasks_with_skip_task(self):
+        """Tests that validation check is valid when skip_task is True"""
+        configs = deepcopy(self.base_configs)
+        configs["tasks"] = {
+            "modality_transformation_settings": Task(
+                skip_task=True,
+            ),
+        }
+        job = UploadJobConfigsV2(**configs)
+        self.assertTrue(
+            job.tasks["modality_transformation_settings"].skip_task
+        )
+
+    def test_check_modality_tasks_keys(self):
+        """Tests that modality tasks have valid abbreviations as keys"""
+        configs = deepcopy(self.base_configs)
+        configs["tasks"] = {
+            "codeocean_pipeline_settings": {
+                "foo": Task(job_settings={"input_source": "dir/data_set_1"}),
+            },
+        }
+        with self.assertRaises(ValidationError) as e:
+            UploadJobConfigsV2(**configs)
+        expected_message = (
+            'Key foo in tasks["codeocean_pipeline_settings"] is not a valid '
+            "modality abbreviation."
+        )
+        self.assertIn(expected_message, str(e.exception))
+
 
 class TestSubmitJobRequestV2(unittest.TestCase):
     """Tests SubmitJobRequestV2 class"""
@@ -277,11 +323,11 @@ class TestSubmitJobRequestV2(unittest.TestCase):
             subject_id="123456",
             acq_datetime=datetime(2020, 10, 13, 13, 10, 10),
             tasks={
-                "modality_transformation_settings": Task(
-                    job_settings={
-                        "input_source": "dir/data_set_1",
-                    },
-                )
+                "modality_transformation_settings": {
+                    "behavior-videos": Task(
+                        job_settings={"input_source": "dir/data_set_1"},
+                    ),
+                }
             },
         )
         cls.example_upload_config = example_upload_config
@@ -423,9 +469,14 @@ class TestSubmitJobRequestV2(unittest.TestCase):
         upload_jobs = list()
         for i in range(10):
             tasks = {
-                "modality_transformation_settings": Task(
-                    job_settings={"input_source": "dir/data", "chunk": str(i)}
-                )
+                "modality_transformation_settings": {
+                    "behavior-videos": Task(
+                        job_settings={
+                            "input_source": "dir/data",
+                            "chunk": str(i),
+                        }
+                    )
+                }
             }
             upload_jobs.append(UploadJobConfigsV2(**job_configs, tasks=tasks))
         submit_job_request = SubmitJobRequestV2(upload_jobs=upload_jobs)
