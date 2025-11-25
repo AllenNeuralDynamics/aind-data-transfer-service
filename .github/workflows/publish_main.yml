@@ -14,7 +14,7 @@ jobs:
     needs: tag
     uses: AllenNeuralDynamics/.github/.github/workflows/release-publish-docker-image.yml@main
     with:
-      docker_tag: ${{ needs.tag.outputs.new_version }}
+      docker-tag: ${{ needs.tag.outputs.new_version }}
     secrets:
       repo-token: ${{ secrets.GITHUB_TOKEN }}
   publish-pypi:

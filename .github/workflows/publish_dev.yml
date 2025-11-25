@@ -22,6 +22,6 @@ jobs:
     uses: AllenNeuralDynamics/.github/.github/workflows/release-publish-docker-image.yml@main
     with:
       default-branch: dev
-      docker_tag: ${{ needs.compute-docker-tag.outputs.docker_tag }}
+      docker-tag: ${{ needs.compute-docker-tag.outputs.docker_tag }}
     secrets:
       repo-token: ${{ secrets.GITHUB_TOKEN }}
