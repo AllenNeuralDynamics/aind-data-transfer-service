@@ -135,7 +135,7 @@ portal can accessed at
    -  metadata_dir: If metadata files are pre-compiled and saved to a
       directory, you can add the Posix style path to the directory under
       this column
-   -  derivatives_dir: If a derivatives is available for upload, can be
+   -  derivatives_dir: If a derivatives folder is available for upload, can be
       specified as a Posix style path to the directory under this column
    -  s3_bucket: As default, data will be uploaded to a default bucket
       in S3 managed by AIND. Please reach out to the Scientific
