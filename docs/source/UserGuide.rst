@@ -38,10 +38,12 @@ job_types.
    -  **gather_preliminary_metadata**: Automatically gathers metadata for
       subject, procedures, and data_description. Will also gather metadata from
       aind-metadata-mapper if options are set.
+   -  copy_derivatives_folder: Can specificy a derivatives folder to upload.
+      Set the job_settings like {"input_source": "path_to_folder"}.
    -  **modality_transformation_settings**: This creates the settings for
       transforming the modality folders.
-   -  compress_data: This is a mapped task. Each Task in the
-      modality_transformation_settings will run in parallel in a separate
+   -  compress_data/monitor_compress_data: This is a mapped task. Each Task in
+      the modality_transformation_settings will run in parallel in a separate
       container here.
    -  gather_final_metadata: Automatically generates a processing.json and
       metadata.nd.json file.
@@ -128,10 +130,13 @@ portal can accessed at
 -  Optional fields
 
    -  platform: Standardized way of collecting and processing data
-      (chosen from drop down menu)
+      (chosen from drop down menu) Note: This field is deprecated and will be
+      removed when aind-data-schema 2.0 is rolled out.
    -  metadata_dir: If metadata files are pre-compiled and saved to a
       directory, you can add the Posix style path to the directory under
       this column
+   -  derivatives_dir: If a derivatives folder is available for upload, can be
+      specified as a Posix style path to the directory under this column
    -  s3_bucket: As default, data will be uploaded to a default bucket
       in S3 managed by AIND. Please reach out to the Scientific
       Computing department if you wish to upload to a different bucket.
