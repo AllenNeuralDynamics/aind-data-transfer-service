@@ -5,30 +5,23 @@ on:
       - dev
 
 jobs:
-  publish:
+  compute-docker-tag:
     runs-on: ubuntu-latest
+    outputs:
+      docker_tag: ${{ steps.compute-tag.outputs.docker_tag }}
     steps:
       - uses: actions/checkout@v4
       - name: Compute new docker image tag
+        id: compute-tag
         run: |
           echo "sha_short=$(git rev-parse --short "$GITHUB_SHA")" >> "$GITHUB_ENV"
           echo "branch=$(echo ${GITHUB_REF_NAME})" >> "$GITHUB_ENV"
-          echo "docker_tag=$(echo ${GITHUB_REF_NAME})-$(git rev-parse --short "$GITHUB_SHA")" >> "$GITHUB_ENV"
-      - name: Set up Docker Buildx
-        id: buildx
-        uses: docker/setup-buildx-action@v2
-      - name: Login to Github Packages
-        uses: docker/login-action@v2
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Build image and push to GitHub Container Registry
-        uses: docker/build-push-action@v3
-        with:
-          # relative path to the place where source code with Dockerfile is located
-          context: .
-          push: true
-          tags: |
-            ghcr.io/allenneuraldynamics/aind-data-transfer-service:${{ env.docker_tag }}
-            ghcr.io/allenneuraldynamics/aind-data-transfer-service:dev
+          echo "docker_tag=$(echo ${GITHUB_REF_NAME})-$(git rev-parse --short "$GITHUB_SHA")" >> "$GITHUB_OUTPUT"
+  publish-image:
+    needs: compute-docker-tag
+    uses: AllenNeuralDynamics/.github/.github/workflows/release-publish-docker-image.yml@main
+    with:
+      default-branch: dev
+      docker-tag: ${{ needs.compute-docker-tag.outputs.docker_tag }}
+    secrets:
+      repo-token: ${{ secrets.GITHUB_TOKEN }}

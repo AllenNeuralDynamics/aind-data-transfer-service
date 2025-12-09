@@ -143,8 +143,14 @@ def map_csv_row_to_job(row: dict) -> UploadJobConfigsV2:
         if "metadata_dir" in job_configs
         else None
     )
+    derivatives_task = (
+        Task(job_settings={"input_source": job_configs.pop("derivatives_dir")})
+        if "derivatives_dir" in job_configs
+        else None
+    )
     tasks = {
         "gather_preliminary_metadata": metadata_task,
+        "copy_derivatives_folder": derivatives_task,
         "check_s3_folder_exists": check_s3_folder_exists_task,
         "modality_transformation_settings": modality_tasks,
         "codeocean_pipeline_settings": (

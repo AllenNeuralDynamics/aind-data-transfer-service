@@ -5,42 +5,24 @@ on:
       - main
 
 jobs:
-  tag_and_publish:
-    name: Parse version
+  tag:
+    name: Tag
+    uses: AllenNeuralDynamics/.github/.github/workflows/release-tag.yml@main
+    secrets:
+      repo-token: ${{ secrets.GITHUB_TOKEN }}
+  publish-image:
+    needs: tag
+    uses: AllenNeuralDynamics/.github/.github/workflows/release-publish-docker-image.yml@main
+    with:
+      docker-tag: ${{ needs.tag.outputs.new_version }}
+    secrets:
+      repo-token: ${{ secrets.GITHUB_TOKEN }}
+  publish-pypi:
+    needs: tag
     runs-on: ubuntu-latest
-    outputs:
-      pkg_version: ${{ steps.output_version.outputs.pkg_version }}
     steps:
-    - uses: actions/checkout@v4
-    - name: Get version from file
-      run: |
-        pkg_name=$(grep -P 'version = \{attr = .*\}' pyproject.toml | grep -oP '\w+.__version__')
-        init_file="./src/${pkg_name//.__version__}/__init__.py"
-        pkg_version=$(grep -Po '[0-9]+\.[0-9]+\.[0-9]+' "$init_file")
-        echo "docker_tag=$pkg_version" >> "$GITHUB_ENV"
-    - name: Create git tag
-      run: |
-        git tag "v${{ env.docker_tag }}"
-    - name: Push git tag
-      run: git push origin "v${{ env.docker_tag }}"
-    - name: Set up Docker Buildx
-      id: buildx
-      uses: docker/setup-buildx-action@v2
-    - name: Login to Github Packages
-      uses: docker/login-action@v2
-      with:
-        registry: ghcr.io
-        username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
-    - name: Build image and push to GitHub Container Registry
-      uses: docker/build-push-action@v3
-      with:
-        # relative path to the place where source code with Dockerfile is located
-        context: .
-        push: true
-        tags: |
-          ghcr.io/allenneuraldynamics/aind-data-transfer-service:${{ env.docker_tag }}
-          ghcr.io/allenneuraldynamics/aind-data-transfer-service:latest
+    - name: Checkout repository
+      uses: actions/checkout@v5
     - name: Set up Python 3.10
       uses: actions/setup-python@v5
       with:
