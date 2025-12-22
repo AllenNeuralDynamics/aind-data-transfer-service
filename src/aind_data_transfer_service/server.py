@@ -598,7 +598,7 @@ async def get_tasks_list(request: Request):
                     JobTasks.from_airflow_task_instance(t)
                     for t in task_instances.task_instances
                 ],
-                key=lambda t: (-t.priority_weight, t.map_index),
+                key=lambda t: (t.priority_weight, t.map_index),
             )
             message = "Retrieved job tasks list from airflow"
             data = {
