@@ -650,6 +650,10 @@ class TestServer(unittest.TestCase):
                 "comment": None,
             },
         ]
+        expected_task_list = sorted(
+            expected_task_list,
+            key=lambda t: (t["priority_weight"], t["map_index"]),
+        )
         with TestClient(app) as client:
             response = client.get(
                 "/api/v1/get_tasks_list",
