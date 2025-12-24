@@ -284,8 +284,6 @@ class JobParamInfo(BaseModel):
             "(?P<job_type>[^/]+)/tasks/(?P<task_id>[^/]+)"
             "(?:/(?P<modality>[^/]+))?"
         )
-        if version is None or version == "v1":
-            return f"{prefix}/{regex}"
         return f"{prefix}/{version}/{regex}"
 
     @staticmethod
