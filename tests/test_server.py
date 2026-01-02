@@ -85,23 +85,6 @@ class TestServer(unittest.TestCase):
     """Tests main server."""
 
     EXAMPLE_ENV_VAR1 = {
-        # "HPC_HOST": "hpc_host",
-        # "HPC_USERNAME": "hpc_user",
-        # "HPC_PASSWORD": "hpc_password",
-        # "HPC_TOKEN": "hpc_jwt",
-        # "HPC_PARTITION": "hpc_part",
-        # "HPC_SIF_LOCATION": "hpc_sif_location",
-        # "HPC_CURRENT_WORKING_DIRECTORY": "hpc_cwd",
-        # "HPC_LOGGING_DIRECTORY": "hpc_logs",
-        # "HPC_AWS_ACCESS_KEY_ID": "aws_key",
-        # "HPC_AWS_SECRET_ACCESS_KEY": "aws_secret_key",
-        # "HPC_AWS_DEFAULT_REGION": "aws_region",
-        # "APP_CSRF_SECRET_KEY": "test_csrf_key",
-        # "APP_SECRET_KEY": "test_app_key",
-        # "HPC_STAGING_DIRECTORY": "stage/dir",
-        # "HPC_AWS_PARAM_STORE_NAME": "/some/param/store",
-        # "OPEN_DATA_AWS_SECRET_ACCESS_KEY": "open_data_aws_key",
-        # "OPEN_DATA_AWS_ACCESS_KEY_ID": "open_data_aws_key_id",
         "AIND_AIRFLOW_SERVICE_JOBS_URL": "airflow_jobs_url",
         "AIND_AIRFLOW_SERVICE_USER": "airflow_user",
         "AIND_AIRFLOW_SERVICE_PASSWORD": "airflow_password",
