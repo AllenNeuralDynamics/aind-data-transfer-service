@@ -85,23 +85,6 @@ class TestServer(unittest.TestCase):
     """Tests main server."""
 
     EXAMPLE_ENV_VAR1 = {
-        "HPC_HOST": "hpc_host",
-        "HPC_USERNAME": "hpc_user",
-        "HPC_PASSWORD": "hpc_password",
-        "HPC_TOKEN": "hpc_jwt",
-        "HPC_PARTITION": "hpc_part",
-        "HPC_SIF_LOCATION": "hpc_sif_location",
-        "HPC_CURRENT_WORKING_DIRECTORY": "hpc_cwd",
-        "HPC_LOGGING_DIRECTORY": "hpc_logs",
-        "HPC_AWS_ACCESS_KEY_ID": "aws_key",
-        "HPC_AWS_SECRET_ACCESS_KEY": "aws_secret_key",
-        "HPC_AWS_DEFAULT_REGION": "aws_region",
-        "APP_CSRF_SECRET_KEY": "test_csrf_key",
-        "APP_SECRET_KEY": "test_app_key",
-        "HPC_STAGING_DIRECTORY": "stage/dir",
-        "HPC_AWS_PARAM_STORE_NAME": "/some/param/store",
-        "OPEN_DATA_AWS_SECRET_ACCESS_KEY": "open_data_aws_key",
-        "OPEN_DATA_AWS_ACCESS_KEY_ID": "open_data_aws_key_id",
         "AIND_AIRFLOW_SERVICE_JOBS_URL": "airflow_jobs_url",
         "AIND_AIRFLOW_SERVICE_USER": "airflow_user",
         "AIND_AIRFLOW_SERVICE_PASSWORD": "airflow_password",
@@ -111,9 +94,6 @@ class TestServer(unittest.TestCase):
 
     with open(SAMPLE_CSV, "r") as file:
         csv_content = file.read()
-
-    with open(MOCK_DB_FILE) as f:
-        json_contents = json.load(f)
 
     with open(LIST_DAG_RUNS_RESPONSE) as f:
         list_dag_runs_response = json.load(f)
@@ -847,24 +827,6 @@ class TestServer(unittest.TestCase):
             mock_paginator
         )
         expected_params = {
-            "v1": [
-                {
-                    "job_type": "job1",
-                    "last_modified": "2025-01-23T11:50:04.535000-08:00",
-                    "name": "/param_prefix/job1/tasks/task1",
-                    "task_id": "task1",
-                    "modality": None,
-                    "version": None,
-                },
-                {
-                    "job_type": "job2",
-                    "last_modified": "2025-01-23T11:50:04.605000-08:00",
-                    "name": "/param_prefix/job2/tasks/task2",
-                    "task_id": "task2",
-                    "modality": None,
-                    "version": None,
-                },
-            ],
             "v2": [
                 {
                     "job_type": "job1",
@@ -894,10 +856,7 @@ class TestServer(unittest.TestCase):
             mock_ssm_client.return_value.get_paginator.assert_called_with(
                 "describe_parameters"
             )
-            if version == "v1":
-                expected_filter = "/param_prefix"
-            else:
-                expected_filter = f"/param_prefix/{version}"
+            expected_filter = f"/param_prefix/{version}"
             mock_paginator.paginate.assert_called_with(
                 ParameterFilters=[
                     {
@@ -932,7 +891,6 @@ class TestServer(unittest.TestCase):
             self.get_parameter_response
         )
         expected_params = {
-            "v1": "/param_prefix/ecephys/tasks/task1",
             "v2": "/param_prefix/v2/ecephys/tasks/task1",
         }
         for version, param_name in expected_params.items():
@@ -973,7 +931,6 @@ class TestServer(unittest.TestCase):
             "GetParameter",
         )
         expected_params = {
-            "v1": "/param_prefix/foo/tasks/bar",
             "v2": "/param_prefix/v2/foo/tasks/bar",
         }
         for version, param_name in expected_params.items():
@@ -1089,7 +1046,7 @@ class TestServer(unittest.TestCase):
         """Tests put_parameter returns 401 Unauthorized error when user is
         not signed in."""
         mock_session.get.return_value = None
-        for version in ["v1", "v2"]:
+        for version in ["v2"]:
             with TestClient(app) as client:
                 response = client.put(
                     f"/api/{version}/parameters/job_types/ecephys/tasks/task1",
@@ -1139,7 +1096,6 @@ class TestServer(unittest.TestCase):
     ):
         """Tests put_parameter when there is a client error."""
         mock_params = {
-            "v1": "/param_prefix/ecephys/tasks/task1",
             "v2": "/param_prefix/v2/ecephys/tasks/task1",
         }
         mock_param_value = {"foo": "bar"}
@@ -2016,50 +1972,6 @@ class TestServer(unittest.TestCase):
         }
         self.assertEqual(response.status_code, 500)
         self.assertEqual(response.json(), expected_response)
-
-    @patch("aind_data_transfer_service.server.proxy")
-    def test_submit_basic_jobs_proxy(self, mock_proxy: MagicMock):
-        """Tests requests to submit_basic_jobs endpoint"""
-        mock_response = JSONResponse({"message": "Success"})
-        mock_response.status_code = 200
-        mock_proxy.return_value = mock_response
-        with TestClient(app) as client:
-            response = client.post("/api/submit_basic_jobs")
-        self.assertEqual(200, response.status_code)
-        mock_proxy.assert_called_once()
-
-    @patch("aind_data_transfer_service.server.proxy")
-    def test_submit_v1_jobs_proxy(self, mock_proxy: MagicMock):
-        """Tests requests to submit_jobs endpoint"""
-        mock_response = JSONResponse({"message": "Success"})
-        mock_response.status_code = 200
-        mock_proxy.return_value = mock_response
-        with TestClient(app) as client:
-            response = client.post("/api/v1/submit_jobs")
-        self.assertEqual(200, response.status_code)
-        mock_proxy.assert_called_once()
-
-    @patch("aind_data_transfer_service.server.proxy")
-    def test_submit_hpc_jobs_proxy(self, mock_proxy: MagicMock):
-        """Tests requests to submit_hpc_jobs endpoint"""
-        mock_response = JSONResponse({"message": "Success"})
-        mock_response.status_code = 200
-        mock_proxy.return_value = mock_response
-        with TestClient(app) as client:
-            response = client.post("/api/submit_hpc_jobs")
-        self.assertEqual(200, response.status_code)
-        mock_proxy.assert_called_once()
-
-    @patch("aind_data_transfer_service.server.proxy")
-    def test_submit_validate_v1_jobs_proxy(self, mock_proxy: MagicMock):
-        """Tests requests to v1 validate_json endpoint"""
-        mock_response = JSONResponse({"message": "Success"})
-        mock_response.status_code = 200
-        mock_proxy.return_value = mock_response
-        with TestClient(app) as client:
-            response = client.post("/api/v1/validate_json")
-        self.assertEqual(200, response.status_code)
-        mock_proxy.assert_called_once()
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch("logging.Logger.exception")

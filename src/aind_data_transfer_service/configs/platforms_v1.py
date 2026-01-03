@@ -1,4 +1,4 @@
-"""Platforms"""
+"""Platforms. We can remove this once aind-data-schema is adopted 100%"""
 
 from typing import Literal, Union
 
