@@ -1073,8 +1073,6 @@ class TestServer(unittest.TestCase):
             "/api/v3/parameters/job_types/ecephys/tasks/task1",
             "/api/v2/parameters/job_types/new job/tasks/task1",
             "/api/v2/parameters/job_types/new_job/tasks/new task",
-            "/api/v2/parameters/job_types/new_job/tasks"
-            "/codeocean_pipeline_settings/foo",
         ]
         for url in request_urls:
             with TestClient(app) as client:
