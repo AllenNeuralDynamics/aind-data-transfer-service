@@ -12,9 +12,9 @@ import boto3
 from authlib.integrations.starlette_client import OAuth
 from botocore.exceptions import ClientError
 from fastapi import Request
-from fastapi.responses import JSONResponse, Response, StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
-from httpx import AsyncClient, RequestError
+from httpx import AsyncClient
 from openpyxl import load_workbook
 from pydantic import ValidationError
 from starlette.applications import Starlette
@@ -52,18 +52,6 @@ template_directory = os.path.abspath(
 templates = Jinja2Templates(directory=template_directory)
 
 # TODO: Add server configs model
-# HPC_SIF_LOCATION
-# HPC_USERNAME
-# HPC_LOGGING_DIRECTORY
-# HPC_AWS_ACCESS_KEY_ID
-# HPC_AWS_SECRET_ACCESS_KEY
-# HPC_AWS_SESSION_TOKEN
-# HPC_AWS_DEFAULT_REGION
-# HPC_STAGING_DIRECTORY
-# HPC_AWS_PARAM_STORE_NAME
-# BASIC_JOB_SCRIPT
-# OPEN_DATA_AWS_SECRET_ACCESS_KEY
-# OPEN_DATA_AWS_ACCESS_KEY_ID
 # AIND_METADATA_SERVICE_PROJECT_NAMES_URL
 # AIND_AIRFLOW_SERVICE_URL
 # AIND_AIRFLOW_SERVICE_JOBS_URL
@@ -72,106 +60,9 @@ templates = Jinja2Templates(directory=template_directory)
 # LOKI_URI
 # ENV_NAME
 # LOG_LEVEL
-# AIND_DATA_TRANSFER_SERVICE_V1_URL
 
 logger = get_logger(log_configs=LoggingConfigs())
 project_names_url = os.getenv("AIND_METADATA_SERVICE_PROJECT_NAMES_URL")
-aind_dts_v1_url = os.getenv(
-    "AIND_DATA_TRANSFER_SERVICE_V1_URL",
-    "http://aind-data-transfer-service-v1:5000",
-)
-
-
-async def proxy(
-    request: Request,
-    path: str,
-    async_client: AsyncClient,
-) -> Response:
-    """
-    Proxy request to v1 aind-metadata-service-server
-    Parameters
-    ----------
-    request : Request
-    path : str
-    async_client : AsyncClient
-
-    Returns
-    -------
-    Response
-
-    """
-
-    # Prepare headers to forward (excluding hop-by-hop headers)
-    headers = {
-        key: value
-        for key, value in request.headers.items()
-        if key.lower()
-        not in [
-            "host",
-            "connection",
-            "keep-alive",
-            "proxy-authenticate",
-            "proxy-authorization",
-            "te",
-            "trailers",
-            "transfer-encoding",
-            "upgrade",
-        ]
-    }
-
-    try:
-        body = await request.body()
-        backend_response = await async_client.request(
-            method=request.method,
-            url=path,
-            headers=headers,
-            content=body,
-            timeout=120,  # Adjust timeout as needed
-        )
-        # Create a FastAPI Response from the backend's response
-        response_headers = {
-            key: value
-            for key, value in backend_response.headers.items()
-            if key.lower() not in ["content-encoding", "content-length"]
-        }
-        return Response(
-            content=backend_response.content,
-            status_code=backend_response.status_code,
-            headers=response_headers,
-            media_type=backend_response.headers.get("content-type"),
-        )
-    except RequestError as exc:
-        return Response(f"Proxy request failed: {exc}", status_code=500)
-
-
-async def submit_basic_jobs(
-    request: Request,
-):
-    """submit_basic_jobs_legacy"""
-    async with AsyncClient(base_url=aind_dts_v1_url) as session:
-        return await proxy(request, "/api/submit_basic_jobs", session)
-
-
-async def submit_jobs(
-    request: Request,
-):
-    """submit_basic_jobs_legacy"""
-    async with AsyncClient(base_url=aind_dts_v1_url) as session:
-        return await proxy(request, "/api/v1/submit_jobs", session)
-
-
-async def submit_hpc_jobs(
-    request: Request,
-):
-    """submit_hpc_jobs_legacy"""
-    async with AsyncClient(base_url=aind_dts_v1_url) as session:
-        return await proxy(request, "/api/submit_hpc_jobs", session)
-
-
-async def validate_json(request: Request):
-    """validate_json_legacy"""
-    async with AsyncClient(base_url=aind_dts_v1_url) as session:
-        return await proxy(request, "/api/v1/validate_json", session)
 
 
 async def validate_csv(request: Request):
@@ -816,18 +707,6 @@ def list_parameters_v2(_: Request):
     )
 
 
-def list_parameters(_: Request):
-    """List v1 job type parameters"""
-    params = get_parameter_infos()
-    return JSONResponse(
-        content={
-            "message": "Retrieved job parameters",
-            "data": [p.model_dump(mode="json") for p in params],
-        },
-        status_code=200,
-    )
-
-
 def get_parameter_v2(request: Request):
     """Get v2 parameter from AWS param store based on job_type and task_id"""
     # path params are auto validated
@@ -858,7 +737,7 @@ def get_parameter_v2(request: Request):
 
 
 async def put_parameter(request: Request):
-    """Set v1/v2 parameter in AWS param store based on job_type and task_id"""
+    """Set parameter in AWS param store based on job_type and task_id"""
     # User must be signed in
     user = request.session.get("user")
     if not user:
@@ -915,35 +794,6 @@ async def put_parameter(request: Request):
         return JSONResponse(
             content={
                 "message": f"Error setting parameter {param_name}",
-                "data": {"error": f"{e.__class__.__name__}{e.args}"},
-            },
-            status_code=500,
-        )
-
-
-def get_parameter(request: Request):
-    """Get parameter from AWS parameter store based on job_type and task_id"""
-    # path params are auto validated
-    job_type = request.path_params.get("job_type")
-    task_id = request.path_params.get("task_id")
-    modality = request.path_params.get("modality")
-    param_name = JobParamInfo.get_parameter_name(
-        job_type=job_type, task_id=task_id, modality=modality
-    )
-    try:
-        param_value = get_parameter_value(param_name)
-        return JSONResponse(
-            content={
-                "message": f"Retrieved parameter for {param_name}",
-                "data": param_value,
-            },
-            status_code=200,
-        )
-    except ClientError as e:
-        logger.exception(f"Error retrieving parameter {param_name}: {e}")
-        return JSONResponse(
-            content={
-                "message": f"Error retrieving parameter {param_name}",
                 "data": {"error": f"{e.__class__.__name__}{e.args}"},
             },
             status_code=500,
@@ -1064,13 +914,6 @@ async def cancel_job(request: Request):
 
 routes = [
     Route("/", endpoint=index, methods=["GET", "POST"]),
-    Route("/api/validate_csv", endpoint=validate_csv, methods=["POST"]),
-    Route(
-        "/api/submit_basic_jobs", endpoint=submit_basic_jobs, methods=["POST"]
-    ),
-    Route("/api/submit_hpc_jobs", endpoint=submit_hpc_jobs, methods=["POST"]),
-    Route("/api/v1/validate_json", endpoint=validate_json, methods=["POST"]),
-    Route("/api/v1/submit_jobs", endpoint=submit_jobs, methods=["POST"]),
     Route(
         "/api/v1/get_job_status_list",
         endpoint=get_job_status_list,
@@ -1078,18 +921,6 @@ routes = [
     ),
     Route("/api/v1/get_tasks_list", endpoint=get_tasks_list, methods=["GET"]),
     Route("/api/v1/get_task_logs", endpoint=get_task_logs, methods=["GET"]),
-    Route("/api/v1/parameters", endpoint=list_parameters, methods=["GET"]),
-    Route(
-        "/api/v1/parameters/job_types/{job_type:str}/tasks/{task_id:str}",
-        endpoint=get_parameter,
-        methods=["GET"],
-    ),
-    Route(
-        "/api/v1/parameters/job_types/{job_type:str}/tasks/{task_id:str}"
-        "/{modality:str}",
-        endpoint=get_parameter,
-        methods=["GET"],
-    ),
     Route("/api/v2/validate_csv", endpoint=validate_csv, methods=["POST"]),
     Route(
         "/api/v2/validate_json", endpoint=validate_json_v2, methods=["POST"]

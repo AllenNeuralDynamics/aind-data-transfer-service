@@ -239,16 +239,6 @@ class JobParamInfo(BaseModel):
     modality: Optional[str]
     version: Optional[str] = Field(..., pattern=r"^(v1|v2)?$")
 
-    @field_validator("modality", mode="after")
-    def validate_modality(cls, v):
-        """Check that modality is one of aind-data-schema modalities"""
-        if v is not None and v not in JobParamInfo._MODALITIES_LIST:
-            raise ValueError(
-                "Invalid modality: modality must be one of "
-                f"{JobParamInfo._MODALITIES_LIST}"
-            )
-        return v
-
     @classmethod
     def from_aws_describe_parameter(
         cls,
@@ -284,8 +274,6 @@ class JobParamInfo(BaseModel):
             "(?P<job_type>[^/]+)/tasks/(?P<task_id>[^/]+)"
             "(?:/(?P<modality>[^/]+))?"
         )
-        if version is None or version == "v1":
-            return f"{prefix}/{regex}"
         return f"{prefix}/{version}/{regex}"
 
     @staticmethod
