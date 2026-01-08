@@ -42,13 +42,13 @@
                     <span class="input-group-text" style="width:35%">Status</span>
                     <select class="form-select" onchange="filterJobsByColumn(5, this.value);this.blur();">
                         {% for s in [
-                            {"label": "all", "value": "", "class": "text-dark"},
-                            {"label": "queued", "value": "queued", "class": "text-secondary"},
-                            {"label": "running", "value": "running", "class": "text-info"},
-                            {"label": "failed", "value": "failed", "class": "text-danger"},
-                            {"label": "success", "value": "success", "class": "text-success"},
+                            {"label": "all", "value": "", "style": "color: black"},
+                            {"label": "queued", "value": "queued", "style": "color: #808080"},
+                            {"label": "running", "value": "running", "style": "color: lime"},
+                            {"label": "failed", "value": "failed", "style": "color: #ff0000"},
+                            {"label": "success", "value": "success", "style": "color: green"},
                         ] %}
-                        <option class="{{ s.class }}" value="{{ s.value }}">{{ s.label }}</option>
+                        <option style="{{ s.style }}" value="{{ s.value }}">{{ s.label }}</option>
                         {% endfor %}
                     </select>
                 </div>
@@ -230,10 +230,10 @@
         // Helper functions for custom column rendering
         function renderJobStatus(cell, cellData, rowData, rowIndex, colIndex) {
             let color =
-            cellData === 'success' ? 'rgba(0, 128, 0, 0.5)'
-            : cellData === 'failed' ? 'rgba(255, 0, 0, 0.5)'
-            : cellData === 'running' ? 'rgba(0, 255, 0, 0.20)'
-            : cellData === 'queued' ? 'rgba(128, 128, 128, 0.3)'
+            cellData === 'success' ? 'rgba(0, 128, 0, 0.2)'
+            : cellData === 'failed' ? 'rgba(255, 0, 0, 0.2)'
+            : cellData === 'running' ? 'rgba(0, 255, 0, 0.2)'
+            : cellData === 'queued' ? 'rgba(128, 128, 128, 0.2)'
             : null;
             if (color) {
                 cell.style.backgroundColor = color;
@@ -337,10 +337,10 @@
             modalTitleJobState.textContent = jobState;
             if (jobState) {
                 const color =
-                    jobState === 'success' ? 'green'
-                    : jobState === 'failed' ? '#ff0000'
-                    : jobState === 'running' ? 'lime'
-                    : '#808080';
+                    jobState === 'success' ? 'rgba(0, 128, 0, 0.2)'
+                    : jobState === 'failed' ? 'rgba(255, 0, 0, 0.2)'
+                    : jobState === 'running' ? 'rgba(0, 255, 0, 0.2)'
+                    : 'rgba(128, 128, 128, 0.2)';
                 modalTitleJobState.style.backgroundColor = color;
             } else {
                 modalTitleJobState.classList.value = 'badge';
