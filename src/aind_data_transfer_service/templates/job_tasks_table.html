@@ -34,10 +34,10 @@
           <span></span>
         {% endif %}
       </td>
-      <td style="{% if job_task.task_state == 'success' %}background-color: rgba(0, 128, 0, 0.5);
-                {% elif job_task.task_state == 'failed' %}background-color: rgba(255, 0, 0, 0.5);
-                {% elif job_task.task_state == 'running' %}background-color: rgba(0, 255, 0, 0.20);
-                {% elif job_task.task_state == 'queued' %}background-color: rgba(128, 128, 128, 0.25);
+      <td style="{% if job_task.task_state == 'success' %}background-color: rgba(0, 128, 0, 0.2);
+                {% elif job_task.task_state == 'failed' %}background-color: rgba(255, 0, 0, 0.2);
+                {% elif job_task.task_state == 'running' %}background-color: rgba(0, 255, 0, 0.2);
+                {% elif job_task.task_state == 'queued' %}background-color: rgba(128, 128, 128, 0.2);
                 {% endif %}">{{job_task.task_state}}</td>
       <td class="datetime_to_be_adjusted">{{job_task.submit_time}}</td>
       <td class="datetime_to_be_adjusted">{{job_task.start_time}}</td>
