@@ -43,9 +43,9 @@
                     <select class="form-select" onchange="filterJobsByColumn(5, this.value);this.blur();">
                         {% for s in [
                             {"label": "all", "value": "", "style": "color: black"},
-                            {"label": "queued", "value": "queued", "style": "color: #808080"},
+                            {"label": "queued", "value": "queued", "style": "color: gray"},
                             {"label": "running", "value": "running", "style": "color: lime"},
-                            {"label": "failed", "value": "failed", "style": "color: #ff0000"},
+                            {"label": "failed", "value": "failed", "style": "color: red"},
                             {"label": "success", "value": "success", "style": "color: green"},
                         ] %}
                         <option style="{{ s.style }}" value="{{ s.value }}">{{ s.label }}</option>
@@ -230,11 +230,20 @@
         // Helper functions for custom column rendering
         function renderJobStatus(cell, cellData, rowData, rowIndex, colIndex) {
             let color =
-            cellData === 'success' ? 'rgba(0, 128, 0, 0.2)'
-            : cellData === 'failed' ? 'rgba(255, 0, 0, 0.2)'
-            : cellData === 'running' ? 'rgba(0, 255, 0, 0.2)'
-            : cellData === 'queued' ? 'rgba(128, 128, 128, 0.2)'
-            : null;
+                cellData === 'deferred' ? 'rgba(147, 112, 219, 0.2)'  // mediumpurple
+                : cellData === 'failed' ? 'rgba(255, 0, 0, 0.2)'      // red
+                : cellData === 'queued' ? 'rgba(128, 128, 128, 0.2)'  // gray
+                : cellData === 'removed' ? 'rgba(211, 211, 211, 0.2)' // lightgrey
+                : cellData === 'restarting' ? 'rgba(238, 130, 238, 0.2)' // violet
+                : cellData === 'running' ? 'rgba(0, 255, 0, 0.2)'     // lime
+                : cellData === 'scheduled' ? 'rgba(210, 180, 140, 0.2)' // tan
+                : cellData === 'skipped' ? 'rgba(255, 105, 180, 0.2)' // hotpink
+                : cellData === 'success' ? 'rgba(0, 128, 0, 0.2)'     // green
+                : cellData === 'up_for_reschedule' ? 'rgba(64, 224, 208, 0.2)' // turquoise
+                : cellData === 'up_for_retry' ? 'rgba(255, 215, 0, 0.2)' // gold
+                : cellData === 'upstream_failed' ? 'rgba(255, 165, 0, 0.2)' // orange
+                : cellData === 'no_status' ? 'rgba(255, 255, 255, 0.2)' // white
+                : null;
             if (color) {
                 cell.style.backgroundColor = color;
             }
@@ -337,10 +346,20 @@
             modalTitleJobState.textContent = jobState;
             if (jobState) {
                 const color =
-                    jobState === 'success' ? 'rgba(0, 128, 0, 0.2)'
-                    : jobState === 'failed' ? 'rgba(255, 0, 0, 0.2)'
-                    : jobState === 'running' ? 'rgba(0, 255, 0, 0.2)'
-                    : 'rgba(128, 128, 128, 0.2)';
+                    jobState === 'deferred' ? 'mediumpurple'
+                    : jobState === 'failed' ? 'red'
+                    : jobState === 'queued' ? 'gray'
+                    : jobState === 'removed' ? 'lightgrey'
+                    : jobState === 'restarting' ? 'violet'
+                    : jobState === 'running' ? 'lime'
+                    : jobState === 'scheduled' ? 'tan'
+                    : jobState === 'skipped' ? 'hotpink'
+                    : jobState === 'success' ? 'green'
+                    : jobState === 'up_for_reschedule' ? 'turquoise'
+                    : jobState === 'up_for_retry' ? 'gold'
+                    : jobState === 'upstream_failed' ? 'orange'
+                    : jobState === 'no_status' ? 'white'
+                    : '';
                 modalTitleJobState.style.backgroundColor = color;
             } else {
                 modalTitleJobState.classList.value = 'badge';
