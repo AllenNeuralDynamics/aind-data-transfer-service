@@ -229,13 +229,14 @@
         // FULL JOBS TABLE -----------------------------------------------
         // Helper functions for custom column rendering
         function renderJobStatus(cell, cellData, rowData, rowIndex, colIndex) {
-            let customClass = cellData === 'success' ? 'table-success'
-                : cellData === 'failed' ? 'table-danger'
-                : cellData === 'running' ? 'table-info'
-                : cellData === 'queued' ? 'table-secondary'
-                : null;
-            if (customClass) {
-                cell.classList.add(customClass);
+            let color =
+            cellData === 'success' ? 'rgba(0, 128, 0, 0.5)'
+            : cellData === 'failed' ? 'rgba(255, 0, 0, 0.5)'
+            : cellData === 'running' ? 'rgba(0, 255, 0, 0.20)'
+            : cellData === 'queued' ? 'rgba(128, 128, 128, 0.3)'
+            : null;
+            if (color) {
+                cell.style.backgroundColor = color;
             }
         }
         function renderDatetime(data, type, row) {
@@ -335,12 +336,12 @@
             var modalTitleJobState = document.getElementById('modal-title-job-state');
             modalTitleJobState.textContent = jobState;
             if (jobState) {
-                modalTitleJobState.classList.add(
-                jobState === 'success' ? 'bg-success'
-                : jobState === 'failed' ? 'bg-danger'
-                : jobState === 'running' ? 'bg-info'
-                : 'bg-secondary'
-                );
+                const color =
+                    jobState === 'success' ? 'green'
+                    : jobState === 'failed' ? '#ff0000'
+                    : jobState === 'running' ? 'lime'
+                    : '#808080';
+                modalTitleJobState.style.backgroundColor = color;
             } else {
                 modalTitleJobState.classList.value = 'badge';
             }
