@@ -34,10 +34,10 @@
           <span></span>
         {% endif %}
       </td>
-      <td class="{% if job_task.task_state == 'success' %}table-success
-                {% elif job_task.task_state == 'failed' %}table-danger
-                {% elif job_task.task_state == 'running' %}table-info
-                {% elif job_task.task_state == 'queued' %}table-secondary
+      <td style="{% if job_task.task_state == 'success' %}background-color: rgba(0, 128, 0, 0.5);
+                {% elif job_task.task_state == 'failed' %}background-color: rgba(255, 0, 0, 0.5);
+                {% elif job_task.task_state == 'running' %}background-color: rgba(0, 255, 0, 0.20);
+                {% elif job_task.task_state == 'queued' %}background-color: rgba(128, 128, 128, 0.25);
                 {% endif %}">{{job_task.task_state}}</td>
       <td class="datetime_to_be_adjusted">{{job_task.submit_time}}</td>
       <td class="datetime_to_be_adjusted">{{job_task.start_time}}</td>
@@ -117,14 +117,15 @@
       var modalTitleTaskState = document.getElementById('modal-title-task-state');
       modalTitleTaskState.textContent = taskState;
       if (taskState) {
-        modalTitleTaskState.classList.add(
-          taskState === 'success' ? 'bg-success'
-          : taskState === 'failed' ? 'bg-danger'
-          : taskState === 'running' ? 'bg-info'
-          : 'bg-secondary'
-        );
+        const color =
+          taskState === 'success' ? 'green'
+          : taskState === 'failed' ? '#ff0000'
+          : taskState === 'running' ? 'lime'
+          : '#808080';
+        modalTitleTaskState.style.backgroundColor = color;
       } else {
         modalTitleTaskState.classList.value = 'badge';
+        modalTitleTaskState.style.backgroundColor = '';
       }
       // Update the iframe src to get the logs for the task
       var logsIframe = document.getElementById('logs-iframe');
