@@ -242,7 +242,7 @@
                 : cellData === 'up_for_reschedule' ? 'rgba(64, 224, 208, 0.2)' // turquoise
                 : cellData === 'up_for_retry' ? 'rgba(255, 215, 0, 0.2)' // gold
                 : cellData === 'upstream_failed' ? 'rgba(255, 165, 0, 0.2)' // orange
-                : cellData === 'no_status' ? 'rgba(255, 255, 255, 0.2)' // white
+                : cellData === 'no_status' ? 'rgba(211, 211, 211, 0.2)' // lightgrey
                 : null;
             if (color) {
                 cell.style.backgroundColor = color;
@@ -358,11 +358,11 @@
                     : jobState === 'up_for_reschedule' ? 'turquoise'
                     : jobState === 'up_for_retry' ? 'gold'
                     : jobState === 'upstream_failed' ? 'orange'
-                    : jobState === 'no_status' ? 'white'
-                    : '';
+                    : jobState === 'no_status' ? 'lightgrey'
+                    : 'lightgrey';
                 modalTitleJobState.style.backgroundColor = color;
             } else {
-                modalTitleJobState.classList.value = 'badge';
+                modalTitleJobState.style.backgroundColor = 'lightgrey';
             }
             // Update the iframe src with the job id
             var tasksIframe = document.getElementById('tasks-iframe');

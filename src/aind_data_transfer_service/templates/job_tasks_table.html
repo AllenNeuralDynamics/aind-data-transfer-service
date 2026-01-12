@@ -34,19 +34,19 @@
           <span></span>
         {% endif %}
       </td>
-      <td style="{% if job_task.task_state == 'deferred' %}background-color: rgba(147, 112, 219, 0.2);
-                {% elif job_task.task_state == 'failed' %}background-color: rgba(255, 0, 0, 0.2);
-                {% elif job_task.task_state == 'queued' %}background-color: rgba(128, 128, 128, 0.2);
-                {% elif job_task.task_state == 'removed' %}background-color: rgba(211, 211, 211, 0.2);
-                {% elif job_task.task_state == 'restarting' %}background-color: rgba(238, 130, 238, 0.2);
-                {% elif job_task.task_state == 'running' %}background-color: rgba(0, 255, 0, 0.2);
-                {% elif job_task.task_state == 'scheduled' %}background-color: rgba(210, 180, 140, 0.2);
-                {% elif job_task.task_state == 'skipped' %}background-color: rgba(255, 105, 180, 0.2);
-                {% elif job_task.task_state == 'success' %}background-color: rgba(0, 128, 0, 0.2);
-                {% elif job_task.task_state == 'up_for_reschedule' %}background-color: rgba(64, 224, 208, 0.2);
-                {% elif job_task.task_state == 'up_for_retry' %}background-color: rgba(255, 215, 0, 0.2);
-                {% elif job_task.task_state == 'upstream_failed' %}background-color: rgba(255, 165, 0, 0.2);
-                {% elif job_task.task_state == 'no_status' %}background-color: rgba(255, 255, 255, 0.2);
+      <td style="{% if job_task.task_state == 'deferred' %}background-color: rgba(147, 112, 219, 0.2); /* mediumpurple */
+                {% elif job_task.task_state == 'failed' %}background-color: rgba(255, 0, 0, 0.2); /* red */
+                {% elif job_task.task_state == 'queued' %}background-color: rgba(128, 128, 128, 0.2); /* gray */
+                {% elif job_task.task_state == 'removed' %}background-color: rgba(211, 211, 211, 0.2); /* lightgrey */
+                {% elif job_task.task_state == 'restarting' %}background-color: rgba(238, 130, 238, 0.2); /* violet */
+                {% elif job_task.task_state == 'running' %}background-color: rgba(0, 255, 0, 0.2); /* lime */
+                {% elif job_task.task_state == 'scheduled' %}background-color: rgba(210, 180, 140, 0.2); /* tan */
+                {% elif job_task.task_state == 'skipped' %}background-color: rgba(255, 105, 180, 0.2); /* hotpink */
+                {% elif job_task.task_state == 'success' %}background-color: rgba(0, 128, 0, 0.2); /* green */
+                {% elif job_task.task_state == 'up_for_reschedule' %}background-color: rgba(64, 224, 208, 0.2); /* turquoise */
+                {% elif job_task.task_state == 'up_for_retry' %}background-color: rgba(255, 215, 0, 0.2); /* gold */
+                {% elif job_task.task_state == 'upstream_failed' %}background-color: rgba(255, 165, 0, 0.2); /* orange */
+                {% elif job_task.task_state == 'no_status' %}background-color: rgba(211, 211, 211, 0.2); /* lightgrey */
                 {% endif %}">{{job_task.task_state}}</td>
       <td class="datetime_to_be_adjusted">{{job_task.submit_time}}</td>
       <td class="datetime_to_be_adjusted">{{job_task.start_time}}</td>
@@ -139,12 +139,11 @@
           : taskState === 'up_for_reschedule' ? 'turquoise'
           : taskState === 'up_for_retry' ? 'gold'
           : taskState === 'upstream_failed' ? 'orange'
-          : taskState === 'no_status' ? 'white'
-          : '';
+          : taskState === 'no_status' ? 'lightgrey'
+          : 'lightgrey';
         modalTitleTaskState.style.backgroundColor = color;
       } else {
-        modalTitleTaskState.classList.value = 'badge';
-        modalTitleTaskState.style.backgroundColor = '';
+        modalTitleTaskState.style.backgroundColor = 'lightgrey';
       }
       // Update the iframe src to get the logs for the task
       var logsIframe = document.getElementById('logs-iframe');
