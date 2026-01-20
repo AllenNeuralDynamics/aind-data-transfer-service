@@ -17,7 +17,7 @@ readme = "README.md"
 dynamic = ["version"]
 
 dependencies = [
-    'aind-data-schema-models>=0.3.2',
+    'aind-data-schema-models>=0.3.2,<6.0',
     'email-validator',
     'pydantic>=2.0',
     'pydantic-settings>=2.0',
