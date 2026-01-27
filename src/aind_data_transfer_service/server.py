@@ -354,7 +354,7 @@ async def submit_jobs_v2(request: Request):
     logging.info("Received request to submit jobs v2")
     content = await request.json()
     try:
-
+        log_submit_job_request(content=content)
         params = AirflowDagRunsRequestParameters(
             dag_ids=["transform_and_upload_v2", "run_list_of_jobs"],
             states=["running", "queued"],

@@ -19,16 +19,13 @@ class TestLogHandler(unittest.TestCase):
         content = [{"s3_prefix": "abc-123", "subject_id": "123456"}]
         log_submit_job_request(content=content)
         mock_log.assert_called_once_with(
-            "Handling submit request",
+            "Handling request",
             extra={"subject_id": "123456", "session_id": "abc-123"},
         )
 
 
 class TestCustomJsonFormatter(unittest.TestCase):
     """Tests methods CustomJsonFormatter from init module"""
-
-    # def setUp(self):
-    #     importlib.reload(aind_data_transfer_service)
 
     @patch("time.time")
     def test_format_time(self, mock_time: MagicMock):

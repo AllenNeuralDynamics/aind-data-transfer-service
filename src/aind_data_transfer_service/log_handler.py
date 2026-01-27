@@ -20,6 +20,6 @@ def log_submit_job_request(content: Any):
             subject_id = row.get("subject_id")
             session_id = row.get("s3_prefix")
             logging.info(
-                "Handling submit request",
+                "Handling request",
                 extra={"subject_id": subject_id, "session_id": session_id},
             )

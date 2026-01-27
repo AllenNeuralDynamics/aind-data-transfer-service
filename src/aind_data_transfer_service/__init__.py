@@ -34,9 +34,7 @@ class CustomJsonFormatter(log_json.JsonFormatter):
         return dt.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
 
 
-if os.path.isfile(
-    os.getenv("LOGGING_CONFIG_FILE", "log_config.yaml")
-):
+if os.path.isfile(os.getenv("LOGGING_CONFIG_FILE", "log_config.yaml")):
     config_path = os.getenv("LOGGING_CONFIG_FILE", "log_config.yaml")
     with open(config_path, "rt") as f:
         config = yaml.safe_load(f.read())
