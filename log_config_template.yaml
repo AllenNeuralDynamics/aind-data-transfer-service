@@ -1,0 +1,61 @@
+---
+version: 1
+disable_existing_loggers: false
+formatters:
+  default:
+    "()": aind_data_transfer_service.CustomJsonFormatter
+    format: "%(asctime)s %(levelname)s %(module)s %(lineno)s %(message)s"
+    reserved_attrs:
+      - args
+      - asctime
+      - created
+      - exc_info
+      - exc_text
+      - filename
+      - funcName
+      - levelname
+      - levelno
+      - lineno
+      - message
+      - module
+      - msecs
+      - msg
+      - name
+      - pathname
+      - process
+      - processName
+      - relativeCreated
+      - stack_info
+      - taskName
+      - thread
+      - threadName
+      - color_message
+    rename_fields:
+      "asctime": "timestamp"
+      "levelname": "level"
+    static_fields:
+      "env": "local"
+      "version": ext://aind_data_transfer_service.__version__
+      "app": "aind-data-transfer-service"
+handlers:
+  console:
+    class: logging.StreamHandler
+    formatter: default
+    level: INFO
+    stream: ext://sys.stdout
+loggers:
+  '':
+    handlers:
+    - console
+    level: INFO
+    propagate: true
+  uvicorn.error:
+    handlers:
+      - console
+    level: INFO
+    propagate: false
+  uvicorn.access:
+    handlers:
+      - console
+    level: INFO
+    propagate: false
