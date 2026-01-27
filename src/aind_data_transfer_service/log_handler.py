@@ -1,58 +1,25 @@
-"""Module to handle setting up logger"""
+"""Module to handle logging submit job requests"""
 
 import logging
-from typing import Literal, Optional
-
-from logging_loki import LokiHandler
-from pydantic import Field
-from pydantic_settings import BaseSettings
+from typing import Any
 
 
-class LoggingConfigs(BaseSettings):
-    """Configs for logger"""
-
-    env_name: Optional[str] = Field(
-        default=None, description="Can be used to help tag logging source."
-    )
-    loki_uri: Optional[str] = Field(
-        default=None, description="URI of Loki logging server."
-    )
-    log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = (
-        Field(default="DEBUG", description="Log level")
-    )
-
-    @property
-    def app_name(self):
-        """Build app name from configs"""
-        package_name = __package__
-        base_name = package_name.split(".")[0].replace("_", "-")
-        app_name = (
-            base_name
-            if self.env_name is None
-            else f"{base_name}-{self.env_name}"
-        )
-        return app_name
-
-    @property
-    def loki_path(self):
-        """Full path to log loki messages to"""
-        return (
-            None
-            if self.loki_uri is None
-            else f"{self.loki_uri}/loki/api/v1/push"
-        )
-
-
-def get_logger(log_configs: LoggingConfigs) -> logging.Logger:
-    """Return a logger that can be used to log messages."""
-    level = logging.getLevelName(log_configs.log_level)
-    logger = logging.getLogger(__name__)
-    logger.setLevel(level)
-    if log_configs.loki_uri is not None:
-        handler = LokiHandler(
-            url=log_configs.loki_path,
-            version="1",
-            tags={"application": log_configs.app_name},
-        )
-        logger.addHandler(handler)
-    return logger
+def log_submit_job_request(content: Any):
+    """
+    Parses content object to log any lines with a subject_id and s3_prefix.
+    TODO: This may need to be updated if session_ids are centralized.
+    Parameters
+    ----------
+    content : Any
+      Pulled from request json, which may or may not return expected dict
+    """
+    if isinstance(content, list) and all(
+        isinstance(row, dict) for row in content
+    ):
+        for row in content:
+            subject_id = row.get("subject_id")
+            session_id = row.get("s3_prefix")
+            logging.info(
+                "Handling submit request",
+                extra={"subject_id": subject_id, "session_id": session_id},
+            )

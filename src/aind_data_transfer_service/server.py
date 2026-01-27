@@ -3,6 +3,7 @@
 import csv
 import io
 import json
+import logging
 import os
 import re
 from asyncio import gather
@@ -30,7 +31,7 @@ from aind_data_transfer_service.configs.csv_handler import map_csv_row_to_job
 from aind_data_transfer_service.configs.job_upload_template import (
     JobUploadTemplate,
 )
-from aind_data_transfer_service.log_handler import LoggingConfigs, get_logger
+from aind_data_transfer_service.log_handler import log_submit_job_request
 from aind_data_transfer_service.models.core import (
     SubmitJobRequestV2,
     validation_context,
@@ -57,17 +58,15 @@ templates = Jinja2Templates(directory=template_directory)
 # AIND_AIRFLOW_SERVICE_JOBS_URL
 # AIND_AIRFLOW_SERVICE_PASSWORD
 # AIND_AIRFLOW_SERVICE_USER
-# LOKI_URI
 # ENV_NAME
 # LOG_LEVEL
 
-logger = get_logger(log_configs=LoggingConfigs())
 project_names_url = os.getenv("AIND_METADATA_SERVICE_PROJECT_NAMES_URL")
 
 
 async def validate_csv(request: Request):
     """Validate a csv or xlsx file. Return parsed contents as json."""
-    logger.info("Received request to validate csv")
+    logging.info("Received request to validate csv")
     async with request.form() as form:
         basic_jobs = []
         errors = []
@@ -199,12 +198,12 @@ def get_parameter_infos(version: Optional[str] = None) -> List[JobParamInfo]:
                 )
                 params.append(param_info)
             else:
-                logger.info(f"Ignoring {param.get('Name')}")
+                logging.info(f"Ignoring {param.get('Name')}")
     return params
 
 
 def get_parameter_value(param_name: str) -> dict:
-    """Get a parameter value from AWS param store based on paramater name"""
+    """Get a parameter value from AWS param store based on parameter name"""
     ssm_client = boto3.client("ssm")
     param_response = ssm_client.get_parameter(
         Name=param_name, WithDecryption=True
@@ -289,9 +288,10 @@ async def get_airflow_jobs(
 async def validate_json_v2(request: Request):
     """Validate raw json against data transfer models. Returns validated
     json or errors if request is invalid."""
-    logger.info("Received request to validate json v2")
+    logging.info("Received request to validate json v2")
     content = await request.json()
     try:
+        log_submit_job_request(content=content)
         params = AirflowDagRunsRequestParameters(
             dag_ids=["transform_and_upload_v2", "run_list_of_jobs"],
             states=["running", "queued"],
@@ -309,7 +309,7 @@ async def validate_json_v2(request: Request):
         validated_content = json.loads(
             validated_model.model_dump_json(warnings=False, exclude_none=True)
         )
-        logger.info("Valid model detected")
+        logging.info("Valid model detected")
         return JSONResponse(
             status_code=200,
             content={
@@ -322,7 +322,7 @@ async def validate_json_v2(request: Request):
             },
         )
     except ValidationError as e:
-        logger.warning(f"There were validation errors processing {content}")
+        logging.warning(f"There were validation errors processing {content}")
         return JSONResponse(
             status_code=406,
             content={
@@ -335,7 +335,7 @@ async def validate_json_v2(request: Request):
             },
         )
     except Exception as e:
-        logger.exception("Internal Server Error.")
+        logging.exception(e, exc_info=True)
         return JSONResponse(
             status_code=500,
             content={
@@ -351,9 +351,10 @@ async def validate_json_v2(request: Request):
 
 async def submit_jobs_v2(request: Request):
     """Post SubmitJobRequestV2 raw json to hpc server to process."""
-    logger.info("Received request to submit jobs v2")
+    logging.info("Received request to submit jobs v2")
     content = await request.json()
     try:
+
         params = AirflowDagRunsRequestParameters(
             dag_ids=["transform_and_upload_v2", "run_list_of_jobs"],
             states=["running", "queued"],
@@ -369,13 +370,13 @@ async def submit_jobs_v2(request: Request):
         full_content = json.loads(
             model.model_dump_json(warnings=False, exclude_none=True)
         )
-        logger.info(
+        logging.info(
             f"Valid request detected. Sending list of jobs. "
             f"dag_id: {model.dag_id}"
         )
         total_jobs = len(model.upload_jobs)
         for job_index, job in enumerate(model.upload_jobs, 1):
-            logger.info(
+            logging.info(
                 f"{job.job_type}, {job.s3_prefix} sending to airflow. "
                 f"{job_index} of {total_jobs}."
             )
@@ -400,7 +401,7 @@ async def submit_jobs_v2(request: Request):
             },
         )
     except ValidationError as e:
-        logger.warning(f"There were validation errors processing {content}")
+        logging.warning(f"There were validation errors processing {content}")
         return JSONResponse(
             status_code=406,
             content={
@@ -409,7 +410,7 @@ async def submit_jobs_v2(request: Request):
             },
         )
     except Exception as e:
-        logger.exception("Internal Server Error.")
+        logging.exception(e, exc_info=True)
         return JSONResponse(
             status_code=500,
             content={
@@ -438,14 +439,14 @@ async def get_job_status_list(request: Request):
             ],
         }
     except ValidationError as e:
-        logger.warning(
+        logging.warning(
             f"There was a validation error process job_status list: {e}"
         )
         status_code = 406
         message = "Error validating request parameters"
         data = {"errors": json.loads(e.json())}
     except Exception as e:
-        logger.exception("Unable to retrieve job status list from airflow")
+        logging.exception(e, exc_info=True)
         status_code = 500
         message = "Unable to retrieve job status list from airflow"
         data = {"errors": [f"{e.__class__.__name__}{e.args}"]}
@@ -506,12 +507,12 @@ async def get_tasks_list(request: Request):
                 "errors": [response_json],
             }
     except ValidationError as e:
-        logger.warning(f"There was a validation error process task_list: {e}")
+        logging.warning(f"There was a validation error process task_list: {e}")
         status_code = 406
         message = "Error validating request parameters"
         data = {"errors": json.loads(e.json())}
     except Exception as e:
-        logger.exception("Unable to retrieve job tasks list from airflow")
+        logging.exception(e, exc_info=True)
         status_code = 500
         message = "Unable to retrieve job tasks list from airflow"
         data = {"errors": [f"{e.__class__.__name__}{e.args}"]}
@@ -557,12 +558,12 @@ async def get_task_logs(request: Request):
                     "errors": [response_logs.json()],
                 }
     except ValidationError as e:
-        logger.warning(f"Error validating request parameters: {e}")
+        logging.warning(f"Error validating request parameters: {e}")
         status_code = 406
         message = "Error validating request parameters"
         data = {"errors": json.loads(e.json())}
     except Exception as e:
-        logger.exception("Unable to retrieve job task_list from airflow")
+        logging.exception(e, exc_info=True)
         status_code = 500
         message = "Unable to retrieve task logs from airflow"
         data = {"errors": [f"{e.__class__.__name__}{e.args}"]}
@@ -685,7 +686,7 @@ async def download_job_template(_: Request):
             status_code=200,
         )
     except Exception as e:
-        logger.exception("Error creating job template")
+        logging.exception(e, exc_info=True)
         return JSONResponse(
             content={
                 "message": "Error creating job template",
@@ -726,7 +727,7 @@ def get_parameter_v2(request: Request):
             status_code=200,
         )
     except ClientError as e:
-        logger.exception(f"Error retrieving parameter {param_name}: {e}")
+        logging.exception(e, exc_info=True)
         return JSONResponse(
             content={
                 "message": f"Error retrieving parameter {param_name}",
@@ -765,15 +766,15 @@ async def put_parameter(request: Request):
             version=param_info.version,
         )
         # update param store
-        logger.info(
+        logging.info(
             f"Received request from {user} to set parameter {param_name}"
         )
         param_value = await request.json()
-        logger.info(f"Setting parameter {param_name} to {param_value}")
+        logging.info(f"Setting parameter {param_name} to {param_value}")
         result = put_parameter_value(
             param_name=param_name, param_value=param_value
         )
-        logger.info(result)
+        logging.info(result)
         return JSONResponse(
             content={
                 "message": f"Set parameter for {param_name}",
@@ -790,7 +791,7 @@ async def put_parameter(request: Request):
             status_code=400,
         )
     except Exception as e:
-        logger.exception(f"Error setting parameter {param_name}: {e}")
+        logging.exception(e, exc_info=True)
         return JSONResponse(
             content={
                 "message": f"Error setting parameter {param_name}",
@@ -859,7 +860,7 @@ async def auth(request: Request):
 async def cancel_job(request: Request):
     """Cancel a running job."""
     request_json = await request.json()
-    logger.info(f"Received request to cancel job: {request_json}")
+    logging.info(f"Received request to cancel job: {request_json}")
     try:
         dag_run_id = request_json["dag_run_id"]
         dag_id = request_json["dag_id"]
@@ -902,7 +903,7 @@ async def cancel_job(request: Request):
                 status_code=200,
             )
     except Exception as e:
-        logger.exception(e)
+        logging.exception(e, exc_info=True)
         return JSONResponse(
             content={
                 "message": "Error canceling job.",
