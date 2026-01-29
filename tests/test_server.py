@@ -7,7 +7,7 @@ import unittest
 from datetime import datetime, timedelta, timezone
 from io import BytesIO
 from pathlib import Path, PurePosixPath
-from unittest.mock import AsyncMock, MagicMock, call, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from aind_data_schema_models.modalities import Modality
 from authlib.integrations.starlette_client import OAuthError
@@ -258,8 +258,9 @@ class TestServer(unittest.TestCase):
                 "submit_time": "2024-05-18T23:43:19.184853Z",
             },
         ]
-        with TestClient(app) as client:
-            response = client.get("/api/v1/get_job_status_list")
+        with self.assertLogs(level="INFO") as captured:
+            with TestClient(app) as client:
+                response = client.get("/api/v1/get_job_status_list")
         response_content = response.json()
         # small hack to mock the date
         response_content["data"]["params"][
@@ -284,6 +285,7 @@ class TestServer(unittest.TestCase):
             mock_post.call_args_list[0][0][0],
             "airflow_jobs_url/~/dagRuns/list",
         )
+        self.assertEqual(1, len(captured.output))
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch("httpx.AsyncClient.post")
@@ -301,17 +303,19 @@ class TestServer(unittest.TestCase):
         mock_post.return_value = mock_dag_runs_response
         expected_message = "Retrieved job status list from airflow"
         with TestClient(app) as client:
-            response = client.get(
-                "/api/v1/get_job_status_list",
-                params={
-                    "page_limit": 10,
-                    "page_offset": 5,
-                    "execution_date_gte": (
-                        datetime.now(timezone.utc) - timedelta(days=2)
-                    ).strftime("%Y-%m-%dT%H:%M:%SZ"),
-                },
-            )
+            with self.assertLogs(level="DEBUG") as captured:
+                response = client.get(
+                    "/api/v1/get_job_status_list",
+                    params={
+                        "page_limit": 10,
+                        "page_offset": 5,
+                        "execution_date_gte": (
+                            datetime.now(timezone.utc) - timedelta(days=2)
+                        ).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                    },
+                )
         response_content = response.json()
+        self.assertEqual(1, len(captured.output))
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response_content["message"], expected_message)
         self.assertEqual(response_content["data"]["params"]["page_limit"], 10)
@@ -324,10 +328,8 @@ class TestServer(unittest.TestCase):
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch("httpx.AsyncClient.post")
-    @patch("logging.Logger.warning")
     def test_get_job_status_list_validation_error(
         self,
-        mock_log_warning: MagicMock,
         mock_post,
     ):
         """Tests get_job_status_list when query_params are invalid."""
@@ -342,18 +344,19 @@ class TestServer(unittest.TestCase):
                 ).strftime("%Y-%m-%dT%H:%M:%SZ")
             },
         ]
-        for query in invalid_queries:
+        with self.assertLogs(level="WARNING") as captured:
             with TestClient(app) as client:
-                response = client.get(
-                    "/api/v1/get_job_status_list", params=query
-                )
-            response_content = response.json()
-            self.assertEqual(response.status_code, 406)
-            self.assertEqual(
-                response_content["message"],
-                "Error validating request parameters",
-            )
-        mock_log_warning.assert_called()
+                for query in invalid_queries:
+                    response = client.get(
+                        "/api/v1/get_job_status_list", params=query
+                    )
+                    response_content = response.json()
+                    self.assertEqual(response.status_code, 406)
+                    self.assertEqual(
+                        response_content["message"],
+                        "Error validating request parameters",
+                    )
+        self.assertEqual(3, len(captured.output))
         mock_post.assert_not_called()
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
@@ -381,33 +384,34 @@ class TestServer(unittest.TestCase):
 
         mock_post.side_effect = mock_airflow_dags
         expected_message = "Retrieved job status list from airflow"
-        with TestClient(app) as client:
-            response = client.get("/api/v1/get_job_status_list")
+        with self.assertLogs(level="INFO") as captured:
+            with TestClient(app) as client:
+                response = client.get("/api/v1/get_job_status_list")
         response_content = response.json()
+        self.assertEqual(1, len(captured.output))
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response_content["message"], expected_message)
         self.assertEqual(response_content["data"]["total_entries"], 300)
         self.assertEqual(len(response_content["data"]["job_status_list"]), 300)
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
-    @patch("logging.Logger.exception")
     @patch("httpx.AsyncClient.post")
     def test_get_job_status_list_error(
         self,
         mock_post: MagicMock,
-        mock_log_error: MagicMock,
     ):
         """Tests get_job_status_list when there is an error sending request."""
         mock_post.side_effect = Exception("mock error")
-        with TestClient(app) as client:
-            response = client.get("/api/v1/get_job_status_list")
+        with self.assertLogs(level="ERROR") as captured:
+            with TestClient(app) as client:
+                response = client.get("/api/v1/get_job_status_list")
         response_content = response.json()
         self.assertEqual(response.status_code, 500)
         self.assertEqual(
             response_content["message"],
             "Unable to retrieve job status list from airflow",
         )
-        mock_log_error.assert_called_once()
+        self.assertEqual(1, len(captured.output))
         mock_post.assert_called_once()
         self.assertEqual(
             mock_post.call_args_list[0][0][0],
@@ -634,15 +638,17 @@ class TestServer(unittest.TestCase):
             expected_task_list,
             key=lambda t: (t["priority_weight"], t["map_index"]),
         )
-        with TestClient(app) as client:
-            response = client.get(
-                "/api/v1/get_tasks_list",
-                params={
-                    "dag_id": "transform_and_upload",
-                    "dag_run_id": "mock_dag_run_id",
-                },
-            )
+        with self.assertLogs(level="INFO") as captured:
+            with TestClient(app) as client:
+                response = client.get(
+                    "/api/v1/get_tasks_list",
+                    params={
+                        "dag_id": "transform_and_upload",
+                        "dag_run_id": "mock_dag_run_id",
+                    },
+                )
         response_content = response.json()
+        self.assertEqual(1, len(captured.output))
         self.assertEqual(response.status_code, 200)
         self.assertEqual(
             response_content,
@@ -660,54 +666,52 @@ class TestServer(unittest.TestCase):
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch("httpx.AsyncClient.get")
-    @patch("logging.Logger.warning")
     def test_get_tasks_list_validation_error(
         self,
-        mock_log_error: MagicMock,
         mock_get,
     ):
         """Tests get_tasks_list when query_params are invalid."""
         invalid_params = {
             "job_id": "mock_dag_run_id",
         }
-        with TestClient(app) as client:
-            response = client.get(
-                "/api/v1/get_tasks_list", params=invalid_params
-            )
+        with self.assertLogs(level="WARNING") as captured:
+            with TestClient(app) as client:
+                response = client.get(
+                    "/api/v1/get_tasks_list", params=invalid_params
+                )
         response_content = response.json()
+        self.assertEqual(1, len(captured.output))
         self.assertEqual(response.status_code, 406)
         self.assertEqual(
             response_content["message"],
             "Error validating request parameters",
         )
-        mock_log_error.assert_called()
         mock_get.assert_not_called()
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
-    @patch("logging.Logger.exception")
     @patch("httpx.AsyncClient.get")
     def test_get_tasks_list_error(
         self,
         mock_get: MagicMock,
-        mock_log_error: MagicMock,
     ):
         """Tests get_tasks_list when there is an error sending request."""
         mock_get.side_effect = Exception("mock error")
-        with TestClient(app) as client:
-            response = client.get(
-                "/api/v1/get_tasks_list",
-                params={
-                    "dag_id": "transform_and_upload",
-                    "dag_run_id": "mock_dag_run_id",
-                },
-            )
+        with self.assertLogs(level="ERROR") as captured:
+            with TestClient(app) as client:
+                response = client.get(
+                    "/api/v1/get_tasks_list",
+                    params={
+                        "dag_id": "transform_and_upload",
+                        "dag_run_id": "mock_dag_run_id",
+                    },
+                )
         response_content = response.json()
         self.assertEqual(response.status_code, 500)
         self.assertEqual(
             response_content["message"],
             "Unable to retrieve job tasks list from airflow",
         )
-        mock_log_error.assert_called_once()
+        self.assertEqual(1, len(captured.output))
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch("httpx.AsyncClient.get")
@@ -729,18 +733,20 @@ class TestServer(unittest.TestCase):
             "map_index": -1,
             "full_content": True,
         }
-        with TestClient(app) as client:
-            response = client.get(
-                "/api/v1/get_task_logs",
-                params={
-                    "dag_id": "mock_dag_id",
-                    "dag_run_id": "mock_dag_run_id",
-                    "task_id": "mock_task_id",
-                    "try_number": 1,
-                    "map_index": -1,
-                },
-            )
+        with self.assertLogs(level="INFO") as captured:
+            with TestClient(app) as client:
+                response = client.get(
+                    "/api/v1/get_task_logs",
+                    params={
+                        "dag_id": "mock_dag_id",
+                        "dag_run_id": "mock_dag_run_id",
+                        "task_id": "mock_task_id",
+                        "try_number": 1,
+                        "map_index": -1,
+                    },
+                )
         response_content = response.json()
+        self.assertEqual(1, len(captured.output))
         self.assertEqual(response.status_code, 200)
         self.assertEqual(
             response_content,
@@ -755,10 +761,8 @@ class TestServer(unittest.TestCase):
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch("httpx.AsyncClient.get")
-    @patch("logging.Logger.warning")
     def test_get_task_logs_validation_error(
         self,
-        mock_log_error: MagicMock,
         mock_get,
     ):
         """Tests get_task_logs when query_params are invalid."""
@@ -768,55 +772,53 @@ class TestServer(unittest.TestCase):
             "task_id": "mock_task_id",
             "try_number": "invalid",
         }
-        with TestClient(app) as client:
-            response = client.get(
-                "/api/v1/get_task_logs", params=invalid_params
-            )
+        with self.assertLogs(level="WARNING") as captured:
+            with TestClient(app) as client:
+                response = client.get(
+                    "/api/v1/get_task_logs", params=invalid_params
+                )
         response_content = response.json()
         self.assertEqual(response.status_code, 406)
         self.assertEqual(
             response_content["message"],
             "Error validating request parameters",
         )
-        mock_log_error.assert_called()
+        self.assertEqual(1, len(captured.output))
         mock_get.assert_not_called()
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
-    @patch("logging.Logger.exception")
     @patch("httpx.AsyncClient.get")
     def test_get_task_logs_error(
         self,
         mock_get: MagicMock,
-        mock_log_error: MagicMock,
     ):
         """Tests get_task_logs when there is an error sending request."""
         mock_get.side_effect = Exception("mock error")
-        with TestClient(app) as client:
-            response = client.get(
-                "/api/v1/get_task_logs",
-                params={
-                    "dag_id": "transform_and_upload",
-                    "dag_run_id": "mock_dag_run_id",
-                    "task_id": "mock_task_id",
-                    "try_number": 1,
-                    "map_index": -1,
-                },
-            )
+        with self.assertLogs(level="ERROR") as captured:
+            with TestClient(app) as client:
+                response = client.get(
+                    "/api/v1/get_task_logs",
+                    params={
+                        "dag_id": "transform_and_upload",
+                        "dag_run_id": "mock_dag_run_id",
+                        "task_id": "mock_task_id",
+                        "try_number": 1,
+                        "map_index": -1,
+                    },
+                )
         response_content = response.json()
         self.assertEqual(response.status_code, 500)
         self.assertEqual(
             response_content["message"],
             "Unable to retrieve task logs from airflow",
         )
-        mock_log_error.assert_called_once()
+        self.assertEqual(1, len(captured.output))
 
-    @patch("logging.Logger.info")
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch("boto3.client")
     def test_list_parameters(
         self,
         mock_ssm_client,
-        mock_log_info: MagicMock,
     ):
         """Tests list_parameters gets parameter info from aws param store."""
         mock_paginator = MagicMock()
@@ -849,36 +851,37 @@ class TestServer(unittest.TestCase):
                 },
             ],
         }
-        for version, params_list in expected_params.items():
+        with self.assertLogs(level="INFO") as captured:
             with TestClient(app) as client:
-                response = client.get(f"/api/{version}/parameters")
-            mock_ssm_client.assert_called_with("ssm")
-            mock_ssm_client.return_value.get_paginator.assert_called_with(
-                "describe_parameters"
-            )
-            expected_filter = f"/param_prefix/{version}"
-            mock_paginator.paginate.assert_called_with(
-                ParameterFilters=[
-                    {
-                        "Key": "Path",
-                        "Option": "Recursive",
-                        "Values": [expected_filter],
-                    }
-                ]
-            )
-            response_content = response.json()
-            self.assertEqual(response.status_code, 200)
-            self.assertEqual(
-                response_content,
-                {
-                    "message": "Retrieved job parameters",
-                    "data": params_list,
-                },
-            )
-            # params that do not match expected format are ignored
-            mock_log_info.assert_any_call(
-                "Ignoring /param_prefix/unexpected_param"
-            )
+                for version, params_list in expected_params.items():
+                    response = client.get(f"/api/{version}/parameters")
+                    mock_ssm_client.assert_called_with("ssm")
+                    (
+                        mock_ssm_client.return_value.get_paginator
+                    ).assert_called_with("describe_parameters")
+                    expected_filter = f"/param_prefix/{version}"
+                    mock_paginator.paginate.assert_called_with(
+                        ParameterFilters=[
+                            {
+                                "Key": "Path",
+                                "Option": "Recursive",
+                                "Values": [expected_filter],
+                            }
+                        ]
+                    )
+                    response_content = response.json()
+                    self.assertEqual(response.status_code, 200)
+                    self.assertEqual(
+                        response_content,
+                        {
+                            "message": "Retrieved job parameters",
+                            "data": params_list,
+                        },
+                    )
+        self.assertEqual(
+            "INFO:root:Ignoring /param_prefix/job1/tasks/task1",
+            captured.output[0],
+        )
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch("boto3.client")
@@ -893,32 +896,33 @@ class TestServer(unittest.TestCase):
         expected_params = {
             "v2": "/param_prefix/v2/ecephys/tasks/task1",
         }
-        for version, param_name in expected_params.items():
+        with self.assertLogs(level="INFO") as captured:
             with TestClient(app) as client:
-                response = client.get(
-                    f"/api/{version}/parameters/job_types/ecephys/tasks/task1"
-                )
-            mock_ssm_client.assert_called_with("ssm")
-            mock_ssm_client.return_value.get_parameter.assert_called_with(
-                Name=param_name, WithDecryption=True
-            )
-            response_content = response.json()
-            self.assertEqual(response.status_code, 200)
-            self.assertEqual(
-                response_content,
-                {
-                    "message": f"Retrieved parameter for {param_name}",
-                    "data": {"foo": "bar"},
-                },
-            )
+                for version, param_name in expected_params.items():
+                    response = client.get(
+                        f"/api/{version}/parameters/job_types/"
+                        f"ecephys/tasks/task1"
+                    )
+                    mock_ssm_client.assert_called_with("ssm")
+                    (
+                        mock_ssm_client.return_value.get_parameter
+                    ).assert_called_with(Name=param_name, WithDecryption=True)
+                    response_content = response.json()
+                    self.assertEqual(response.status_code, 200)
+                    self.assertEqual(
+                        response_content,
+                        {
+                            "message": f"Retrieved parameter for {param_name}",
+                            "data": {"foo": "bar"},
+                        },
+                    )
+        self.assertEqual(1, len(captured.output))
 
-    @patch("logging.Logger.exception")
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch("boto3.client")
     def test_get_parameter_error(
         self,
         mock_ssm_client,
-        mock_log_error: MagicMock,
     ):
         """Tests get_parameter when there is a client error."""
         mock_ssm_client.return_value.get_parameter.side_effect = ClientError(
@@ -933,28 +937,28 @@ class TestServer(unittest.TestCase):
         expected_params = {
             "v2": "/param_prefix/v2/foo/tasks/bar",
         }
-        for version, param_name in expected_params.items():
+        with self.assertLogs(level="ERROR") as captured:
             with TestClient(app) as client:
-                response = client.get(
-                    f"/api/{version}/parameters/job_types/foo/tasks/bar"
-                )
-            response_content = response.json()
-            self.assertEqual(response.status_code, 500)
-            self.assertEqual(
-                response_content["message"],
-                f"Error retrieving parameter {param_name}",
-            )
-            mock_log_error.assert_called()
+                for version, param_name in expected_params.items():
+                    response = client.get(
+                        f"/api/{version}/parameters/job_types/foo/tasks/bar"
+                    )
+                    response_content = response.json()
+                    self.assertEqual(response.status_code, 500)
+                    self.assertEqual(
+                        response_content["message"],
+                        f"Error retrieving parameter {param_name}",
+                    )
+        self.assertEqual(1, len(captured.output))
+        # mock_log_error.assert_called()
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
-    @patch("logging.Logger.info")
     @patch("boto3.client")
     @patch("fastapi.Request.session")
     def test_put_parameter(
         self,
         mock_session: MagicMock,
         mock_ssm_client: MagicMock,
-        mock_log_info: MagicMock,
     ):
         """Tests put_parameter sets values in aws param store."""
         mock_user = {"name": "test_user", "email": "test_email"}
@@ -964,11 +968,12 @@ class TestServer(unittest.TestCase):
         mock_ssm_client.return_value.put_parameter.return_value = (
             self.put_parameter_response
         )
-        with TestClient(app) as client:
-            response = client.put(
-                "/api/v1/parameters/job_types/ecephys/tasks/task1",
-                json=mock_param_value,
-            )
+        with self.assertLogs(level="INFO") as captured:
+            with TestClient(app) as client:
+                response = client.put(
+                    "/api/v1/parameters/job_types/ecephys/tasks/task1",
+                    json=mock_param_value,
+                )
         mock_session.get.assert_called_with("user")
         mock_ssm_client.assert_called_with("ssm")
         mock_ssm_client.return_value.put_parameter.assert_called_with(
@@ -986,14 +991,13 @@ class TestServer(unittest.TestCase):
             },
         )
         expected_logs = [
-            call(
-                f"Received request from {mock_user} to set parameter "
-                f"{mock_param_name}"
-            ),
-            call(f"Setting parameter {mock_param_name} to {mock_param_value}"),
-            call(self.put_parameter_response),
+            "INFO:root:Received request from "
+            "{'name': 'test_user', 'email': 'test_email'} to set parameter "
+            "/param_prefix/ecephys/tasks/task1",
+            "INFO:root:Setting parameter /param_prefix/ecephys/tasks/task1 "
+            "to {'foo': 'bar'}",
         ]
-        mock_log_info.assert_has_calls(expected_logs)
+        self.assertEqual(expected_logs, captured.output[0:2])
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch("boto3.client")
@@ -1013,11 +1017,13 @@ class TestServer(unittest.TestCase):
         mock_ssm_client.return_value.put_parameter.return_value = (
             self.put_parameter_response
         )
-        with TestClient(app) as client:
-            response = client.put(
-                f"/api/v2/parameters/job_types/ecephys/tasks/{task}/ecephys",
-                json=mock_param_value,
-            )
+        with self.assertLogs(level="INFO") as captured:
+            with TestClient(app) as client:
+                response = client.put(
+                    f"/api/v2/parameters/job_types/ecephys/tasks/{task}"
+                    f"/ecephys",
+                    json=mock_param_value,
+                )
         mock_session.get.assert_called_with("user")
         mock_ssm_client.assert_called_with("ssm")
         mock_ssm_client.return_value.put_parameter.assert_called_with(
@@ -1026,6 +1032,7 @@ class TestServer(unittest.TestCase):
             Type="String",
             Overwrite=True,
         )
+        self.assertEqual(4, len(captured.output))
         self.assertEqual(response.status_code, 200)
         self.assertEqual(
             response.json(),
@@ -1046,18 +1053,19 @@ class TestServer(unittest.TestCase):
         """Tests put_parameter returns 401 Unauthorized error when user is
         not signed in."""
         mock_session.get.return_value = None
-        for version in ["v2"]:
+        with self.assertLogs(level="INFO") as captured:
             with TestClient(app) as client:
                 response = client.put(
-                    f"/api/{version}/parameters/job_types/ecephys/tasks/task1",
+                    "/api/v2/parameters/job_types/ecephys/tasks/task1",
                     json={"foo": "bar"},
                 )
-            mock_ssm_client.assert_not_called()
-            self.assertEqual(response.status_code, 401)
-            self.assertEqual(
-                response.json()["message"],
-                "User not authenticated",
-            )
+        mock_ssm_client.assert_not_called()
+        self.assertEqual(response.status_code, 401)
+        self.assertEqual(
+            response.json()["message"],
+            "User not authenticated",
+        )
+        self.assertEqual(1, len(captured.output))
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch("boto3.client")
@@ -1074,23 +1082,25 @@ class TestServer(unittest.TestCase):
             "/api/v2/parameters/job_types/new job/tasks/task1",
             "/api/v2/parameters/job_types/new_job/tasks/new task",
         ]
-        for url in request_urls:
+        with self.assertLogs(level="INFO") as captured:
             with TestClient(app) as client:
-                response = client.put(url, json={"foo": "bar"})
-            mock_ssm_client.assert_not_called()
-            self.assertEqual(response.status_code, 400)
-            response_content = response.json()
-            self.assertEqual("Invalid parameter", response_content["message"])
+                for url in request_urls:
+                    response = client.put(url, json={"foo": "bar"})
+                    mock_ssm_client.assert_not_called()
+                    self.assertEqual(response.status_code, 400)
+                    response_content = response.json()
+                    self.assertEqual(
+                        "Invalid parameter", response_content["message"]
+                    )
+        self.assertEqual(3, len(captured.output))
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
-    @patch("logging.Logger.exception")
     @patch("boto3.client")
     @patch("fastapi.Request.session")
     def test_put_parameter_error(
         self,
         mock_session: MagicMock,
         mock_ssm_client: MagicMock,
-        mock_log_error: MagicMock,
     ):
         """Tests put_parameter when there is a client error."""
         mock_params = {
@@ -1110,36 +1120,45 @@ class TestServer(unittest.TestCase):
             },
             "PutParameter",
         )
-        for version, param_name in mock_params.items():
+        with self.assertLogs(level="ERROR") as captured:
             with TestClient(app) as client:
-                response = client.put(
-                    f"/api/{version}/parameters/job_types/ecephys/tasks/task1",
-                    json=mock_param_value,
-                )
-            self.assertEqual(response.status_code, 500)
-            self.assertEqual(
-                response.json()["message"],
-                f"Error setting parameter {param_name}",
-            )
-            mock_log_error.assert_called_with(
-                f"Error setting parameter {param_name}: An error occurred "
-                "(ParameterMaxVersionLimitExceeded) when calling the "
-                "PutParameter operation: Parameter max version limit exceeded"
-            )
+                for version, param_name in mock_params.items():
+                    response = client.put(
+                        f"/api/{version}/parameters/job_types/ecephys/tasks"
+                        f"/task1",
+                        json=mock_param_value,
+                    )
+                    self.assertEqual(response.status_code, 500)
+                    self.assertEqual(
+                        response.json()["message"],
+                        f"Error setting parameter {param_name}",
+                    )
+        self.assertIn(
+            (
+                "ERROR:root:An error occurred"
+                " (ParameterMaxVersionLimitExceeded) when calling the"
+                " PutParameter operation: Parameter max version limit exceeded"
+            ),
+            captured.output[0],
+        )
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     def test_index(self):
         """Tests that form renders at startup as expected."""
-        with TestClient(app) as client:
-            response = client.get("/")
+        with self.assertLogs(level="INFO") as captured:
+            with TestClient(app) as client:
+                response = client.get("/")
+        self.assertEqual(1, len(captured.output))
         self.assertEqual(response.status_code, 200)
         self.assertIn("Submit Jobs", response.text)
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     def test_jobs(self):
         """Tests that job status page renders at startup as expected."""
-        with TestClient(app) as client:
-            response = client.get("/jobs")
+        with self.assertLogs(level="INFO") as captured:
+            with TestClient(app) as client:
+                response = client.get("/jobs")
+        self.assertEqual(1, len(captured.output))
         self.assertEqual(response.status_code, 200)
         self.assertIn("Jobs Submitted:", response.text)
 
@@ -1153,11 +1172,13 @@ class TestServer(unittest.TestCase):
             self.list_task_instances_response
         ).encode("utf-8")
         mock_get.return_value = mock_response
-        with TestClient(app) as client:
-            response = client.get(
-                "/job_tasks_table",
-                params={"dag_id": "dag_id", "dag_run_id": "dag_run_id"},
-            )
+        with self.assertLogs(level="INFO") as captured:
+            with TestClient(app) as client:
+                response = client.get(
+                    "/job_tasks_table",
+                    params={"dag_id": "dag_id", "dag_run_id": "dag_run_id"},
+                )
+        self.assertEqual(1, len(captured.output))
         self.assertEqual(response.status_code, 200)
         self.assertIn("Task ID", response.text)
         self.assertIn("Try Number", response.text)
@@ -1172,14 +1193,16 @@ class TestServer(unittest.TestCase):
             {"message": "test airflow error"}
         ).encode("utf-8")
         mock_get.return_value = mock_response
-        with TestClient(app) as client:
-            response = client.get(
-                "/job_tasks_table",
-                params={
-                    "dag_id": "transform_and_upload",
-                    "dag_run_id": "dag_run_id",
-                },
-            )
+        with self.assertLogs(level="INFO") as captured:
+            with TestClient(app) as client:
+                response = client.get(
+                    "/job_tasks_table",
+                    params={
+                        "dag_id": "transform_and_upload",
+                        "dag_run_id": "dag_run_id",
+                    },
+                )
+        self.assertEqual(1, len(captured.output))
         self.assertEqual(response.status_code, 200)
         self.assertIn("Task ID", response.text)
         self.assertIn("Try Number", response.text)
@@ -1196,17 +1219,19 @@ class TestServer(unittest.TestCase):
         mock_response.status_code = 200
         mock_response._content = b"mock log content"
         mock_get.return_value = mock_response
-        with TestClient(app) as client:
-            response = client.get(
-                "/task_logs",
-                params={
-                    "dag_id": "transform_and_upload",
-                    "dag_run_id": "dag_run_id",
-                    "task_id": "task_id",
-                    "try_number": 1,
-                    "map_index": -1,
-                },
-            )
+        with self.assertLogs(level="INFO") as captured:
+            with TestClient(app) as client:
+                response = client.get(
+                    "/task_logs",
+                    params={
+                        "dag_id": "transform_and_upload",
+                        "dag_run_id": "dag_run_id",
+                        "task_id": "task_id",
+                        "try_number": 1,
+                        "map_index": -1,
+                    },
+                )
+        self.assertEqual(1, len(captured.output))
         self.assertEqual(response.status_code, 200)
         self.assertIn("mock log content", response.text)
 
@@ -1220,27 +1245,29 @@ class TestServer(unittest.TestCase):
             {"message": "test airflow error"}
         ).encode("utf-8")
         mock_get.return_value = mock_response
-        with TestClient(app) as client:
-            response = client.get(
-                "/task_logs",
-                params={
-                    "dag_id": "transform_and_upload",
-                    "dag_run_id": "dag_run_id",
-                    "task_id": "task_id",
-                    "try_number": 1,
-                    "map_index": -1,
-                },
-            )
+        with self.assertLogs(level="INFO") as captured:
+            with TestClient(app) as client:
+                response = client.get(
+                    "/task_logs",
+                    params={
+                        "dag_id": "transform_and_upload",
+                        "dag_run_id": "dag_run_id",
+                        "task_id": "task_id",
+                        "try_number": 1,
+                        "map_index": -1,
+                    },
+                )
+        self.assertEqual(1, len(captured.output))
         self.assertEqual(response.status_code, 200)
         self.assertIn("Error retrieving task logs from airflow", response.text)
         self.assertIn("test airflow error", response.text)
 
     def test_download_job_template(self):
         """Tests that job template downloads as xlsx file."""
-
-        with TestClient(app) as client:
-            response = client.get("/api/job_upload_template")
-
+        with self.assertLogs(level="INFO") as captured:
+            with TestClient(app) as client:
+                response = client.get("/api/job_upload_template")
+        self.assertEqual(1, len(captured.output))
         expected_file_stream = (
             JobUploadTemplate.create_excel_sheet_filestream()
         )
@@ -1267,8 +1294,10 @@ class TestServer(unittest.TestCase):
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     def test_job_params(self):
         """Tests that job params page renders at startup as expected."""
-        with TestClient(app) as client:
-            response = client.get("/job_params")
+        with self.assertLogs(level="INFO") as captured:
+            with TestClient(app) as client:
+                response = client.get("/job_params")
+        self.assertEqual(1, len(captured.output))
         self.assertEqual(response.status_code, 200)
         self.assertIn("Job Parameters", response.text)
 
@@ -1278,9 +1307,11 @@ class TestServer(unittest.TestCase):
         """Tests that the admin page renders when user is authenticated."""
         expected_user = {"name": "test_user", "email": "test_email"}
         mock_session.get.return_value = expected_user
-        with TestClient(app) as client:
-            response = client.get("/admin")
+        with self.assertLogs(level="INFO") as captured:
+            with TestClient(app) as client:
+                response = client.get("/admin")
         mock_session.get.assert_called_once_with("user")
+        self.assertEqual(1, len(captured.output))
         self.assertEqual(response.status_code, 200)
         self.assertIn("Admin", response.text)
         self.assertIn("test_user", response.text)
@@ -1290,8 +1321,10 @@ class TestServer(unittest.TestCase):
     )
     def test_admin_local(self):
         """Tests that the admin page renders when user is authenticated."""
-        with TestClient(app) as client:
-            response = client.get("/admin")
+        with self.assertLogs(level="INFO") as captured:
+            with TestClient(app) as client:
+                response = client.get("/admin")
+        self.assertEqual(3, len(captured.output))
         self.assertEqual(response.status_code, 200)
         self.assertIn("Admin", response.text)
         self.assertIn("local user", response.text)
@@ -1313,29 +1346,29 @@ class TestServer(unittest.TestCase):
             },
             status_code=307,
         )
-        with TestClient(app) as client:
-            response = client.get("/admin")
+        with self.assertLogs(level="INFO") as captured:
+            with TestClient(app) as client:
+                response = client.get("/admin")
         mock_redirect_response.assert_called_once_with(url="/login")
+        self.assertEqual(1, len(captured.output))
         self.assertEqual(response.status_code, 307)
 
     @patch("aind_data_transfer_service.server.JobUploadTemplate")
-    @patch("logging.Logger.exception")
-    def test_download_invalid_job_template(
-        self, mock_log_error: MagicMock, mock_job_template: MagicMock
-    ):
+    def test_download_invalid_job_template(self, mock_job_template: MagicMock):
         """Tests that download invalid job template returns errors."""
         mock_job_template.create_excel_sheet_filestream.side_effect = (
             Exception("mock invalid job template")
         )
-        with TestClient(app) as client:
-            response = client.get("/api/job_upload_template")
+        with self.assertLogs(level="ERROR") as captured:
+            with TestClient(app) as client:
+                response = client.get("/api/job_upload_template")
         expected_response = {
             "message": "Error creating job template",
             "data": {"error": "Exception('mock invalid job template',)"},
         }
         self.assertEqual(500, response.status_code)
         self.assertEqual(expected_response, response.json())
-        mock_log_error.assert_called_once()
+        self.assertEqual(1, len(captured.output))
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch("aind_data_transfer_service.server.get_airflow_jobs")
@@ -1354,12 +1387,15 @@ class TestServer(unittest.TestCase):
         ]
         mock_get_job_types.return_value = ["default", "ecephys", "custom"]
         mock_get_airflow_jobs.return_value = (0, list())
-        with TestClient(app) as client:
-            with open(NEW_SAMPLE_CSV, "rb") as f:
-                files = {
-                    "file": f,
-                }
-                response = client.post(url="/api/v2/validate_csv", files=files)
+        with self.assertLogs(level="INFO") as captured:
+            with TestClient(app) as client:
+                with open(NEW_SAMPLE_CSV, "rb") as f:
+                    files = {
+                        "file": f,
+                    }
+                    response = client.post(
+                        url="/api/v2/validate_csv", files=files
+                    )
 
         expected_airflow_params = AirflowDagRunsRequestParameters(
             dag_ids=["transform_and_upload_v2", "run_list_of_jobs"],
@@ -1369,6 +1405,7 @@ class TestServer(unittest.TestCase):
             params=expected_airflow_params, get_confs=True
         )
         self.assertEqual(200, response.status_code)
+        self.assertEqual(2, len(captured.output))
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch("aind_data_transfer_service.server.get_project_names")
@@ -1378,17 +1415,21 @@ class TestServer(unittest.TestCase):
             "Ephys Platform",
             "Behavior Platform",
         ]
-        with TestClient(app) as client:
-            with open(SAMPLE_INVALID_EXT, "rb") as f:
-                files = {
-                    "file": f,
-                }
-                response = client.post(url="/api/v2/validate_csv", files=files)
+        with self.assertLogs(level="INFO") as captured:
+            with TestClient(app) as client:
+                with open(SAMPLE_INVALID_EXT, "rb") as f:
+                    files = {
+                        "file": f,
+                    }
+                    response = client.post(
+                        url="/api/v2/validate_csv", files=files
+                    )
         self.assertEqual(response.status_code, 406)
         self.assertEqual(
             ["Invalid input file type"],
             response.json()["data"]["errors"],
         )
+        self.assertEqual(2, len(captured.output))
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch("aind_data_transfer_service.server.get_airflow_jobs")
@@ -1407,12 +1448,16 @@ class TestServer(unittest.TestCase):
         ]
         mock_get_job_types.return_value = ["default", "custom"]
         mock_get_airflow_jobs.return_value = (0, list())
-        with TestClient(app) as client:
-            with open(MALFORMED_SAMPLE_XLSX, "rb") as f:
-                files = {
-                    "file": f,
-                }
-                response = client.post(url="/api/v2/validate_csv", files=files)
+        with self.assertLogs(level="INFO") as captured:
+            with TestClient(app) as client:
+                with open(MALFORMED_SAMPLE_XLSX, "rb") as f:
+                    files = {
+                        "file": f,
+                    }
+                    response = client.post(
+                        url="/api/v2/validate_csv", files=files
+                    )
+        self.assertEqual(2, len(captured.output))
         self.assertEqual(response.status_code, 406)
         self.assertEqual(3, len(response.json()["data"]["errors"]))
 
@@ -1433,12 +1478,16 @@ class TestServer(unittest.TestCase):
         ]
         mock_get_job_types.return_value = ["default", "ecephys", "custom"]
         mock_get_airflow_jobs.return_value = (0, list())
-        with TestClient(app) as client:
-            with open(SAMPLE_CSV_EMPTY_ROWS_2, "rb") as f:
-                files = {
-                    "file": f,
-                }
-                response = client.post(url="/api/v2/validate_csv", files=files)
+        with self.assertLogs(level="INFO") as captured:
+            with TestClient(app) as client:
+                with open(SAMPLE_CSV_EMPTY_ROWS_2, "rb") as f:
+                    files = {
+                        "file": f,
+                    }
+                    response = client.post(
+                        url="/api/v2/validate_csv", files=files
+                    )
+        self.assertEqual(2, len(captured.output))
         self.assertEqual(200, response.status_code)
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
@@ -1455,13 +1504,17 @@ class TestServer(unittest.TestCase):
         mock_get_project_names.return_value = ["Ephys Platform"]
         mock_get_job_types.return_value = ["default"]
         mock_get_airflow_jobs.return_value = (0, list())
-        with TestClient(app) as client:
-            with open(MALFORMED_SAMPLE_CSV_2, "rb") as f:
-                files = {
-                    "file": f,
-                }
-                response = client.post(url="/api/v2/validate_csv", files=files)
+        with self.assertLogs(level="INFO") as captured:
+            with TestClient(app) as client:
+                with open(MALFORMED_SAMPLE_CSV_2, "rb") as f:
+                    files = {
+                        "file": f,
+                    }
+                    response = client.post(
+                        url="/api/v2/validate_csv", files=files
+                    )
         self.assertEqual(response.status_code, 406)
+        self.assertEqual(2, len(captured.output))
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch("aind_data_transfer_service.server.get_airflow_jobs")
@@ -1480,16 +1533,19 @@ class TestServer(unittest.TestCase):
         mock_get_project_names.return_value = ["Ephys Platform"]
         mock_get_job_types.return_value = ["default"]
         mock_get_airflow_jobs.return_value = (0, list())
-        with TestClient(app) as client:
-            with open(MALFORMED_SAMPLE_CSV_2, "rb") as f:
-                files = {
-                    "file": f,
-                }
-                response = client.post(url="/api/v2/validate_csv", files=files)
+        with self.assertLogs(level="INFO") as captured:
+            with TestClient(app) as client:
+                with open(MALFORMED_SAMPLE_CSV_2, "rb") as f:
+                    files = {
+                        "file": f,
+                    }
+                    response = client.post(
+                        url="/api/v2/validate_csv", files=files
+                    )
         self.assertEqual(response.status_code, 406)
+        self.assertEqual(2, len(captured.output))
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
-    @patch("logging.Logger.warning")
     @patch("httpx.AsyncClient.post")
     @patch("aind_data_transfer_service.server.get_airflow_jobs")
     @patch("aind_data_transfer_service.server.get_project_names")
@@ -1500,22 +1556,21 @@ class TestServer(unittest.TestCase):
         mock_get_project_names: MagicMock,
         mock_get_airflow_jobs: MagicMock,
         mock_post: MagicMock,
-        mock_log_warning: MagicMock,
     ):
         """Tests submit jobs 406 response."""
         mock_get_job_types.return_value = ["ecephys"]
         mock_get_project_names.return_value = ["Ephys Platform"]
         mock_get_airflow_jobs.return_value = (0, list())
-        for version in ["v2"]:
+        with self.assertLogs(level="WARNING") as captured:
             with TestClient(app) as client:
                 submit_job_response = client.post(
-                    url=f"/api/{version}/submit_jobs", json={}
+                    url="/api/v2/submit_jobs", json={}
                 )
-            self.assertEqual(406, submit_job_response.status_code)
-            mock_post.assert_not_called()
-            mock_log_warning.assert_called_with(
-                "There were validation errors processing {}"
-            )
+        self.assertEqual(406, submit_job_response.status_code)
+        mock_post.assert_not_called()
+        self.assertIn(
+            "There were validation errors processing {}", captured.output[0]
+        )
         mock_get_job_types.assert_called_once_with("v2")
         mock_get_airflow_jobs.assert_called_once()
         self.assertEqual(1, mock_get_project_names.call_count)
@@ -1546,15 +1601,12 @@ class TestServer(unittest.TestCase):
             upload_jobs=[self.example_configs_v2]
         )
         request_json_v2 = job_request_v2.model_dump(mode="json")
-        jobs = {
-            "v2": request_json_v2,
-        }
-        for version, request_json in jobs.items():
+        with self.assertLogs(level="INFO") as captured:
             with TestClient(app) as client:
                 submit_job_response = client.post(
-                    url=f"/api/{version}/submit_jobs", json=request_json
+                    url="/api/v2/submit_jobs", json=request_json_v2
                 )
-            self.assertEqual(200, submit_job_response.status_code)
+        self.assertEqual(200, submit_job_response.status_code)
         mock_get_job_types.assert_called_once_with("v2")
         expected_airflow_params = AirflowDagRunsRequestParameters(
             dag_ids=["transform_and_upload_v2", "run_list_of_jobs"],
@@ -1564,10 +1616,10 @@ class TestServer(unittest.TestCase):
             params=expected_airflow_params, get_confs=True
         )
         self.assertEqual(1, mock_get_project_names.call_count)
+        self.assertEqual(4, len(captured.output))
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch("httpx.AsyncClient.post")
-    @patch("logging.Logger.exception")
     @patch("aind_data_transfer_service.server.get_airflow_jobs")
     @patch("aind_data_transfer_service.server.get_project_names")
     @patch("aind_data_transfer_service.server.get_job_types")
@@ -1576,7 +1628,6 @@ class TestServer(unittest.TestCase):
         mock_get_job_types: MagicMock,
         mock_get_project_names: MagicMock,
         mock_get_airflow_jobs: MagicMock,
-        mock_log_exception: MagicMock,
         mock_post: MagicMock,
     ):
         """Tests submit jobs 500 response."""
@@ -1614,16 +1665,13 @@ class TestServer(unittest.TestCase):
                 },
             ],
         }
-        jobs = {
-            "v2": request_json_v2,
-        }
-        for version, request_json in jobs.items():
+        with self.assertLogs(level="ERROR") as captured:
             with TestClient(app) as client:
                 submit_job_response = client.post(
-                    url=f"/api/{version}/submit_jobs", json=request_json
+                    url="/api/v2/submit_jobs", json=request_json_v2
                 )
-            self.assertEqual(500, submit_job_response.status_code)
-            mock_log_exception.assert_called()
+        self.assertEqual(500, submit_job_response.status_code)
+        self.assertEqual(1, len(captured.output))
         mock_get_job_types.assert_called_once_with("v2")
         mock_get_airflow_jobs.assert_called_once()
         self.assertEqual(1, mock_get_project_names.call_count)
@@ -1657,16 +1705,14 @@ class TestServer(unittest.TestCase):
             upload_jobs=[self.example_configs_v2]
         )
         post_request_content_v2 = job_request_v2.model_dump(mode="json")
-        jobs = {
-            "v2": post_request_content_v2,
-        }
 
-        for version, request_json in jobs.items():
+        with self.assertLogs(level="INFO") as captured:
             with TestClient(app) as client:
                 submit_job_response = client.post(
-                    url=f"/api/{version}/submit_jobs", json=request_json
+                    url="/api/v2/submit_jobs", json=post_request_content_v2
                 )
-            self.assertEqual(200, submit_job_response.status_code)
+        self.assertEqual(200, submit_job_response.status_code)
+        self.assertEqual(4, len(captured.output))
         mock_get_job_types.assert_called_once_with("v2")
         mock_get_airflow_jobs.assert_called_once()
         self.assertEqual(1, mock_get_project_names.call_count)
@@ -1688,27 +1734,24 @@ class TestServer(unittest.TestCase):
 
         upload_job = self.example_configs_v2
         submit_job_request_v2 = SubmitJobRequestV2(upload_jobs=[upload_job])
+        post_request_content = submit_job_request_v2.model_dump(mode="json")
 
-        expected_jobs = {
-            "v2": {
-                "request": submit_job_request_v2,
-                "version": aind_data_transfer_service_version,
-            },
-        }
-        for version, job in expected_jobs.items():
-            post_request_content = json.loads(job["request"].model_dump_json())
+        with self.assertLogs(level="INFO") as captured:
             with TestClient(app) as client:
                 response = client.post(
-                    f"/api/{version}/validate_json",
+                    "/api/v2/validate_json",
                     json=post_request_content,
                 )
                 response_json = response.json()
-            self.assertEqual(200, response.status_code)
-            self.assertEqual("Valid model", response_json["message"])
-            self.assertEqual(
-                post_request_content, response_json["data"]["model_json"]
-            )
-            self.assertEqual(job["version"], response_json["data"]["version"])
+        self.assertEqual(200, response.status_code)
+        self.assertEqual("Valid model", response_json["message"])
+        self.assertEqual(
+            post_request_content, response_json["data"]["model_json"]
+        )
+        self.assertEqual(
+            aind_data_transfer_service_version,
+            response_json["data"]["version"],
+        )
         expected_airflow_params = AirflowDagRunsRequestParameters(
             dag_ids=["transform_and_upload_v2", "run_list_of_jobs"],
             states=["running", "queued"],
@@ -1718,8 +1761,8 @@ class TestServer(unittest.TestCase):
         )
         mock_get_job_types.assert_called_once_with("v2")
         self.assertEqual(1, mock_get_project_names.call_count)
+        self.assertEqual(3, len(captured.output))
 
-    @patch("logging.Logger.warning")
     @patch("aind_data_transfer_service.server.get_airflow_jobs")
     @patch("aind_data_transfer_service.server.get_project_names")
     @patch("aind_data_transfer_service.server.get_job_types")
@@ -1728,39 +1771,34 @@ class TestServer(unittest.TestCase):
         mock_get_job_types: MagicMock,
         mock_get_project_names: MagicMock,
         mock_get_airflow_jobs: MagicMock,
-        mock_log_warning: MagicMock,
     ):
         """Tests validate_json when json is invalid."""
         mock_get_job_types.return_value = ["ecephys"]
         mock_get_project_names.return_value = ["Ephys Platform"]
         mock_get_airflow_jobs.return_value = (0, list())
         content = {"foo": "bar"}
-        versions = {
-            "v2": aind_data_transfer_service_version,
-        }
-        for version, response_version in versions.items():
+        with self.assertLogs(level="WARNING") as captured:
             with TestClient(app) as client:
-                response = client.post(
-                    f"/api/{version}/validate_json", json=content
-                )
-            response_json = response.json()
-            self.assertEqual(406, response.status_code)
-            self.assertEqual(
-                "There were validation errors", response_json["message"]
-            )
-            self.assertEqual(content, response_json["data"]["model_json"])
-            self.assertEqual(
-                response_version, response_json["data"]["version"]
-            )
-            mock_log_warning.assert_called_with(
-                f"There were validation errors processing {content}"
-            )
+                response = client.post("/api/v2/validate_json", json=content)
+        response_json = response.json()
+        self.assertEqual(406, response.status_code)
+        self.assertEqual(
+            "There were validation errors", response_json["message"]
+        )
+        self.assertEqual(content, response_json["data"]["model_json"])
+        self.assertEqual(
+            aind_data_transfer_service_version,
+            response_json["data"]["version"],
+        )
+        self.assertIn(
+            f"There were validation errors processing {content}",
+            captured.output[0],
+        )
         mock_get_airflow_jobs.assert_called_once()
         mock_get_job_types.assert_called_once_with("v2")
         self.assertEqual(1, mock_get_project_names.call_count)
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
-    @patch("logging.Logger.warning")
     @patch("httpx.AsyncClient.post")
     @patch("aind_data_transfer_service.server.get_project_names")
     @patch("aind_data_transfer_service.server.get_job_types")
@@ -1769,7 +1807,6 @@ class TestServer(unittest.TestCase):
         mock_get_job_types: MagicMock,
         mock_get_project_names: MagicMock,
         mock_post: MagicMock,
-        mock_log_warning: MagicMock,
     ):
         """Tests validate_json_v2 when there is a duplicate job running."""
 
@@ -1791,9 +1828,10 @@ class TestServer(unittest.TestCase):
         )
         mock_post.return_value = mock_dag_runs_response
         # now submit same job again
-        with TestClient(app) as client:
-            resp = client.post("/api/v2/validate_json", json=job_request)
-            resp_json = resp.json()
+        with self.assertLogs(level="WARNING") as captured:
+            with TestClient(app) as client:
+                resp = client.post("/api/v2/validate_json", json=job_request)
+                resp_json = resp.json()
         self.assertEqual(406, resp.status_code)
         self.assertEqual("There were validation errors", resp_json["message"])
         self.assertIn(
@@ -1801,11 +1839,11 @@ class TestServer(unittest.TestCase):
             "ecephys_690165_2024-02-19_11-25-17",
             resp_json["data"]["errors"],
         )
-        mock_log_warning.assert_called_once_with(
-            f"There were validation errors processing {job_request}"
+        self.assertIn(
+            f"There were validation errors processing {job_request}",
+            captured.output[0],
         )
 
-    @patch("logging.Logger.exception")
     @patch("pydantic.BaseModel.model_validate_json")
     @patch("aind_data_transfer_service.server.get_airflow_jobs")
     @patch("aind_data_transfer_service.server.get_project_names")
@@ -1816,7 +1854,6 @@ class TestServer(unittest.TestCase):
         mock_get_project_names: MagicMock,
         mock_get_airflow_jobs: MagicMock,
         mock_model_validate_json: MagicMock,
-        mock_log_error: MagicMock,
     ):
         """Tests validate_json when there is an unknown error."""
 
@@ -1824,31 +1861,25 @@ class TestServer(unittest.TestCase):
         mock_get_project_names.return_value = ["Ephys Platform"]
         mock_get_airflow_jobs.return_value = (0, list())
         mock_model_validate_json.side_effect = Exception("Unknown error")
-        versions = {
-            "v2": aind_data_transfer_service_version,
-        }
-        for version, response_version in versions.items():
+        with self.assertLogs(level="ERROR") as captured:
             with TestClient(app) as client:
                 response = client.post(
-                    f"/api/{version}/validate_json",
+                    "/api/v2/validate_json",
                     json={"foo": "bar"},
                 )
-            response_json = response.json()
-            self.assertEqual(500, response.status_code)
-            self.assertEqual(
-                "There was an internal server error", response_json["message"]
-            )
-            self.assertEqual(
-                {"foo": "bar"}, response_json["data"]["model_json"]
-            )
-            self.assertEqual(
-                "('Unknown error',)", response_json["data"]["errors"]
-            )
-            self.assertEqual(
-                response_version, response_json["data"]["version"]
-            )
-            mock_model_validate_json.assert_called()
-            mock_log_error.assert_called_with("Internal Server Error.")
+        response_json = response.json()
+        self.assertEqual(500, response.status_code)
+        self.assertEqual(
+            "There was an internal server error", response_json["message"]
+        )
+        self.assertEqual({"foo": "bar"}, response_json["data"]["model_json"])
+        self.assertEqual("('Unknown error',)", response_json["data"]["errors"])
+        self.assertEqual(
+            aind_data_transfer_service_version,
+            response_json["data"]["version"],
+        )
+        mock_model_validate_json.assert_called()
+        self.assertIn("Unknown error", captured.output[0])
         mock_get_airflow_jobs.assert_called_once()
         mock_get_job_types.assert_called_once_with("v2")
         self.assertEqual(1, mock_get_project_names.call_count)
@@ -1871,8 +1902,9 @@ class TestServer(unittest.TestCase):
         mock_secrets_client.return_value.get_secret_value.return_value = (
             self.get_secrets_response
         )
-        with TestClient(app) as client:
-            response = client.get("/login")
+        with self.assertLogs(level="INFO") as captured:
+            with TestClient(app) as client:
+                response = client.get("/login")
         mock_secrets_client.assert_called_with("secretsmanager")
         mock_secrets_client.return_value.get_secret_value.assert_called_with(
             SecretId="/secret/name"
@@ -1888,6 +1920,7 @@ class TestServer(unittest.TestCase):
         mock_azure = mock_oauth.azure
         mock_azure.authorize_redirect.assert_called_once()
         self.assertEqual(response.status_code, 200)
+        self.assertEqual(1, len(captured.output))
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch("aind_data_transfer_service.server.RedirectResponse")
@@ -1900,9 +1933,11 @@ class TestServer(unittest.TestCase):
             content={"message": "Redirecting to index"},
             status_code=307,
         )
-        with TestClient(app) as client:
-            response = client.get("/logout")
+        with self.assertLogs(level="INFO") as captured:
+            with TestClient(app) as client:
+                response = client.get("/logout")
         mock_redirect.assert_called_once_with(url="/")
+        self.assertEqual(1, len(captured.output))
         self.assertEqual(response.status_code, 307)
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
@@ -1918,12 +1953,14 @@ class TestServer(unittest.TestCase):
         mock_secrets_client.return_value.get_secret_value.return_value = (
             self.get_secrets_response
         )
-        with TestClient(app) as client:
-            response = client.get("/auth")
+        with self.assertLogs(level="INFO") as captured:
+            with TestClient(app) as client:
+                response = client.get("/auth")
         mock_oauth = mock_set_oauth.return_value
         mock_azure = mock_oauth.azure
         mock_azure.authorize_access_token.assert_called_once()
         self.assertEqual(response.status_code, 200)
+        self.assertEqual(2, len(captured.output))
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch("boto3.client")
@@ -1938,12 +1975,14 @@ class TestServer(unittest.TestCase):
         mock_secrets_client.return_value.get_secret_value.return_value = (
             self.get_secrets_response
         )
-        with TestClient(app) as client:
-            response = client.get("/auth")
+        with self.assertLogs(level="INFO") as captured:
+            with TestClient(app) as client:
+                response = client.get("/auth")
         expected_response = {
             "message": "Error Logging In",
             "data": {"error": "OAuthError('Error Logging In: ',)"},
         }
+        self.assertEqual(1, len(captured.output))
         self.assertEqual(response.status_code, 500)
         self.assertEqual(response.json(), expected_response)
 
@@ -1960,28 +1999,26 @@ class TestServer(unittest.TestCase):
         mock_secrets_client.return_value.get_secret_value.return_value = (
             self.get_secrets_response
         )
-        with TestClient(app) as client:
-            response = client.get("/auth")
+        with self.assertLogs(level="INFO") as captured:
+            with TestClient(app) as client:
+                response = client.get("/auth")
         expected_response = {
             "message": "Error Logging In",
             "data": {
                 "error": "ValueError('User info not found in access token.',)"
             },
         }
+        self.assertEqual(1, len(captured.output))
         self.assertEqual(response.status_code, 500)
         self.assertEqual(response.json(), expected_response)
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
-    @patch("logging.Logger.exception")
-    @patch("logging.Logger.info")
     @patch("httpx.AsyncClient.patch")
     @patch("httpx.AsyncClient.post")
     def test_cancel_jobs_200(
         self,
         mock_post: MagicMock,
         mock_patch: MagicMock,
-        mock_log_info: MagicMock,
-        mock_log_exception: MagicMock,
     ):
         """Tests cancel_job success."""
         mock_patch_response = Response()
@@ -1995,10 +2032,11 @@ class TestServer(unittest.TestCase):
             "dag_id": "transform_and_upload_v2",
             "dag_run_id": "manual__2025-11-08T18:20:55.367146+00:00",
         }
-        with TestClient(app) as client:
-            cancel_job_response = client.post(
-                url="/api/v2/cancel_job", json=request_json
-            )
+        with self.assertLogs(level="INFO") as captured:
+            with TestClient(app) as client:
+                cancel_job_response = client.post(
+                    url="/api/v2/cancel_job", json=request_json
+                )
         self.assertEqual(200, cancel_job_response.status_code)
         mock_patch.assert_called_with(
             url=(
@@ -2017,20 +2055,15 @@ class TestServer(unittest.TestCase):
                 }
             },
         )
-        mock_log_info.assert_called()
-        mock_log_exception.assert_not_called()
+        self.assertEqual(2, len(captured.output))
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
-    @patch("logging.Logger.exception")
-    @patch("logging.Logger.info")
     @patch("httpx.AsyncClient.patch")
     @patch("httpx.AsyncClient.post")
     def test_cancel_jobs_500(
         self,
         mock_post: MagicMock,
         mock_patch: MagicMock,
-        mock_log_info: MagicMock,
-        mock_log_exception: MagicMock,
     ):
         """Tests cancel_job error."""
         mock_patch_response = Response()
@@ -2044,10 +2077,11 @@ class TestServer(unittest.TestCase):
             "dag_id": "transform_and_upload_v2",
             "dag_run_id": "manual__2025-11-08T18:20:55.367146+00:00",
         }
-        with TestClient(app) as client:
-            cancel_job_response = client.post(
-                url="/api/v2/cancel_job", json=request_json
-            )
+        with self.assertLogs(level="ERROR") as captured:
+            with TestClient(app) as client:
+                cancel_job_response = client.post(
+                    url="/api/v2/cancel_job", json=request_json
+                )
         self.assertEqual(500, cancel_job_response.status_code)
         self.assertEqual(
             "Error canceling job.", cancel_job_response.json()["message"]
@@ -2069,8 +2103,7 @@ class TestServer(unittest.TestCase):
                 }
             },
         )
-        mock_log_info.assert_called()
-        mock_log_exception.assert_called_once()
+        self.assertEqual(1, len(captured.output))
 
 
 if __name__ == "__main__":
