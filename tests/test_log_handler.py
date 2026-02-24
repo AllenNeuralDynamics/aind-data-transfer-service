@@ -48,8 +48,10 @@ class TestCustomJsonFormatter(unittest.TestCase):
     @patch("logging.config.dictConfig")
     @patch("builtins.open", new_callable=mock_open)
     @patch("os.path.isfile")
+    @patch("logging.info")
     def test_logging_config(
         self,
+        mock_log_info: MagicMock,
         mock_isfile: MagicMock,
         mock_file: MagicMock,
         mock_logging_config: MagicMock,
@@ -69,6 +71,7 @@ class TestCustomJsonFormatter(unittest.TestCase):
         mock_logging_config.assert_called_once_with(
             {"key": "value", "list_items": ["item1", "item2"]}
         )
+        mock_log_info.assert_called_once()
 
 
 if __name__ == "__main__":
