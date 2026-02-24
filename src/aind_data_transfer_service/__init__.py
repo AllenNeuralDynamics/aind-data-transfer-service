@@ -39,3 +39,4 @@ if os.path.isfile(os.getenv("LOGGING_CONFIG_FILE", "log_config.yaml")):
     with open(config_path, "rt") as f:
         config = yaml.safe_load(f.read())
     logging.config.dictConfig(config)
+    logging.info(f"Found logging file at: {config_path}")
