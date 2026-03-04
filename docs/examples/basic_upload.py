@@ -56,7 +56,15 @@ upload_job_configs_v2 = UploadJobConfigsV2(
     },
 )
 
+# Please provide your email to receive notifications about the job status.
+# Notification types include: ["begin", "end", "fail", "retry", "all"]
+# or provide an empty list to opt out.
+user_email="your_email_here"
+email_notification_types=['fail']
+
 submit_request_v2 = SubmitJobRequestV2(
+    user_email=user_email,
+    email_notification_types=email_notification_types,
     upload_jobs=[upload_job_configs_v2],
 )
 
