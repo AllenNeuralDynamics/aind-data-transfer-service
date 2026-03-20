@@ -6,7 +6,8 @@ from typing import Any
 
 def log_submit_job_request(content: Any):
     """
-    Parses content object to log any lines with a subject_id and acquisition_name.
+    Parses content object to log any lines with a subject_id and
+    acquisition_name.
     Parameters
     ----------
     content : Any
@@ -20,5 +21,8 @@ def log_submit_job_request(content: Any):
             acquisition_name = row.get("s3_prefix")
             logging.info(
                 "Handling request",
-                extra={"subject_id": subject_id, "acquisition_name": acquisition_name},
+                extra={
+                    "subject_id": subject_id,
+                    "acquisition_name": acquisition_name,
+                },
             )
