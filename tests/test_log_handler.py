@@ -20,7 +20,7 @@ class TestLogHandler(unittest.TestCase):
         log_submit_job_request(content=content)
         mock_log.assert_called_once_with(
             "Handling request",
-            extra={"subject_id": "123456", "session_id": "abc-123"},
+            extra={"subject_id": "123456", "acquisition_name": "abc-123"},
         )
 
 

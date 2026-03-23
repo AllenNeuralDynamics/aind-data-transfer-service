@@ -34,9 +34,9 @@ formatters:
       "asctime": "timestamp"
       "levelname": "level"
     static_fields:
-      "env": "local"
-      "version": ext://aind_data_transfer_service.__version__
-      "app": "aind-data-transfer-service"
+      "environment": "local"
+      "software_version": ext://aind_data_transfer_service.__version__
+      "software_name": "aind-data-transfer-service"
 handlers:
   console:
     class: logging.StreamHandler
