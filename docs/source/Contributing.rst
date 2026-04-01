@@ -197,7 +197,7 @@ Hotfixes
 ~~~~~~~~
 
 -  A ``hotfix`` branch is created off of ``main``
--  A Pull Request into is ``main`` is opened, reviewed, and merged into
+-  A Pull Request into ``main`` is opened, reviewed, and merged into
    ``main``
 -  A new ``tag`` with a patch bump is created, and a new ``release`` is
    deployed

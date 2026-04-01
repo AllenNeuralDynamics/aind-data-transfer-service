@@ -29,36 +29,47 @@ job_types.
    -  send_job_start_email: sends an optional email to signal that a workflow
       has started.
    -  check_s3_folder_exists: Raises an error if an s3_folder already exists.
-      Set skip_task to True to skip this check.
+      Set skip_task to True to skip this check. We recommend skipping this task
+      sparingly. This will force a sync to AWS even if the folder already exists
+      in the cloud. This will overwrite the data already uploaded, but won't
+      delete any data.
    -  check_source_folders_exist: Checks that the source folders exist. This
       raises an error earlier in the workflow if the source folders were
       configured incorrectly.
    -  create_staging_folder: Creates a temporary folder on VAST to store some
       temporary files for staging.
    -  **gather_preliminary_metadata**: Automatically gathers metadata for
-      subject, procedures, and data_description. Will also gather metadata from
-      aind-metadata-mapper if options are set.
+      subject, procedures, and data_description by running the
+      aind-metadata-mapper GatherMetadataJob. You can optionally specify a
+      directory with pre-compiled metadata files.
+   -  check_metadata_files: Checks that the metadata files exist and are json.
    -  copy_derivatives_folder: Can specify a derivatives folder to upload.
       Set the job_settings like {"input_source": "path_to_folder"}.
    -  **modality_transformation_settings**: This creates the settings for
-      transforming the modality folders.
-   -  compress_data/monitor_compress_data: This is a mapped task. Each Task in
+      transforming the modality folders. This is a dictionary that is keyed
+      by the modality abbreviation and contains the settings for the
+      corresponding modality.
+   -  compress_data/submit_job: This is a mapped task. Each Task in
       the modality_transformation_settings will run in parallel in a separate
       container here.
-   -  gather_final_metadata: Automatically generates a processing.json and
-      metadata.nd.json file.
-   -  check_metadata_files: Checks that the metadata files exist and are json.
+   -  compress_data/monitor_job: This is a mapped task that monitors the
+      compress_data/submit_job tasks. It is expected that the status of this
+      task alternates between "running" and "up_for_reschedule" until the
+      compression job is finished.
+   -  gather_final_metadata: Automatically generates a processing.json
+      by running the aind-metadata-mapper GatherProcessingJob.
    -  upload_data_to_s3: Uploads the data to S3.
    -  register_data_asset: Registers the record to DocDB and Code Ocean.
    -  get_codeocean_asset_id: Retrieve the Code Ocean data asset ID from DocDB.
    -  **codeocean_pipeline_settings**: As with the
       modality_transformation_settings, the parameters to send to the
-      codeocean pipeline monitor capsule.
+      Code Ocean pipeline monitor capsule. You can specify up to 1
+      task per modality.
    -  run_codeocean_pipeline: This is a mapped task that will run each task in
       the codeocean_pipeline_settings dictionary in an individual container.
    -  remove_staging_folder: Removes the staging folder created above.
    -  remove_source_folders: Optionally remove the source folders from VAST.
-      As default, this is turned off. Please be careful running this task.
+      By default, this is turned off. Please be careful running this task.
    -  send_job_end_email: sends an optional email to signal that a workflow
       has ended.
 
@@ -90,7 +101,7 @@ Using the web portal
 --------------------
 
 Access to the web portal is available only through the VPN. The web
-portal can accessed at
+portal can be accessed at
 `http://aind-data-transfer-service/ <http://aind-data-transfer-service>`__
 
 -  Download the excel template file by clicking the
@@ -137,7 +148,7 @@ portal can accessed at
       this column
    -  derivatives_dir: If a derivatives folder is available for upload, can be
       specified as a Posix style path to the directory under this column
-   -  s3_bucket: As default, data will be uploaded to a default bucket
+   -  s3_bucket: By default, data will be uploaded to a default bucket
       in S3 managed by AIND. Please reach out to the Scientific
       Computing department if you wish to upload to a different bucket.
    -  modality{n}.pipeline_id (or modality{n}.capsule_id): It is possible to add
@@ -171,6 +182,13 @@ Viewing the status of submitted jobs
 
 The status of submitted jobs can be viewed at:
 http://aind-data-transfer-service/jobs
+
+This page shows the jobs submitted in the last 14 days. You can filter/sort by
+status, asset name, job type, etc. You can also click into a job's tasks to view
+the status and logs from individual tasks.
+
+Please note that certain tasks, such as compress_data/monitor_job, will
+alternate between "running" and "up_for_reschedule" status until finished.
 
 Viewing job parameters based on job type
 --------------------------------------------
