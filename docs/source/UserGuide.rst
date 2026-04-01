@@ -31,14 +31,14 @@ job_types.
    -  check_s3_folder_exists: Raises an error if an s3_folder already exists.
       Set skip_task to True to skip this check.
    -  check_source_folders_exist: Checks that the source folders exist. This
-      raises and error earlier in the workflow if the source folders were
+      raises an error earlier in the workflow if the source folders were
       configured incorrectly.
    -  create_staging_folder: Creates a temporary folder on VAST to store some
       temporary files for staging.
    -  **gather_preliminary_metadata**: Automatically gathers metadata for
       subject, procedures, and data_description. Will also gather metadata from
       aind-metadata-mapper if options are set.
-   -  copy_derivatives_folder: Can specificy a derivatives folder to upload.
+   -  copy_derivatives_folder: Can specify a derivatives folder to upload.
       Set the job_settings like {"input_source": "path_to_folder"}.
    -  **modality_transformation_settings**: This creates the settings for
       transforming the modality folders.
@@ -118,7 +118,7 @@ portal can accessed at
       to the data source. For example,
 
       -  modality0 (e.g., ecephys)
-      -  modaltity0.input_source (e.g.,
+      -  modality0.input_source (e.g.,
          /allen/aind/scratch/working_group/session_123456_2024-06-19/ecephys_data)
       -  modality1 (e.g, behavior)
       -  modality1.input_source (e.g.,
@@ -140,13 +140,13 @@ portal can accessed at
    -  s3_bucket: As default, data will be uploaded to a default bucket
       in S3 managed by AIND. Please reach out to the Scientific
       Computing department if you wish to upload to a different bucket.
-   -  modality{n}.pipeline_id (or modality{n}.capsule_id: It is possible to add
+   -  modality{n}.pipeline_id (or modality{n}.capsule_id): It is possible to add
       a Code Ocean pipeline_id or capsule_id to a modality. For more complex
       parameters, please define a job_type or use the REST API.
       -  modality0.capsule_id (e.g., 123-456)
       -  modality1.pipeline_id (e.g., 123-456)
-   - force_cloud_sync: We recommend using this flag sparingly. This will skip
-     the force a sync to AWS even if the folder already exists in the cloud.
+   - force_cloud_sync: We recommend using this flag sparingly. This will force
+     a sync to AWS even if the folder already exists in the cloud.
      This will overwrite the data already uploaded, but won't delete any data.
      Please reach out to a member of Scientific Computing for help clearing data
      from AWS.
