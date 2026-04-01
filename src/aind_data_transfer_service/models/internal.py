@@ -158,7 +158,7 @@ class JobStatus(BaseModel):
 
     @classmethod
     def from_airflow_dag_run(cls, airflow_dag_run: AirflowDagRun):
-        """Maps the fields from the HpcJobStatusResponse to this model"""
+        """Maps the fields from an AirflowDagRun to this model"""
         name = airflow_dag_run.conf.get("s3_prefix", "")
         job_type = airflow_dag_run.conf.get("job_type", "")
         # v1 job_type is in CO configs
@@ -204,7 +204,7 @@ class JobTasks(BaseModel):
     def from_airflow_task_instance(
         cls, airflow_task_instance: AirflowTaskInstance
     ):
-        """Maps the fields from the HpcJobStatusResponse to this model"""
+        """Maps the fields from an AirflowTaskInstance to this model"""
         return cls(
             dag_id=airflow_task_instance.dag_id,
             job_id=airflow_task_instance.dag_run_id,

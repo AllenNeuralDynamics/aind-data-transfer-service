@@ -16,7 +16,9 @@ DATETIME_PATTERN2 = re.compile(
 )
 
 
-def nested_update(dict_to_update: Dict[str, Any], updates: Mapping) -> Dict[str, Any]:
+def nested_update(
+    dict_to_update: Dict[str, Any], updates: Mapping
+) -> Dict[str, Any]:
     """
     Update a nested dictionary in-place.
 
