@@ -51,7 +51,7 @@ class AirflowDagRunsRequestParameters(BaseModel):
     order_by: str = "-execution_date"
 
     @field_validator("execution_date_gte", mode="after")
-    def validate_min_execution_date(cls, execution_date_gte: str):
+    def validate_min_execution_date(cls, execution_date_gte: str) -> str:
         """Validate the earliest submit date filter is within 2 weeks"""
         min_execution_date = datetime.now(timezone.utc) - timedelta(weeks=2)
         # datetime.fromisoformat does not support Z in python < 3.11
@@ -179,7 +179,7 @@ class JobStatus(BaseModel):
         )
 
     @property
-    def jinja_dict(self):
+    def jinja_dict(self) -> dict:
         """Map model to a dictionary that jinja can render"""
         return self.model_dump(exclude_none=True)
 
