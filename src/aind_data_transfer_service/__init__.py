@@ -16,13 +16,15 @@ __version__ = "2.0.2"
 class CustomJsonFormatter(log_json.JsonFormatter):
     """Custom class to format log timestamps as ISO-8601 UTC"""
 
-    def formatTime(self, record: LogRecord) -> str:
+    def formatTime(self, record: LogRecord, datefmt=None) -> str:
         """
         Format timestamp as ISO-8601 UTC
 
         Parameters
         ----------
         record : LogRecord
+        datefmt : str, optional
+          Default is None. Unused parameter, kept for signature compatibility.
 
         Returns
         -------
