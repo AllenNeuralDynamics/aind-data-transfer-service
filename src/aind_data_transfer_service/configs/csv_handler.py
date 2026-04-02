@@ -16,13 +16,20 @@ DATETIME_PATTERN2 = re.compile(
 )
 
 
-def nested_update(dict_to_update: Dict[str, Any], updates: Mapping):
+def nested_update(
+    dict_to_update: Dict[str, Any], updates: Mapping
+) -> Dict[str, Any]:
     """
     Update a nested dictionary in-place.
+
     Parameters
     ----------
     dict_to_update : Dict[str, Any]
     updates : Mapping
+
+    Returns
+    -------
+    Dict[str, Any]
 
     """
     for k, v in updates.items():
@@ -35,9 +42,10 @@ def nested_update(dict_to_update: Dict[str, Any], updates: Mapping):
 
 def create_nested_dict(
     dict_to_update: Dict[str, Any], key_string: str, value: Any
-):
+) -> None:
     """
     Updates in-place a nested dictionary with a period delimited key and value.
+
     Parameters
     ----------
     dict_to_update : Dict[str, Any]

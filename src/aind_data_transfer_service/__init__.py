@@ -19,11 +19,12 @@ class CustomJsonFormatter(log_json.JsonFormatter):
     def formatTime(self, record: LogRecord, datefmt=None) -> str:
         """
         Format timestamp as ISO-8601 UTC
+
         Parameters
         ----------
         record : LogRecord
         datefmt : str, optional
-          Default is None
+          Default is None. Unused parameter, kept for signature compatibility.
 
         Returns
         -------

@@ -350,7 +350,7 @@ async def validate_json_v2(request: Request):
 
 
 async def submit_jobs_v2(request: Request):
-    """Post SubmitJobRequestV2 raw json to hpc server to process."""
+    """Post SubmitJobRequestV2 raw json to Airflow to process."""
     logging.info("Received request to submit jobs v2")
     content = await request.json()
     try:
@@ -460,7 +460,7 @@ async def get_job_status_list(request: Request):
 
 
 async def get_tasks_list(request: Request):
-    """Get list of tasks instances given dag id and job id."""
+    """Get list of task instances given dag id and job id."""
     try:
         url = os.getenv("AIND_AIRFLOW_SERVICE_JOBS_URL", "").strip("/")
         params = AirflowTaskInstancesRequestParameters.from_query_params(

@@ -333,7 +333,7 @@ class TestSubmitJobRequestV2(unittest.TestCase):
         cls.example_upload_config = example_upload_config
 
     def test_min_length(self):
-        """Tests error is raised if no job list is empty"""
+        """Tests error is raised if the job list is empty"""
         with self.assertRaises(ValidationError) as e:
             SubmitJobRequestV2(upload_jobs=[])
         expected_message = (

@@ -8,7 +8,6 @@ Subpackages
    :maxdepth: 4
 
    aind_data_transfer_service.configs
-   aind_data_transfer_service.hpc
    aind_data_transfer_service.models
 
 Submodules

@@ -4,10 +4,11 @@ import logging
 from typing import Any
 
 
-def log_submit_job_request(content: Any):
+def log_submit_job_request(content: Any) -> None:
     """
     Parses content object to log any lines with a subject_id and
     acquisition_name.
+
     Parameters
     ----------
     content : Any

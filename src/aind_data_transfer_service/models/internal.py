@@ -51,7 +51,7 @@ class AirflowDagRunsRequestParameters(BaseModel):
     order_by: str = "-execution_date"
 
     @field_validator("execution_date_gte", mode="after")
-    def validate_min_execution_date(cls, execution_date_gte: str):
+    def validate_min_execution_date(cls, execution_date_gte: str) -> str:
         """Validate the earliest submit date filter is within 2 weeks"""
         min_execution_date = datetime.now(timezone.utc) - timedelta(weeks=2)
         # datetime.fromisoformat does not support Z in python < 3.11
@@ -158,7 +158,7 @@ class JobStatus(BaseModel):
 
     @classmethod
     def from_airflow_dag_run(cls, airflow_dag_run: AirflowDagRun):
-        """Maps the fields from the HpcJobStatusResponse to this model"""
+        """Maps the fields from an AirflowDagRun to this model"""
         name = airflow_dag_run.conf.get("s3_prefix", "")
         job_type = airflow_dag_run.conf.get("job_type", "")
         # v1 job_type is in CO configs
@@ -179,7 +179,7 @@ class JobStatus(BaseModel):
         )
 
     @property
-    def jinja_dict(self):
+    def jinja_dict(self) -> dict:
         """Map model to a dictionary that jinja can render"""
         return self.model_dump(exclude_none=True)
 
@@ -204,7 +204,7 @@ class JobTasks(BaseModel):
     def from_airflow_task_instance(
         cls, airflow_task_instance: AirflowTaskInstance
     ):
-        """Maps the fields from the HpcJobStatusResponse to this model"""
+        """Maps the fields from an AirflowTaskInstance to this model"""
         return cls(
             dag_id=airflow_task_instance.dag_id,
             job_id=airflow_task_instance.dag_run_id,

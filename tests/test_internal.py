@@ -39,7 +39,7 @@ class TestJobStatus(unittest.TestCase):
         )
 
     def test_jinja_dict(self):
-        """Tests jinjia dict property"""
+        """Tests jinja_dict property"""
         dag_response = AirflowDagRunsResponse.model_validate_json(
             json.dumps(self.dag_run_response)
         )
