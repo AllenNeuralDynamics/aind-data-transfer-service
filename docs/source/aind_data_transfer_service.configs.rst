@@ -12,18 +12,18 @@ aind\_data\_transfer\_service.configs.csv\_handler module
    :undoc-members:
    :show-inheritance:
 
-aind\_data\_transfer\_service.configs.job\_configs module
----------------------------------------------------------
-
-.. automodule:: aind_data_transfer_service.configs.job_configs
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
 aind\_data\_transfer\_service.configs.job\_upload\_template module
 ------------------------------------------------------------------
 
 .. automodule:: aind_data_transfer_service.configs.job_upload_template
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+aind\_data\_transfer\_service.configs.platforms\_v1 module
+----------------------------------------------------------
+
+.. automodule:: aind_data_transfer_service.configs.platforms_v1
    :members:
    :undoc-members:
    :show-inheritance:

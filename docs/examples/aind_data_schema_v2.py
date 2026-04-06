@@ -36,8 +36,8 @@ ecephys_task = Task(
 
 modality_transformation_settings = {"ecephys": ecephys_task}
 
-# Please specify the release and commit hash of the aind_metadata_mapper to use
-aind_metadata_mapper_version = "v1-45ce06a"
+# Please specify the release of the aind_metadata_mapper to use
+aind_metadata_mapper_version = "1.1.0"
 
 # Runs the aind_metadata_mapper.gather_metadata module
 gather_preliminary_metadata = Task(
@@ -46,7 +46,15 @@ gather_preliminary_metadata = Task(
         "metadata_dir": (
             "/allen/aind/scratch/svc_aind_upload/test_data_sets/"
             "ecephys/655019_2023-04-03_18-17-07"
-        )
+        ),
+        # Optionally specify any additional aind-metadata-mapper job settings
+        # Ideally, these are set in a custom job_type.
+        # "data_description_settings": {
+        #     "tags": ["foo"]
+        # },
+        # "instrument_settings": {
+        #     "instrument_id": "13A"
+        # },
     },
 )
 
