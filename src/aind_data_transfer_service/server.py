@@ -636,7 +636,8 @@ async def jobs(request: Request):
     dag_ids = AirflowDagRunsRequestParameters.model_fields["dag_ids"].default
     return templates.TemplateResponse(
         request=request,
-        name="job_status.html",
+        # name="job_status.html",
+        name="error.html",
         context=(
             {
                 "user_signed_in": user is not None,
@@ -915,13 +916,13 @@ async def cancel_job(request: Request):
 
 routes = [
     Route("/", endpoint=index, methods=["GET", "POST"]),
-    Route(
-        "/api/v1/get_job_status_list",
-        endpoint=get_job_status_list,
-        methods=["GET"],
-    ),
-    Route("/api/v1/get_tasks_list", endpoint=get_tasks_list, methods=["GET"]),
-    Route("/api/v1/get_task_logs", endpoint=get_task_logs, methods=["GET"]),
+    # Route(
+    #     "/api/v1/get_job_status_list",
+    #     endpoint=get_job_status_list,
+    #     methods=["GET"],
+    # ),
+    # Route("/api/v1/get_tasks_list", endpoint=get_tasks_list, methods=["GET"]),
+    # Route("/api/v1/get_task_logs", endpoint=get_task_logs, methods=["GET"]),
     Route("/api/v2/validate_csv", endpoint=validate_csv, methods=["POST"]),
     Route(
         "/api/v2/validate_json", endpoint=validate_json_v2, methods=["POST"]
@@ -953,8 +954,8 @@ routes = [
         methods=["PUT"],
     ),
     Route("/jobs", endpoint=jobs, methods=["GET"]),
-    Route("/job_tasks_table", endpoint=job_tasks_table, methods=["GET"]),
-    Route("/task_logs", endpoint=task_logs, methods=["GET"]),
+    # Route("/job_tasks_table", endpoint=job_tasks_table, methods=["GET"]),
+    # Route("/task_logs", endpoint=task_logs, methods=["GET"]),
     Route("/job_params", endpoint=job_params, methods=["GET"]),
     Route(
         "/api/job_upload_template",
