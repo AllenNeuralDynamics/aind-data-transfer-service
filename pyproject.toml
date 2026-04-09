@@ -21,6 +21,8 @@ dependencies = [
     'email-validator',
     'pydantic>=2.0',
     'pydantic-settings>=2.0',
+    'python-json-logger',
+    'PyYAML'
 ]
 
 [project.optional-dependencies]
@@ -52,8 +54,6 @@ server = [
     'requests==2.25.0',
     'openpyxl',
     'authlib',
-    'python-json-logger',
-    'PyYAML'
 ]
 
 [tool.setuptools.packages.find]
