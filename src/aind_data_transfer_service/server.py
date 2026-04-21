@@ -31,7 +31,11 @@ from aind_data_transfer_service.configs.csv_handler import map_csv_row_to_job
 from aind_data_transfer_service.configs.job_upload_template import (
     JobUploadTemplate,
 )
-from aind_data_transfer_service.log_handler import log_submit_job_request
+from aind_data_transfer_service.log_handler import (
+    EventType,
+    log_stage_event,
+    log_submit_job_request,
+)
 from aind_data_transfer_service.models.core import (
     SubmitJobRequestV2,
     validation_context,
@@ -393,6 +397,13 @@ async def submit_jobs_v2(request: Request):
             )
             status_code = response.status_code
             response_json = response.json()
+        log_stage_event(
+            "Completed submit jobs v2 request",
+            event_type=EventType.STAGE_COMPLETE,
+            dag_id=model.dag_id,
+            total_jobs=total_jobs,
+            status_code=status_code,
+        )
         return JSONResponse(
             status_code=status_code,
             content={
