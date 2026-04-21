@@ -11,12 +11,17 @@ class EventType(str, Enum):
     STAGE_START = "stage_start"
     STAGE_COMPLETE = "stage_complete"
 
-def log_stage_event(message: str, event_type: str, **extra_fields: Any) -> None:
+
+def log_stage_event(
+        message: str,
+        event_type: EventType,
+        **extra_fields: Any
+) -> None:
     """Emit a structured log record for stage lifecycle events."""
 
     logging.info(
         message,
-        extra={"event_type": event_type, **extra_fields},
+        extra={"event_type": event_type.value, **extra_fields},
     )
 
 
