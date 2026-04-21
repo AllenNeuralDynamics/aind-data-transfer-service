@@ -7,7 +7,7 @@ import unittest
 from datetime import datetime, timedelta, timezone
 from io import BytesIO
 from pathlib import Path, PurePosixPath
-from unittest.mock import ANY, AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from aind_data_schema_models.modalities import Modality
 from authlib.integrations.starlette_client import OAuthError
@@ -1622,7 +1622,7 @@ class TestServer(unittest.TestCase):
         mock_log_stage_event.assert_called_once_with(
             "Completed submit jobs v2 request",
             event_type="stage_complete",
-            dag_id=ANY,
+            dag_id="transform_and_upload_v2",
             total_jobs=1,
             status_code=200,
         )
