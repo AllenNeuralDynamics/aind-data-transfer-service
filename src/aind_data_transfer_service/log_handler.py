@@ -10,6 +10,7 @@ class EventType(str, Enum):
 
     STAGE_START = "stage_start"
     STAGE_COMPLETE = "stage_complete"
+    STAGE_FAILURE = "stage_failure"
 
 
 def log_stage_event(

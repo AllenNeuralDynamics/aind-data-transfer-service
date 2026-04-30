@@ -397,13 +397,22 @@ async def submit_jobs_v2(request: Request):
             )
             status_code = response.status_code
             response_json = response.json()
-        log_stage_event(
-            "Completed submit jobs v2 request",
-            event_type=EventType.STAGE_COMPLETE,
-            dag_id=model.dag_id,
-            total_jobs=total_jobs,
-            status_code=status_code,
-        )
+        if status_code == 500:
+            log_stage_event(
+                "Failed submit jobs v2 request",
+                event_type=EventType.STAGE_FAILURE,
+                dag_id=model.dag_id,
+                total_jobs=total_jobs,
+                status_code=status_code,
+            )
+        else:
+            log_stage_event(
+                "Completed submit jobs v2 request",
+                event_type=EventType.STAGE_COMPLETE,
+                dag_id=model.dag_id,
+                total_jobs=total_jobs,
+                status_code=status_code,
+            )
         return JSONResponse(
             status_code=status_code,
             content={
@@ -422,6 +431,12 @@ async def submit_jobs_v2(request: Request):
         )
     except Exception as e:
         logging.exception(e, exc_info=True)
+        log_stage_event(
+            "Failed submit jobs v2 request",
+            event_type=EventType.STAGE_FAILURE,
+            content=content,
+            error=str(e.args),
+        )
         return JSONResponse(
             status_code=500,
             content={
