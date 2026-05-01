@@ -397,7 +397,7 @@ async def submit_jobs_v2(request: Request):
             )
             status_code = response.status_code
             response_json = response.json()
-        if status_code == 500:
+        if status_code > 300:
             log_stage_event(
                 "Failed submit jobs v2 request",
                 event_type=EventType.STAGE_FAILURE,
