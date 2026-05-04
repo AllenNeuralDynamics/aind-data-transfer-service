@@ -2,6 +2,28 @@
 
 import logging
 from typing import Any
+from enum import Enum
+
+
+class EventType(str, Enum):
+    """Enum for event types in structured logging"""
+
+    STAGE_START = "stage_start"
+    STAGE_COMPLETE = "stage_complete"
+    STAGE_FAILURE = "stage_failure"
+
+
+def log_stage_event(
+        message: str,
+        event_type: EventType,
+        **extra_fields: Any
+) -> None:
+    """Emit a structured log record for stage lifecycle events."""
+
+    logging.info(
+        message,
+        extra={"event_type": event_type.value, **extra_fields},
+    )
 
 
 def log_submit_job_request(content: Any) -> None:
@@ -20,10 +42,9 @@ def log_submit_job_request(content: Any) -> None:
         for row in content:
             subject_id = row.get("subject_id")
             acquisition_name = row.get("s3_prefix")
-            logging.info(
+            log_stage_event(
                 "Handling request",
-                extra={
-                    "subject_id": subject_id,
-                    "acquisition_name": acquisition_name,
-                },
+                event_type=EventType.STAGE_START,
+                subject_id=subject_id,
+                acquisition_name=acquisition_name,
             )

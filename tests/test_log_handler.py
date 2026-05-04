@@ -7,7 +7,11 @@ from unittest.mock import MagicMock, mock_open, patch
 
 import aind_data_transfer_service
 from aind_data_transfer_service import CustomJsonFormatter
-from aind_data_transfer_service.log_handler import log_submit_job_request
+from aind_data_transfer_service.log_handler import (
+    EventType,
+    log_stage_event,
+    log_submit_job_request,
+)
 
 
 class TestLogHandler(unittest.TestCase):
@@ -20,7 +24,31 @@ class TestLogHandler(unittest.TestCase):
         log_submit_job_request(content=content)
         mock_log.assert_called_once_with(
             "Handling request",
-            extra={"subject_id": "123456", "acquisition_name": "abc-123"},
+            extra={
+                "event_type": EventType.STAGE_START,
+                "subject_id": "123456",
+                "acquisition_name": "abc-123",
+            },
+        )
+
+    @patch("logging.info")
+    def test_log_stage_event(self, mock_log: MagicMock):
+        """Tests log_stage_event emits structured extra fields."""
+
+        log_stage_event(
+            "Completed submit jobs v2 request",
+            event_type=EventType.STAGE_COMPLETE,
+            dag_id="run_list_of_jobs",
+            total_jobs=2,
+        )
+
+        mock_log.assert_called_once_with(
+            "Completed submit jobs v2 request",
+            extra={
+                "event_type": EventType.STAGE_COMPLETE,
+                "dag_id": "run_list_of_jobs",
+                "total_jobs": 2,
+            },
         )
 
 
