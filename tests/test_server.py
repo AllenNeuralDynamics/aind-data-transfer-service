@@ -1577,6 +1577,7 @@ class TestServer(unittest.TestCase):
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch("httpx.AsyncClient.post")
+    @patch("aind_data_transfer_service.server.log_stage_event")
     @patch("aind_data_transfer_service.server.get_airflow_jobs")
     @patch("aind_data_transfer_service.server.get_project_names")
     @patch("aind_data_transfer_service.server.get_job_types")
@@ -1585,6 +1586,7 @@ class TestServer(unittest.TestCase):
         mock_get_job_types: MagicMock,
         mock_get_project_names: MagicMock,
         mock_get_airflow_jobs: MagicMock,
+        mock_log_stage_event: MagicMock,
         mock_post: MagicMock,
     ):
         """Tests submit jobs success."""
@@ -1617,9 +1619,17 @@ class TestServer(unittest.TestCase):
         )
         self.assertEqual(1, mock_get_project_names.call_count)
         self.assertEqual(4, len(captured.output))
+        mock_log_stage_event.assert_called_once_with(
+            "Completed submit jobs v2 request",
+            event_type="stage_complete",
+            dag_id="transform_and_upload_v2",
+            total_jobs=1,
+            status_code=200,
+        )
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch("httpx.AsyncClient.post")
+    @patch("aind_data_transfer_service.server.log_stage_event")
     @patch("aind_data_transfer_service.server.get_airflow_jobs")
     @patch("aind_data_transfer_service.server.get_project_names")
     @patch("aind_data_transfer_service.server.get_job_types")
@@ -1628,9 +1638,60 @@ class TestServer(unittest.TestCase):
         mock_get_job_types: MagicMock,
         mock_get_project_names: MagicMock,
         mock_get_airflow_jobs: MagicMock,
+        mock_log_stage_event: MagicMock,
         mock_post: MagicMock,
     ):
-        """Tests submit jobs 500 response."""
+        """Tests submit jobs failure."""
+        mock_get_project_names.return_value = ["Ephys Platform"]
+        mock_get_job_types.return_value = ["ecephys"]
+        mock_get_airflow_jobs.return_value = (0, list())
+        mock_response = Response()
+        mock_response.status_code = 500
+        mock_response._content = json.dumps({"message": "sent"}).encode(
+            "utf-8"
+        )
+        mock_post.return_value = mock_response
+        job_request_v2 = SubmitJobRequestV2(
+            upload_jobs=[self.example_configs_v2]
+        )
+        request_json_v2 = job_request_v2.model_dump(mode="json")
+        with self.assertLogs(level="INFO") as captured:
+            with TestClient(app) as client:
+                submit_job_response = client.post(
+                    url="/api/v2/submit_jobs", json=request_json_v2
+                )
+        self.assertEqual(500, submit_job_response.status_code)
+        mock_get_job_types.assert_called_once_with("v2")
+        expected_airflow_params = AirflowDagRunsRequestParameters(
+            dag_ids=["transform_and_upload_v2", "run_list_of_jobs"],
+            states=["running", "queued"],
+        )
+        mock_get_airflow_jobs.assert_called_once_with(
+            params=expected_airflow_params, get_confs=True
+        )
+        self.assertEqual(1, mock_get_project_names.call_count)
+        self.assertEqual(4, len(captured.output))
+        mock_log_stage_event.assert_called_once_with(
+            "Failed submit jobs v2 request",
+            event_type="stage_failure",
+            dag_id="transform_and_upload_v2",
+            total_jobs=1,
+            status_code=500,
+        )
+
+    @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
+    @patch("httpx.AsyncClient.post")
+    @patch("aind_data_transfer_service.server.get_airflow_jobs")
+    @patch("aind_data_transfer_service.server.get_project_names")
+    @patch("aind_data_transfer_service.server.get_job_types")
+    def test_submit_v1_v2_jobs_exception_500(
+        self,
+        mock_get_job_types: MagicMock,
+        mock_get_project_names: MagicMock,
+        mock_get_airflow_jobs: MagicMock,
+        mock_post: MagicMock,
+    ):
+        """Tests submit jobs exception response."""
         mock_get_job_types.return_value = ["ecephys"]
         mock_get_project_names.return_value = ["Ephys Platform"]
         mock_get_airflow_jobs.return_value = (0, list())
@@ -1712,7 +1773,7 @@ class TestServer(unittest.TestCase):
                     url="/api/v2/submit_jobs", json=post_request_content_v2
                 )
         self.assertEqual(200, submit_job_response.status_code)
-        self.assertEqual(4, len(captured.output))
+        self.assertEqual(5, len(captured.output))
         mock_get_job_types.assert_called_once_with("v2")
         mock_get_airflow_jobs.assert_called_once()
         self.assertEqual(1, mock_get_project_names.call_count)
