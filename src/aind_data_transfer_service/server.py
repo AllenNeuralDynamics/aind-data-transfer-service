@@ -33,7 +33,6 @@ from aind_data_transfer_service.configs.job_upload_template import (
 )
 from aind_data_transfer_service.log_handler import (
     EventType,
-    log_stage_event,
     log_submit_job_request,
 )
 from aind_data_transfer_service.models.core import (
@@ -358,7 +357,9 @@ async def submit_jobs_v2(request: Request):
     logging.info("Received request to submit jobs v2")
     content = await request.json()
     try:
-        log_submit_job_request(content=content)
+        log_submit_job_request(
+            content=content, event_type=EventType.STAGE_START
+        )
         params = AirflowDagRunsRequestParameters(
             dag_ids=["transform_and_upload_v2", "run_list_of_jobs"],
             states=["running", "queued"],
@@ -395,24 +396,12 @@ async def submit_jobs_v2(request: Request):
                 url=os.getenv("AIND_AIRFLOW_SERVICE_URL"),
                 json={"conf": full_content},
             )
-            status_code = response.status_code
-            response_json = response.json()
-        if status_code > 300:
-            log_stage_event(
-                "Failed submit jobs v2 request",
-                event_type=EventType.STAGE_FAILURE,
-                dag_id=model.dag_id,
-                total_jobs=total_jobs,
-                status_code=status_code,
-            )
-        else:
-            log_stage_event(
-                "Completed submit jobs v2 request",
-                event_type=EventType.STAGE_COMPLETE,
-                dag_id=model.dag_id,
-                total_jobs=total_jobs,
-                status_code=status_code,
-            )
+        response.raise_for_status()
+        status_code = response.status_code
+        response_json = response.json()
+        log_submit_job_request(
+            content=content, event_type=EventType.STAGE_COMPLETE
+        )
         return JSONResponse(
             status_code=status_code,
             content={
@@ -422,6 +411,9 @@ async def submit_jobs_v2(request: Request):
         )
     except ValidationError as e:
         logging.warning(f"There were validation errors processing {content}")
+        log_submit_job_request(
+            content=content, event_type=EventType.STAGE_FAILURE
+        )
         return JSONResponse(
             status_code=406,
             content={
@@ -431,11 +423,8 @@ async def submit_jobs_v2(request: Request):
         )
     except Exception as e:
         logging.exception(e, exc_info=True)
-        log_stage_event(
-            "Failed submit jobs v2 request",
-            event_type=EventType.STAGE_FAILURE,
-            content=content,
-            error=str(e.args),
+        log_submit_job_request(
+            content=content, event_type=EventType.STAGE_FAILURE
         )
         return JSONResponse(
             status_code=500,
