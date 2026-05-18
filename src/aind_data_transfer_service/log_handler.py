@@ -1,8 +1,8 @@
 """Module to handle logging submit job requests"""
 
 import logging
-from typing import Any
 from enum import Enum
+from typing import Any
 
 
 class EventType(str, Enum):
@@ -13,20 +13,9 @@ class EventType(str, Enum):
     STAGE_FAILURE = "stage_failure"
 
 
-def log_stage_event(
-        message: str,
-        event_type: EventType,
-        **extra_fields: Any
+def log_submit_job_request(
+    content: Any, event_type: EventType | None = None
 ) -> None:
-    """Emit a structured log record for stage lifecycle events."""
-
-    logging.info(
-        message,
-        extra={"event_type": event_type.value, **extra_fields},
-    )
-
-
-def log_submit_job_request(content: Any) -> None:
     """
     Parses content object to log any lines with a subject_id and
     acquisition_name.
@@ -35,16 +24,22 @@ def log_submit_job_request(content: Any) -> None:
     ----------
     content : Any
       Pulled from request json, which may or may not return expected dict
+    event_type: EventType |  None
+      Type of event to log. Default is None.
     """
-    if isinstance(content, list) and all(
-        isinstance(row, dict) for row in content
+    upload_jobs = content.get("upload_jobs")
+    if (
+        upload_jobs is not None
+        and isinstance(upload_jobs, list)
+        and all(isinstance(row, dict) for row in upload_jobs)
     ):
-        for row in content:
+        for row in upload_jobs:
             subject_id = row.get("subject_id")
             acquisition_name = row.get("s3_prefix")
-            log_stage_event(
-                "Handling request",
-                event_type=EventType.STAGE_START,
-                subject_id=subject_id,
-                acquisition_name=acquisition_name,
-            )
+            extra_info = {
+                "subject_id": subject_id,
+                "acquisition_name": acquisition_name,
+            }
+            if event_type is not None:
+                extra_info["event_type"] = event_type
+            logging.info("Handling request", extra=extra_info)

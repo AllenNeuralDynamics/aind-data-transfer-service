@@ -1577,7 +1577,6 @@ class TestServer(unittest.TestCase):
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch("httpx.AsyncClient.post")
-    @patch("aind_data_transfer_service.server.log_stage_event")
     @patch("aind_data_transfer_service.server.get_airflow_jobs")
     @patch("aind_data_transfer_service.server.get_project_names")
     @patch("aind_data_transfer_service.server.get_job_types")
@@ -1586,7 +1585,6 @@ class TestServer(unittest.TestCase):
         mock_get_job_types: MagicMock,
         mock_get_project_names: MagicMock,
         mock_get_airflow_jobs: MagicMock,
-        mock_log_stage_event: MagicMock,
         mock_post: MagicMock,
     ):
         """Tests submit jobs success."""
@@ -1618,18 +1616,10 @@ class TestServer(unittest.TestCase):
             params=expected_airflow_params, get_confs=True
         )
         self.assertEqual(1, mock_get_project_names.call_count)
-        self.assertEqual(4, len(captured.output))
-        mock_log_stage_event.assert_called_once_with(
-            "Completed submit jobs v2 request",
-            event_type="stage_complete",
-            dag_id="transform_and_upload_v2",
-            total_jobs=1,
-            status_code=200,
-        )
+        self.assertEqual(6, len(captured.output))
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch("httpx.AsyncClient.post")
-    @patch("aind_data_transfer_service.server.log_stage_event")
     @patch("aind_data_transfer_service.server.get_airflow_jobs")
     @patch("aind_data_transfer_service.server.get_project_names")
     @patch("aind_data_transfer_service.server.get_job_types")
@@ -1638,7 +1628,6 @@ class TestServer(unittest.TestCase):
         mock_get_job_types: MagicMock,
         mock_get_project_names: MagicMock,
         mock_get_airflow_jobs: MagicMock,
-        mock_log_stage_event: MagicMock,
         mock_post: MagicMock,
     ):
         """Tests submit jobs failure."""
@@ -1670,14 +1659,7 @@ class TestServer(unittest.TestCase):
             params=expected_airflow_params, get_confs=True
         )
         self.assertEqual(1, mock_get_project_names.call_count)
-        self.assertEqual(4, len(captured.output))
-        mock_log_stage_event.assert_called_once_with(
-            "Failed submit jobs v2 request",
-            event_type="stage_failure",
-            dag_id="transform_and_upload_v2",
-            total_jobs=1,
-            status_code=500,
-        )
+        self.assertEqual(7, len(captured.output))
 
     @patch.dict(os.environ, EXAMPLE_ENV_VAR1, clear=True)
     @patch("httpx.AsyncClient.post")
@@ -1773,7 +1755,7 @@ class TestServer(unittest.TestCase):
                     url="/api/v2/submit_jobs", json=post_request_content_v2
                 )
         self.assertEqual(200, submit_job_response.status_code)
-        self.assertEqual(5, len(captured.output))
+        self.assertEqual(6, len(captured.output))
         mock_get_job_types.assert_called_once_with("v2")
         mock_get_airflow_jobs.assert_called_once()
         self.assertEqual(1, mock_get_project_names.call_count)
@@ -1822,7 +1804,7 @@ class TestServer(unittest.TestCase):
         )
         mock_get_job_types.assert_called_once_with("v2")
         self.assertEqual(1, mock_get_project_names.call_count)
-        self.assertEqual(3, len(captured.output))
+        self.assertEqual(4, len(captured.output))
 
     @patch("aind_data_transfer_service.server.get_airflow_jobs")
     @patch("aind_data_transfer_service.server.get_project_names")
