@@ -1681,7 +1681,7 @@ class TestServer(unittest.TestCase):
         mock_get_airflow_jobs.return_value = (0, list())
         mock_post.side_effect = Exception("Something went wrong")
         request_json_v2 = {
-            "user_email": None,
+            "user_email": "abc@example.com",
             "email_notification_types": ["fail"],
             "upload_jobs": [
                 {
