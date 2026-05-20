@@ -335,7 +335,7 @@ class TestSubmitJobRequestV2(unittest.TestCase):
     def test_min_length(self):
         """Tests error is raised if the job list is empty"""
         with self.assertRaises(ValidationError) as e:
-            SubmitJobRequestV2(upload_jobs=[])
+            SubmitJobRequestV2(upload_jobs=[], user_email="abc@example.com")
         expected_message = (
             "List should have at least 1 item after validation, not 0"
         )
@@ -349,7 +349,10 @@ class TestSubmitJobRequestV2(unittest.TestCase):
             **self.example_upload_config.model_dump(round_trip=True)
         )
         with self.assertRaises(ValidationError) as e:
-            SubmitJobRequestV2(upload_jobs=[upload_job for _ in range(0, 51)])
+            SubmitJobRequestV2(
+                upload_jobs=[upload_job for _ in range(0, 51)],
+                user_email="abc@example.com"
+            )
         expected_message = (
             "List should have at most 50 items after validation, not 51"
         )
@@ -362,8 +365,11 @@ class TestSubmitJobRequestV2(unittest.TestCase):
         upload_job = UploadJobConfigsV2(
             **self.example_upload_config.model_dump(round_trip=True)
         )
-        job_settings = SubmitJobRequestV2(upload_jobs=[upload_job])
-        self.assertIsNone(job_settings.user_email)
+        job_settings = SubmitJobRequestV2(
+            upload_jobs=[upload_job],
+            user_email="abc@example.com"
+        )
+        self.assertEqual("abc@example.com", job_settings.user_email)
         self.assertEqual({"fail"}, job_settings.email_notification_types)
         self.assertEqual("transform_and_upload_v2", job_settings.dag_id)
 
@@ -452,7 +458,10 @@ class TestSubmitJobRequestV2(unittest.TestCase):
             for subject_id in ["123456", "123457", "123458", "123456"]
         ]
         with self.assertRaises(ValidationError) as e:
-            SubmitJobRequestV2(upload_jobs=upload_jobs)
+            SubmitJobRequestV2(
+                upload_jobs=upload_jobs,
+                user_email="abc@example.com"
+            )
         errors = json.loads(e.exception.json())
         self.assertEqual(1, len(errors))
         self.assertIn(
@@ -479,7 +488,10 @@ class TestSubmitJobRequestV2(unittest.TestCase):
                 }
             }
             upload_jobs.append(UploadJobConfigsV2(**job_configs, tasks=tasks))
-        submit_job_request = SubmitJobRequestV2(upload_jobs=upload_jobs)
+        submit_job_request = SubmitJobRequestV2(
+            upload_jobs=upload_jobs,
+            user_email="abc@example.com"
+        )
         self.assertEqual(10, len(submit_job_request.upload_jobs))
 
     def test_current_jobs_validation(self):
@@ -491,7 +503,8 @@ class TestSubmitJobRequestV2(unittest.TestCase):
             upload_jobs=[
                 UploadJobConfigsV2(**job_configs, subject_id=subject_id)
                 for subject_id in ["123456", "123457", "123458"]
-            ]
+            ],
+            user_email="abc@example.com"
         )
         current_jobs = [
             j.model_dump(mode="json", exclude_none=True)
@@ -499,7 +512,10 @@ class TestSubmitJobRequestV2(unittest.TestCase):
         ]
         new_job = UploadJobConfigsV2(**job_configs, subject_id="123459")
         with validation_context({"current_jobs": current_jobs}):
-            submit_job_request = SubmitJobRequestV2(upload_jobs=[new_job])
+            submit_job_request = SubmitJobRequestV2(
+                upload_jobs=[new_job],
+                user_email="abc@example.com"
+            )
         self.assertEqual(1, len(submit_job_request.upload_jobs))
         self.assertEqual(
             "behavior_123459_2020-10-13_13-10-10",
@@ -509,7 +525,8 @@ class TestSubmitJobRequestV2(unittest.TestCase):
     def test_current_jobs_validation_fail(self):
         """Tests job validation when an upload_job is already running."""
         submitted_job_request = SubmitJobRequestV2(
-            upload_jobs=[self.example_upload_config]
+            upload_jobs=[self.example_upload_config],
+            user_email="abc@example.com"
         )
         current_jobs_1 = [
             j.model_dump(mode="json", exclude_none=True)
@@ -522,7 +539,8 @@ class TestSubmitJobRequestV2(unittest.TestCase):
             with self.assertRaises(ValidationError) as err:
                 with validation_context({"current_jobs": current_jobs}):
                     SubmitJobRequestV2(
-                        upload_jobs=[self.example_upload_config]
+                        upload_jobs=[self.example_upload_config],
+                        user_email="abc@example.com"
                     )
             err_msg = json.loads(err.exception.json())[0]["msg"]
             self.assertEqual(
