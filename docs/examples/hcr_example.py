@@ -61,7 +61,11 @@ upload_job_configs_v2 = UploadJobConfigsV2(
 
 upload_jobs = [upload_job_configs_v2]
 
+# Please provide your email to receive notifications about the job status.
+user_email = "user@example.com"
+
 submit_request = SubmitJobRequestV2(
+    user_email=user_email,
     upload_jobs=upload_jobs,
 )
 
