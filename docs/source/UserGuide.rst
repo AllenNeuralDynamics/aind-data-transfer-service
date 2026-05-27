@@ -114,6 +114,8 @@ portal can be accessed at
 
 -  Required fields
 
+   -  user_email: Your email address to receive notifications about the job
+      status (e.g., start, completion, failure)
    -  job_type: We store pre-compiled default configurations in AWS Parameter
       Store (e.g. modality transformation settings, Code Ocean pipeline
       settings). This field determines which preset to use when
@@ -172,7 +174,12 @@ endpoint:
 
 You may pip install aind-data-transfer-service for access to the Task model;
 however, this isn't strictly necessary. You can form the post request as a
-dictionary. The service will perform validation. We strongly recommend using
+dictionary. The service will perform validation. 
+
+**Note:** The ``user_email`` field is required in the SubmitJobRequestV2 model
+to receive notifications about job status.
+
+We strongly recommend using
 customized job_types to simplify the requests. For more detailed examples please
 check the scripts in `examples <https://github.com/AllenNeuralDynamics/aind-data-transfer-service/tree/main/docs/examples>`__.
 
