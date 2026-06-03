@@ -311,21 +311,15 @@ class SubmitJobRequestV2(BaseSettings):
         """Propagate email settings from global to individual jobs"""
         global_email_user = self.user_email
         global_email_notification_types = self.email_notification_types
-
         for upload_job in self.upload_jobs:
-            if upload_job.user_email is None:
-                if global_email_user is None:
-                    raise ValueError(
-                        f"No user_email set for job {upload_job.s3_prefix}. "
-                        "Either set user_email in the job config or in the "
-                        "SubmitJobRequestV2."
-                    )
+            if upload_job.user_email is None and global_email_user is None:
+                raise ValueError(
+                    f"No user_email set for job {upload_job.s3_prefix}. "
+                    "Either set user_email in the job config or in the "
+                    "SubmitJobRequestV2."
+                )
+            elif upload_job.user_email is None:
                 upload_job.user_email = global_email_user
-
-            elif global_email_user is None:
-                self.user_email = upload_job.user_email
-                global_email_user = upload_job.user_email
-
             if upload_job.email_notification_types is None:
                 upload_job.email_notification_types = (
                     global_email_notification_types
