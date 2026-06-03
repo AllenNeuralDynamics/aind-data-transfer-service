@@ -58,6 +58,7 @@ class TestCsvHandler(unittest.TestCase):
         expected_jobs = [
             UploadJobConfigsV2(
                 project_name="Ephys Platform",
+                user_email="test@example.com",
                 s3_bucket="default",
                 platform=Platform.ECEPHYS,
                 modalities=[Modality.ECEPHYS],
@@ -77,6 +78,7 @@ class TestCsvHandler(unittest.TestCase):
             ),
             UploadJobConfigsV2(
                 project_name="Behavior Platform",
+                user_email="test@example.com",
                 s3_bucket="open",
                 platform=Platform.BEHAVIOR,
                 modalities=[Modality.BEHAVIOR_VIDEOS, Modality.MRI],
@@ -96,6 +98,7 @@ class TestCsvHandler(unittest.TestCase):
             ),
             UploadJobConfigsV2(
                 project_name="Behavior Platform",
+                user_email="test@example.com",
                 platform=Platform.BEHAVIOR,
                 modalities=[Modality.BEHAVIOR_VIDEOS],
                 tasks={
@@ -123,6 +126,7 @@ class TestCsvHandler(unittest.TestCase):
         expected_jobs = [
             UploadJobConfigsV2(
                 job_type="ecephys",
+                user_email="test@example.com",
                 s3_bucket="default",
                 project_name="Ephys Platform",
                 platform=Platform.ECEPHYS,
@@ -159,6 +163,7 @@ class TestCsvHandler(unittest.TestCase):
         expected_jobs = [
             UploadJobConfigsV2(
                 job_type="default",
+                user_email="test@example.com",
                 s3_bucket="private",
                 project_name="Ephys Platform",
                 platform=Platform.ECEPHYS,
@@ -180,6 +185,7 @@ class TestCsvHandler(unittest.TestCase):
             ),
             UploadJobConfigsV2(
                 job_type="default",
+                user_email="test@example.com",
                 s3_bucket="open",
                 project_name="Behavior Platform",
                 platform=Platform.BEHAVIOR,
@@ -217,6 +223,7 @@ class TestCsvHandler(unittest.TestCase):
             ),
             UploadJobConfigsV2(
                 job_type="default",
+                user_email="test@example.com",
                 s3_bucket="default",
                 project_name="Behavior Platform",
                 platform=Platform.BEHAVIOR,
@@ -248,6 +255,7 @@ class TestCsvHandler(unittest.TestCase):
         expected_jobs = [
             UploadJobConfigsV2(
                 job_type="default",
+                user_email="test@example.com",
                 s3_bucket="open",
                 project_name="Behavior Platform",
                 platform=Platform.BEHAVIOR,

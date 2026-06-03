@@ -134,6 +134,7 @@ class TestServer(unittest.TestCase):
         )
         example_configs_v2 = UploadJobConfigsV2(
             job_type=job_type,
+            user_email="test@example.com",
             project_name=project_name,
             platform=platform,
             subject_id=subject_id,
@@ -1598,8 +1599,7 @@ class TestServer(unittest.TestCase):
         )
         mock_post.return_value = mock_response
         job_request_v2 = SubmitJobRequestV2(
-            upload_jobs=[self.example_configs_v2],
-            user_email="abc@example.com"
+            upload_jobs=[self.example_configs_v2], user_email="abc@example.com"
         )
         request_json_v2 = job_request_v2.model_dump(mode="json")
         with self.assertLogs(level="INFO") as captured:
@@ -1686,6 +1686,7 @@ class TestServer(unittest.TestCase):
             "upload_jobs": [
                 {
                     "job_type": "ecephys",
+                    "user_email": "abc@example.com",
                     "project_name": "Ephys Platform",
                     "platform": {
                         "name": "Electrophysiology platform",
@@ -1863,8 +1864,7 @@ class TestServer(unittest.TestCase):
         mock_get_job_types.return_value = ["ecephys"]
         # assume a job is already running
         job_request = SubmitJobRequestV2(
-            upload_jobs=[self.example_configs_v2],
-            user_email="abc@example.com"
+            upload_jobs=[self.example_configs_v2], user_email="abc@example.com"
         ).model_dump(mode="json", exclude_none=True)
         current_job = job_request["upload_jobs"][0]
         airflow_response = {
