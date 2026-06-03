@@ -138,10 +138,10 @@ class UploadJobConfigsV2(BaseSettings):
         title="Job Type",
     )
 
-    user_email: Optional[EmailStr] = Field(
-        default=None,
+    user_email: EmailStr = Field(
+        ...,
         description=(
-            "Optional email address to receive job status notifications"
+            "Required email address to receive job status notifications"
         ),
     )
     email_notification_types: Optional[
@@ -284,10 +284,10 @@ class SubmitJobRequestV2(BaseSettings):
     model_config = ConfigDict(use_enum_values=True, extra="ignore")
 
     dag_id: Literal["transform_and_upload_v2"] = "transform_and_upload_v2"
-    user_email: EmailStr = Field(
-        ...,
+    user_email: Optional[EmailStr] = Field(
+        default=None,
         description=(
-            "Required email address to receive job status notifications"
+            "Email address to use if not set in individual job configs"
         ),
     )
     email_notification_types: Set[
