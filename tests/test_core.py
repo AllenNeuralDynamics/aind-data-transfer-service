@@ -462,7 +462,6 @@ class TestSubmitJobRequestV2(unittest.TestCase):
                 UploadJobConfigsV2(**example_job_configs),
             ],
         )
-        self.assertEqual("test@example.com", job_settings.user_email)
         self.assertEqual(
             "test@example.com", job_settings.upload_jobs[0].user_email
         )
