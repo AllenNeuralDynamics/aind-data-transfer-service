@@ -484,7 +484,8 @@ class TestSubmitJobRequestV2(unittest.TestCase):
             errors[0]["msg"],
         )
         self.assertIn(
-            "Either set user_email in the job config or in the SubmitJobRequestV2",
+            "Either set user_email in the job config or in the "
+            "SubmitJobRequestV2",
             errors[0]["msg"],
         )
 

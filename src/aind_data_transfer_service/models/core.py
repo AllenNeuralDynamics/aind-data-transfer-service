@@ -308,7 +308,7 @@ class SubmitJobRequestV2(BaseSettings):
 
     @model_validator(mode="after")
     def propagate_email_settings(self):
-        """Propagate email settings from global to individual jobs and validate"""
+        """Propagate email settings from global to individual jobs"""
         global_email_user = self.user_email
         global_email_notification_types = self.email_notification_types
 
