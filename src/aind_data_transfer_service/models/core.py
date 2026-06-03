@@ -138,10 +138,11 @@ class UploadJobConfigsV2(BaseSettings):
         title="Job Type",
     )
 
-    user_email: EmailStr = Field(
-        ...,
+    user_email: Optional[EmailStr] = Field(
+        default=None,
         description=(
-            "Required email address to receive job status notifications"
+            "Email address to receive job status notifications. "
+            "If not set, will use email from SubmitJobRequestV2."
         ),
     )
     email_notification_types: Optional[
@@ -307,12 +308,24 @@ class SubmitJobRequestV2(BaseSettings):
 
     @model_validator(mode="after")
     def propagate_email_settings(self):
-        """Propagate email settings from global to individual jobs"""
+        """Propagate email settings from global to individual jobs and validate"""
         global_email_user = self.user_email
         global_email_notification_types = self.email_notification_types
+
         for upload_job in self.upload_jobs:
-            if global_email_user is None and upload_job.user_email is not None:
+            if upload_job.user_email is None:
+                if global_email_user is None:
+                    raise ValueError(
+                        f"No user_email set for job {upload_job.s3_prefix}. "
+                        "Either set user_email in the job config or in the "
+                        "SubmitJobRequestV2."
+                    )
+                upload_job.user_email = global_email_user
+
+            elif global_email_user is None:
                 self.user_email = upload_job.user_email
+                global_email_user = upload_job.user_email
+
             if upload_job.email_notification_types is None:
                 upload_job.email_notification_types = (
                     global_email_notification_types
