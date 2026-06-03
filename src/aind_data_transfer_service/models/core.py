@@ -311,8 +311,8 @@ class SubmitJobRequestV2(BaseSettings):
         global_email_user = self.user_email
         global_email_notification_types = self.email_notification_types
         for upload_job in self.upload_jobs:
-            if global_email_user is not None and upload_job.user_email is None:
-                upload_job.user_email = global_email_user
+            if global_email_user is None and upload_job.user_email is not None:
+                self.user_email = upload_job.user_email
             if upload_job.email_notification_types is None:
                 upload_job.email_notification_types = (
                     global_email_notification_types

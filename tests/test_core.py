@@ -89,6 +89,7 @@ class TestUploadJobConfigsV2(unittest.TestCase):
         """Set up test class"""
         example_configs = UploadJobConfigsV2(
             job_type="default",
+            user_email="test@example.com",
             project_name="Behavior Platform",
             platform=Platform.BEHAVIOR,
             modalities=[Modality.BEHAVIOR_VIDEOS],
@@ -315,6 +316,7 @@ class TestSubmitJobRequestV2(unittest.TestCase):
         """Set up example configs to be used in tests"""
         example_upload_config = UploadJobConfigsV2(
             job_type="default",
+            user_email="test@example.com",
             project_name="Behavior Platform",
             platform=Platform.BEHAVIOR,
             modalities=[
@@ -417,17 +419,17 @@ class TestSubmitJobRequestV2(unittest.TestCase):
         self.assertIn(expected_error_message, actual_error_message)
 
     def test_propagate_email_settings(self):
-        """Tests global email settings is propagated to individual jobs."""
+        """Tests that global email is set from first job if not provided,
+        and email notification types are propagated to jobs without them."""
         example_job_configs = self.example_upload_config.model_dump(
-            exclude={"user_email", "email_notification_types"}, round_trip=True
+            exclude={"email_notification_types"}, round_trip=True
         )
         new_job = UploadJobConfigsV2(
-            user_email="xyz@example.org",
             email_notification_types=["all"],
             **example_job_configs,
         )
         job_settings = SubmitJobRequestV2(
-            user_email="abc@example.org",
+            user_email=None,
             email_notification_types={"begin", "fail"},
             upload_jobs=[
                 new_job,
@@ -435,10 +437,13 @@ class TestSubmitJobRequestV2(unittest.TestCase):
             ],
         )
         self.assertEqual(
-            "xyz@example.org", job_settings.upload_jobs[0].user_email
+            "test@example.com", job_settings.user_email
         )
         self.assertEqual(
-            "abc@example.org", job_settings.upload_jobs[1].user_email
+            "test@example.com", job_settings.upload_jobs[0].user_email
+        )
+        self.assertEqual(
+            "test@example.com", job_settings.upload_jobs[1].user_email
         )
         self.assertEqual(
             {"all"}, job_settings.upload_jobs[0].email_notification_types
