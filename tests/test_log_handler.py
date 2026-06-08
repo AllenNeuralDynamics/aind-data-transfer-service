@@ -20,7 +20,9 @@ class TestLogHandler(unittest.TestCase):
     def test_log_submit_job_request(self, mock_log: MagicMock):
         """Tests log_submit_job_request"""
         content = {
-            "upload_jobs": [{"s3_prefix": "abc-123", "subject_id": "123456"}]
+            "upload_jobs": [
+                {"acq_datetime": "2026-10-10T00:01:02", "subject_id": "123456"}
+            ]
         }
         log_submit_job_request(
             content=content, event_type=EventType.STAGE_START
@@ -30,7 +32,7 @@ class TestLogHandler(unittest.TestCase):
             extra={
                 "event_type": EventType.STAGE_START,
                 "subject_id": "123456",
-                "acquisition_name": "abc-123",
+                "acquisition_name": "123456_2026-10-10_00-01-02",
             },
         )
 

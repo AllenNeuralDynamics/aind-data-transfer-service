@@ -1,8 +1,11 @@
 """Module to handle logging submit job requests"""
 
 import logging
+from datetime import datetime
 from enum import Enum
 from typing import Any
+
+from aind_data_schema_models.data_name_patterns import build_data_name
 
 
 class EventType(str, Enum):
@@ -11,6 +14,22 @@ class EventType(str, Enum):
     STAGE_START = "stage_start"
     STAGE_COMPLETE = "stage_complete"
     STAGE_FAILURE = "stage_failure"
+
+
+def compute_label(upload_job: dict) -> str:
+    """Hack to compute acquisition_name from raw user input. This can be
+    cleaned up in the next major release."""
+    subject_id = upload_job.get("subject_id")
+    acq_datetime = datetime.fromisoformat(upload_job.get("acq_datetime"))
+    platform = upload_job.get("platform")
+    if platform is not None:
+        label = f"{platform['abbreviation']}_{subject_id}"
+    else:
+        label = subject_id
+    return build_data_name(
+        label=label,
+        creation_datetime=acq_datetime,
+    )
 
 
 def log_submit_job_request(
@@ -35,7 +54,7 @@ def log_submit_job_request(
     ):
         for row in upload_jobs:
             subject_id = row.get("subject_id")
-            acquisition_name = row.get("s3_prefix")
+            acquisition_name = compute_label(row)
             extra_info = {
                 "subject_id": subject_id,
                 "acquisition_name": acquisition_name,
