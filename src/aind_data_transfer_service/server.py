@@ -15,7 +15,7 @@ from botocore.exceptions import ClientError
 from fastapi import Request
 from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
-from httpx import AsyncClient
+from httpx import AsyncClient, Timeout
 from openpyxl import load_workbook
 from pydantic import ValidationError
 from starlette.applications import Starlette
@@ -390,7 +390,8 @@ async def submit_jobs_v2(request: Request):
             auth=(
                 os.getenv("AIND_AIRFLOW_SERVICE_USER"),
                 os.getenv("AIND_AIRFLOW_SERVICE_PASSWORD"),
-            )
+            ),
+            timeout=Timeout(timeout=30.0),
         ) as async_client:
             response = await async_client.post(
                 url=os.getenv("AIND_AIRFLOW_SERVICE_URL"),
