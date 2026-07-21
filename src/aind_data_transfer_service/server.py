@@ -6,7 +6,7 @@ import json
 import logging
 import os
 import re
-from asyncio import gather
+from asyncio import Semaphore, gather
 from typing import Any, List, Optional, Union
 
 import boto3
@@ -228,17 +228,26 @@ def put_parameter_value(param_name: str, param_value: dict) -> Any:
     return result
 
 
+# Limit how many dagRuns/list requests are in flight at once so we don't
+# overwhelm Airflow's webserver worker pool (or our own connection pool)
+# with a burst of concurrent requests when there are many pages to fetch.
+_AIRFLOW_JOBS_CONCURRENCY_LIMIT = 5
+
+
 async def get_airflow_jobs(
     params: AirflowDagRunsRequestParameters, get_confs: bool = False
 ) -> tuple[int, Union[List[JobStatus], List[dict]]]:
     """Get Airflow jobs using input query params. If get_confs is true,
     only the job conf dictionaries are returned."""
 
+    semaphore = Semaphore(_AIRFLOW_JOBS_CONCURRENCY_LIMIT)
+
     async def fetch_jobs(
         client: AsyncClient, url: str, request_body: dict
     ) -> tuple[int, Union[List[JobStatus], List[dict]]]:
         """Helper method to fetch jobs using httpx async client"""
-        response = await client.post(url, json=request_body)
+        async with semaphore:
+            response = await client.post(url, json=request_body)
         response.raise_for_status()
         response_jobs = response.json()
         dag_runs = AirflowDagRunsResponse.model_validate_json(
@@ -261,7 +270,8 @@ async def get_airflow_jobs(
         auth=(
             os.getenv("AIND_AIRFLOW_SERVICE_USER"),
             os.getenv("AIND_AIRFLOW_SERVICE_PASSWORD"),
-        )
+        ),
+        timeout=Timeout(30.0),
     ) as async_client:
         # Fetch initial jobs
         (total_entries, jobs_list) = await fetch_jobs(
