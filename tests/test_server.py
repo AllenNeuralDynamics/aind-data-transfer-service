@@ -1609,7 +1609,7 @@ class TestServer:
             "Job is already running/queued for "
             "ecephys_690165_2024-02-19_11-25-17"
         ) in resp_json["data"]["errors"]
-        assert f"There were validation errors processing" in caplog.text
+        assert "There were validation errors processing" in caplog.text
 
     @patch("pydantic.BaseModel.model_validate_json")
     @patch("aind_data_transfer_service.server.get_airflow_jobs")
