@@ -64,6 +64,9 @@ template_directory = os.path.abspath(
 templates = Jinja2Templates(directory=template_directory)
 
 # TODO: Add server configs model
+# JOB_STATUS_LIST_SEMAPHORE
+# VALIDATE_AIRFLOW_SEMAPHORE
+# REDIS_URL
 # AIND_METADATA_SERVICE_PROJECT_NAMES_URL
 # AIND_AIRFLOW_SERVICE_URL
 # AIND_AIRFLOW_SERVICE_JOBS_URL
@@ -1026,8 +1029,12 @@ routes = [
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     """Init cache and add to lifespan of app"""
-    app.state.get_job_status_list_semaphore = Semaphore(1)
-    app.state.validate_airflow_semaphore = Semaphore(1)
+    app.state.get_job_status_list_semaphore = Semaphore(
+        os.getenv("JOB_STATUS_LIST_SEMAPHORE", 2)
+    )
+    app.state.validate_airflow_semaphore = Semaphore(
+        os.getenv("VALIDATE_AIRFLOW_SEMAPHORE", 2)
+    )
     # TODO: Add check
     if os.getenv("REDIS_URL") is not None:  # pragma: no cover
         redis = from_url(os.getenv("REDIS_URL"))

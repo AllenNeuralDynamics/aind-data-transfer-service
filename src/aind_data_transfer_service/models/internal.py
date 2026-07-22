@@ -46,7 +46,7 @@ class AirflowDagRunsRequestParameters(BaseModel):
     states: Optional[list[str]] = []
     execution_date_gte: Optional[str] = (
         datetime.now(timezone.utc).replace(second=0, microsecond=0)
-        - timedelta(weeks=2)
+        - timedelta(days=3)
     ).isoformat()
     execution_date_lte: Optional[str] = None
     order_by: str = "-execution_date"
