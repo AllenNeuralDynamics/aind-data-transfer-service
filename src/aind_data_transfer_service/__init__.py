@@ -41,3 +41,7 @@ if os.path.isfile(os.getenv("LOGGING_CONFIG_FILE", "log_config.yaml")):
         config = yaml.safe_load(f.read())
     logging.config.dictConfig(config)
     logging.info(f"Found logging file at: {config_path}")
+else:
+    logging.basicConfig(
+        level=os.getenv("LOG_LEVEL", "INFO"),
+    )
