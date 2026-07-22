@@ -41,7 +41,7 @@ class AirflowDagRunsRequestParameters(BaseModel):
     """Model for parameters when requesting info from dag_runs endpoint"""
 
     dag_ids: list[str] = ["transform_and_upload", "transform_and_upload_v2"]
-    page_limit: int = 100
+    page_limit: int = 250  # Increased from 100 to reduce total requests
     page_offset: int = 0
     states: Optional[list[str]] = []
     execution_date_gte: Optional[str] = (

@@ -6,7 +6,7 @@ from datetime import datetime
 from pathlib import Path, PurePosixPath
 from typing import Any, Generator
 from unittest.mock import patch
-
+import logging
 import pytest
 from aind_data_schema_models.modalities import Modality
 from fastapi.testclient import TestClient
@@ -112,6 +112,9 @@ def client() -> Generator[TestClient, Any, None]:
 
     # Import moved to be able to mock cache
     from aind_data_transfer_service.server import app
+
+    # Suppress httpx logging during tests to avoid polluting caplog
+    logging.getLogger("httpx").setLevel(logging.WARNING)
 
     with TestClient(app) as c:
         yield c
