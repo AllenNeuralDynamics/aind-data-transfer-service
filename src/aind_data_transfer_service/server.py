@@ -22,7 +22,7 @@ from fastapi_cache import FastAPICache
 from fastapi_cache.backends.inmemory import InMemoryBackend
 from fastapi_cache.backends.redis import RedisBackend
 from fastapi_cache.decorator import cache
-from httpx import AsyncClient, Timeout
+from httpx import AsyncClient
 from openpyxl import load_workbook
 from pydantic import ValidationError
 from redis.asyncio import from_url  # noqa
@@ -429,8 +429,7 @@ async def submit_jobs_v2(request: Request):
             auth=(
                 os.getenv("AIND_AIRFLOW_SERVICE_USER"),
                 os.getenv("AIND_AIRFLOW_SERVICE_PASSWORD"),
-            ),
-            timeout=Timeout(timeout=30.0),
+            )
         ) as async_client:
             response = await async_client.post(
                 url=os.getenv("AIND_AIRFLOW_SERVICE_URL"),
