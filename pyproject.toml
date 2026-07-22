@@ -32,7 +32,12 @@ dev = [
     'coverage',
     'flake8',
     'interrogate',
-    'isort'
+    'isort',
+    'pytest',
+    'pytest-env',
+    'pytest-mock',
+    'pytest_asyncio',
+    'httpx2',
 ]
 
 docs = [
@@ -44,7 +49,8 @@ server = [
     'aind-data-schema==2.0.0',
     'boto3',
     'boto3-stubs[ssm]',
-    'fastapi>=0.115.13', 
+    'fastapi>=0.115.13',
+    'fastapi-cache2[redis]>=0.2.2',
     'httpx',
     'jinja2',
     'starlette>=0.40.0,<0.47.0',
@@ -103,3 +109,15 @@ profile = "black"
 [tool.interrogate]
 exclude = ["setup.py", "docs", "build", "env"]
 fail-under = 100
+
+[tool.pytest.ini_options]
+asyncio_mode="auto"
+asyncio_default_fixture_loop_scope="function"
+env = [
+    "AIND_AIRFLOW_SERVICE_JOBS_URL=airflow_jobs_url",
+    "AIND_AIRFLOW_SERVICE_USER=airflow_user",
+    "AIND_AIRFLOW_SERVICE_PASSWORD=airflow_password",
+    "AIND_AIRFLOW_PARAM_PREFIX=/param_prefix",
+    "AIND_SSO_SECRET_NAME=/secret/name",
+]
+testpaths = ["tests"]

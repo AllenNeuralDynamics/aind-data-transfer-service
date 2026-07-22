@@ -45,7 +45,8 @@ class AirflowDagRunsRequestParameters(BaseModel):
     page_offset: int = 0
     states: Optional[list[str]] = []
     execution_date_gte: Optional[str] = (
-        datetime.now(timezone.utc) - timedelta(weeks=2)
+        datetime.now(timezone.utc).replace(second=0, microsecond=0)
+        - timedelta(weeks=2)
     ).isoformat()
     execution_date_lte: Optional[str] = None
     order_by: str = "-execution_date"
@@ -53,7 +54,9 @@ class AirflowDagRunsRequestParameters(BaseModel):
     @field_validator("execution_date_gte", mode="after")
     def validate_min_execution_date(cls, execution_date_gte: str) -> str:
         """Validate the earliest submit date filter is within 2 weeks"""
-        min_execution_date = datetime.now(timezone.utc) - timedelta(weeks=2)
+        min_execution_date = datetime.now(timezone.utc).replace(
+            second=0, microsecond=0
+        ) - timedelta(weeks=2, minutes=1)
         # datetime.fromisoformat does not support Z in python < 3.11
         date_to_check = execution_date_gte.replace("Z", "+00:00")
         if datetime.fromisoformat(date_to_check) < min_execution_date:
