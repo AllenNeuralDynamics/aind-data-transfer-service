@@ -260,7 +260,7 @@ async def get_airflow_jobs(
         client: AsyncClient, url: str, request_body: dict
     ) -> tuple[int, List[dict]]:
         """Helper method to fetch jobs using httpx async client"""
-        response = await client.post(url, json=request_body)
+        response = await client.post(url, json=request_body, timeout=120)
         response.raise_for_status()
         response_jobs = response.json()
         dag_runs = AirflowDagRunsResponse.model_validate_json(
