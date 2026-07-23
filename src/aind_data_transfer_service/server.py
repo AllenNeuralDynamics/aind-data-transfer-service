@@ -7,18 +7,25 @@ import logging
 import os
 import re
 from asyncio import Semaphore, gather
-from typing import Any, List, Optional, Union
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+from typing import Any, List, Optional
 
 import boto3
 from authlib.integrations.starlette_client import OAuth
 from botocore.exceptions import ClientError
-from fastapi import Request
+from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
-from httpx import AsyncClient, Timeout
+from fastapi_cache import FastAPICache
+from fastapi_cache.backends.inmemory import InMemoryBackend
+from fastapi_cache.backends.redis import RedisBackend
+from fastapi_cache.decorator import cache
+from httpx import AsyncClient
 from openpyxl import load_workbook
 from pydantic import ValidationError
-from starlette.applications import Starlette
+from redis.asyncio import from_url  # noqa
 from starlette.config import Config
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.responses import RedirectResponse
@@ -27,6 +34,7 @@ from starlette.routing import Route
 from aind_data_transfer_service import (
     __version__ as aind_data_transfer_service_version,
 )
+from aind_data_transfer_service import __version__ as service_version
 from aind_data_transfer_service.configs.csv_handler import map_csv_row_to_job
 from aind_data_transfer_service.configs.job_upload_template import (
     JobUploadTemplate,
@@ -56,6 +64,9 @@ template_directory = os.path.abspath(
 templates = Jinja2Templates(directory=template_directory)
 
 # TODO: Add server configs model
+# JOB_STATUS_LIST_SEMAPHORE
+# VALIDATE_AIRFLOW_SEMAPHORE
+# REDIS_URL
 # AIND_METADATA_SERVICE_PROJECT_NAMES_URL
 # AIND_AIRFLOW_SERVICE_URL
 # AIND_AIRFLOW_SERVICE_JOBS_URL
@@ -96,9 +107,11 @@ async def validate_csv(request: Request):
                 dag_ids=["transform_and_upload_v2", "run_list_of_jobs"],
                 states=["running", "queued"],
             )
-            _, current_jobs = await get_airflow_jobs(
-                params=params, get_confs=True
-            )
+            airflow_semaphore = request.app.state.validate_airflow_semaphore
+            async with airflow_semaphore:
+                _, current_jobs = await get_airflow_jobs(
+                    get_confs=True, **params.model_dump(mode="json")
+                )
             context = {
                 "job_types": get_job_types("v2"),
                 "project_names": await get_project_names(),
@@ -228,50 +241,58 @@ def put_parameter_value(param_name: str, param_value: dict) -> Any:
     return result
 
 
-# Limit how many dagRuns/list requests are in flight at once so we don't
-# overwhelm Airflow's webserver worker pool (or our own connection pool)
-# with a burst of concurrent requests when there are many pages to fetch.
-_AIRFLOW_JOBS_CONCURRENCY_LIMIT = 5
-
-
+@cache(15)
 async def get_airflow_jobs(
-    params: AirflowDagRunsRequestParameters, get_confs: bool = False
-) -> tuple[int, Union[List[JobStatus], List[dict]]]:
+    dag_ids: list[str],
+    page_limit: int,
+    page_offset: int,
+    states: Optional[list[str]],
+    execution_date_gte: Optional[str],
+    execution_date_lte: Optional[str],
+    order_by: str,
+    get_confs: bool,
+) -> tuple[int, List[dict]]:
     """Get Airflow jobs using input query params. If get_confs is true,
     only the job conf dictionaries are returned."""
-
-    semaphore = Semaphore(_AIRFLOW_JOBS_CONCURRENCY_LIMIT)
+    logging.info("Fetching data from airflow server...")
 
     async def fetch_jobs(
         client: AsyncClient, url: str, request_body: dict
-    ) -> tuple[int, Union[List[JobStatus], List[dict]]]:
+    ) -> tuple[int, List[dict]]:
         """Helper method to fetch jobs using httpx async client"""
-        async with semaphore:
-            response = await client.post(url, json=request_body)
+        response = await client.post(url, json=request_body, timeout=120)
         response.raise_for_status()
         response_jobs = response.json()
         dag_runs = AirflowDagRunsResponse.model_validate_json(
             json.dumps(response_jobs)
         )
         if get_confs:
-            jobs_list = [d.conf for d in dag_runs.dag_runs if d.conf]
+            jobs_list_x = [d.conf for d in dag_runs.dag_runs if d.conf]
         else:
-            jobs_list = [
-                JobStatus.from_airflow_dag_run(d) for d in dag_runs.dag_runs
+            jobs_list_x = [
+                JobStatus.from_airflow_dag_run(d).model_dump(mode="json")
+                for d in dag_runs.dag_runs
             ]
-        total_entries = dag_runs.total_entries
-        return (total_entries, jobs_list)
+        total_entries_x = dag_runs.total_entries
+        return (total_entries_x, jobs_list_x)
 
     airflow_url = os.getenv("AIND_AIRFLOW_SERVICE_JOBS_URL", "").strip("/")
     airflow_url = f"{airflow_url}/~/dagRuns/list"
-    params_dict = json.loads(params.model_dump_json(exclude_none=True))
+    params_dict = {
+        "dag_ids": dag_ids,
+        "page_limit": page_limit,
+        "page_offset": page_offset,
+        "states": states,
+        "execution_date_gte": execution_date_gte,
+        "execution_date_lte": execution_date_lte,
+        "order_by": order_by,
+    }
     # Send request to Airflow to ListDagRuns
     async with AsyncClient(
         auth=(
             os.getenv("AIND_AIRFLOW_SERVICE_USER"),
             os.getenv("AIND_AIRFLOW_SERVICE_PASSWORD"),
-        ),
-        timeout=Timeout(30.0),
+        )
     ) as async_client:
         # Fetch initial jobs
         (total_entries, jobs_list) = await fetch_jobs(
@@ -309,7 +330,11 @@ async def validate_json_v2(request: Request):
             dag_ids=["transform_and_upload_v2", "run_list_of_jobs"],
             states=["running", "queued"],
         )
-        _, current_jobs = await get_airflow_jobs(params=params, get_confs=True)
+        airflow_semaphore = request.app.state.validate_airflow_semaphore
+        async with airflow_semaphore:
+            _, current_jobs = await get_airflow_jobs(
+                get_confs=True, **params.model_dump(mode="json")
+            )
         context = {
             "job_types": get_job_types("v2"),
             "project_names": await get_project_names(),
@@ -374,7 +399,11 @@ async def submit_jobs_v2(request: Request):
             dag_ids=["transform_and_upload_v2", "run_list_of_jobs"],
             states=["running", "queued"],
         )
-        _, current_jobs = await get_airflow_jobs(params=params, get_confs=True)
+        airflow_semaphore = request.app.state.validate_airflow_semaphore
+        async with airflow_semaphore:
+            _, current_jobs = await get_airflow_jobs(
+                get_confs=True, **params.model_dump(mode="json")
+            )
         context = {
             "job_types": get_job_types("v2"),
             "project_names": await get_project_names(),
@@ -400,8 +429,7 @@ async def submit_jobs_v2(request: Request):
             auth=(
                 os.getenv("AIND_AIRFLOW_SERVICE_USER"),
                 os.getenv("AIND_AIRFLOW_SERVICE_PASSWORD"),
-            ),
-            timeout=Timeout(timeout=30.0),
+            )
         ) as async_client:
             response = await async_client.post(
                 url=os.getenv("AIND_AIRFLOW_SERVICE_URL"),
@@ -454,15 +482,17 @@ async def get_job_status_list(request: Request):
             request.query_params
         )
         params_dict = json.loads(params.model_dump_json(exclude_none=True))
-        total_entries, job_status_list = await get_airflow_jobs(params=params)
+        airflow_semaphore = request.app.state.get_job_status_list_semaphore
+        async with airflow_semaphore:
+            total_entries, job_status_list = await get_airflow_jobs(
+                get_confs=False, **params.model_dump(mode="json")
+            )
         status_code = 200
         message = "Retrieved job status list from airflow"
         data = {
             "params": params_dict,
             "total_entries": total_entries,
-            "job_status_list": [
-                json.loads(j.model_dump_json()) for j in job_status_list
-            ],
+            "job_status_list": job_status_list,
         }
     except ValidationError as e:
         logging.warning(
@@ -993,5 +1023,40 @@ routes = [
     Route("/admin", admin, methods=["GET"]),
 ]
 
-app = Starlette(routes=routes)
+
+# noinspection PyUnresolvedReferences
+@asynccontextmanager
+async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+    """Init cache and add to lifespan of app"""
+    app.state.get_job_status_list_semaphore = Semaphore(
+        os.getenv("JOB_STATUS_LIST_SEMAPHORE", 2)
+    )
+    app.state.validate_airflow_semaphore = Semaphore(
+        os.getenv("VALIDATE_AIRFLOW_SEMAPHORE", 2)
+    )
+    # TODO: Add check
+    if os.getenv("REDIS_URL") is not None:  # pragma: no cover
+        redis = from_url(os.getenv("REDIS_URL"))
+        FastAPICache.init(RedisBackend(redis), prefix="fastapi-cache")
+    else:
+        FastAPICache.init(InMemoryBackend(), prefix="fastapi-cache")
+    yield
+
+
+app = FastAPI(
+    title="aind-data-transfer-service",
+    description="Handles compress and upload requests.",
+    summary="Handles compress and upload requests.",
+    version=service_version,
+    lifespan=lifespan,
+    routes=routes,
+)
+
+# noinspection PyTypeChecker
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["GET"],
+    allow_headers=["*"],
+)
 app.add_middleware(SessionMiddleware, secret_key=None)

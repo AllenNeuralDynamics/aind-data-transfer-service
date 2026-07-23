@@ -8,7 +8,7 @@ from logging import LogRecord
 import yaml
 from pythonjsonlogger import json as log_json
 
-__version__ = "2.1.6"
+__version__ = "2.2.0"
 
 
 # We want to standardize the timestamp format to UTC and ISO-8601, which
@@ -41,3 +41,7 @@ if os.path.isfile(os.getenv("LOGGING_CONFIG_FILE", "log_config.yaml")):
         config = yaml.safe_load(f.read())
     logging.config.dictConfig(config)
     logging.info(f"Found logging file at: {config_path}")
+else:
+    logging.basicConfig(
+        level=os.getenv("LOG_LEVEL", "INFO"),
+    )

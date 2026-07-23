@@ -179,6 +179,7 @@
         $(document).ready(function() {
             const today = moment();
             const twoWeeksAgo = moment().subtract(13, 'days');
+            const oneWeekAgo = moment().subtract(6, 'days');
 
             // Initialize daterangepicker for submit date filter
             $('#submit-date-range').daterangepicker({
@@ -197,7 +198,7 @@
             // Initialize job status table with default values
             const initialParams = {
                 // set default submit date range client-side for browser's local time
-                execution_date_gte: twoWeeksAgo.startOf('day').toISOString(),
+                execution_date_gte: oneWeekAgo.startOf('day').toISOString(),
                 execution_date_lte: today.endOf('day').toISOString(),
             };
             updateJobStatusTable(initialParams);
