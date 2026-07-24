@@ -278,15 +278,16 @@ async def get_airflow_jobs(
 
     airflow_url = os.getenv("AIND_AIRFLOW_SERVICE_JOBS_URL", "").strip("/")
     airflow_url = f"{airflow_url}/~/dagRuns/list"
-    params_dict = {
-        "dag_ids": dag_ids,
-        "page_limit": page_limit,
-        "page_offset": page_offset,
-        "states": states,
-        "execution_date_gte": execution_date_gte,
-        "execution_date_lte": execution_date_lte,
-        "order_by": order_by,
-    }
+    params = AirflowDagRunsRequestParameters(
+        dag_ids=dag_ids,
+        page_limit=page_limit,
+        page_offset=page_offset,
+        states=states,
+        execution_date_gte=execution_date_gte,
+        execution_date_lte=execution_date_lte,
+        order_by=order_by,
+    )
+    params_dict = json.loads(params.model_dump_json(exclude_none=True))
     # Send request to Airflow to ListDagRuns
     async with AsyncClient(
         auth=(
