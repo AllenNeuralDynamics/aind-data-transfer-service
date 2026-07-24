@@ -186,6 +186,9 @@ class TestServer:
             mock_post.call_args_list[0][0][0]
             == "airflow_jobs_url/~/dagRuns/list"
         )
+        posted_body = mock_post.call_args_list[0].kwargs["json"]
+        assert "execution_date_lte" not in posted_body
+        assert all(v is not None for v in posted_body.values())
         assert 1 == len(caplog.messages)
 
     @patch("httpx.AsyncClient.post")

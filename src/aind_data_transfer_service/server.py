@@ -22,7 +22,7 @@ from fastapi_cache import FastAPICache
 from fastapi_cache.backends.inmemory import InMemoryBackend
 from fastapi_cache.backends.redis import RedisBackend
 from fastapi_cache.decorator import cache
-from httpx import AsyncClient
+from httpx import AsyncClient, Timeout
 from openpyxl import load_workbook
 from pydantic import ValidationError
 from redis.asyncio import from_url  # noqa
@@ -278,15 +278,16 @@ async def get_airflow_jobs(
 
     airflow_url = os.getenv("AIND_AIRFLOW_SERVICE_JOBS_URL", "").strip("/")
     airflow_url = f"{airflow_url}/~/dagRuns/list"
-    params_dict = {
-        "dag_ids": dag_ids,
-        "page_limit": page_limit,
-        "page_offset": page_offset,
-        "states": states,
-        "execution_date_gte": execution_date_gte,
-        "execution_date_lte": execution_date_lte,
-        "order_by": order_by,
-    }
+    params = AirflowDagRunsRequestParameters(
+        dag_ids=dag_ids,
+        page_limit=page_limit,
+        page_offset=page_offset,
+        states=states,
+        execution_date_gte=execution_date_gte,
+        execution_date_lte=execution_date_lte,
+        order_by=order_by,
+    )
+    params_dict = json.loads(params.model_dump_json(exclude_none=True))
     # Send request to Airflow to ListDagRuns
     async with AsyncClient(
         auth=(
@@ -429,7 +430,8 @@ async def submit_jobs_v2(request: Request):
             auth=(
                 os.getenv("AIND_AIRFLOW_SERVICE_USER"),
                 os.getenv("AIND_AIRFLOW_SERVICE_PASSWORD"),
-            )
+            ),
+            timeout=Timeout(120.0),
         ) as async_client:
             response = await async_client.post(
                 url=os.getenv("AIND_AIRFLOW_SERVICE_URL"),
