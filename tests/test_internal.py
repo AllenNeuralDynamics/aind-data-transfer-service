@@ -2,14 +2,17 @@
 
 import json
 import os
+import time
 import unittest
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
 from aind_data_transfer_service.models.internal import (
+    AirflowDagRunsRequestParameters,
     AirflowDagRunsResponse,
     JobStatus,
 )
+from pydantic import ValidationError
 
 TEST_DIRECTORY = Path(os.path.dirname(os.path.realpath(__file__)))
 DAG_RUN_RESPONSE = (
@@ -63,6 +66,29 @@ class TestJobStatus(unittest.TestCase):
         }
 
         self.assertEqual(expected_output, jinja_dict)
+
+
+class TestAirflowDagRunsRequestParameters(unittest.TestCase):
+    """Tests AirflowDagRunsRequestParameters class"""
+
+    def test_execution_date_gte_default_not_cached(self):
+        """Tests that execution_date_gte default is calculated."""
+        params1 = AirflowDagRunsRequestParameters()
+        time.sleep(1)
+        params2 = AirflowDagRunsRequestParameters()
+
+        self.assertIsNotNone(params1.execution_date_gte)
+        self.assertIsNotNone(params2.execution_date_gte)
+
+    def test_execution_date_gte_default_cached(self):
+        """Tests that a cached date from 3 weeks ago would fail validation."""
+
+        old_cached_date = (
+            datetime.now(timezone.utc) - timedelta(weeks=3)
+        ).isoformat()
+
+        with self.assertRaises(ValidationError):
+            AirflowDagRunsRequestParameters(execution_date_gte=old_cached_date)
 
 
 if __name__ == "__main__":
