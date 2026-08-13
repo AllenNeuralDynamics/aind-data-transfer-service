@@ -2,10 +2,10 @@
 
 import json
 import os
-import time
 import unittest
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
+from unittest.mock import patch
 
 from aind_data_transfer_service.models.internal import (
     AirflowDagRunsRequestParameters,
@@ -71,14 +71,41 @@ class TestJobStatus(unittest.TestCase):
 class TestAirflowDagRunsRequestParameters(unittest.TestCase):
     """Tests AirflowDagRunsRequestParameters class"""
 
-    def test_execution_date_gte_default_not_cached(self):
-        """Tests that execution_date_gte default is calculated."""
-        params1 = AirflowDagRunsRequestParameters()
-        time.sleep(1)
-        params2 = AirflowDagRunsRequestParameters()
+    def test_execution_date_gte_recalculated_per_instance(self):
+        """Tests that execution_date_gte uses default_factory, not a static default.
+
+        A static default is computed once at class-definition time and becomes
+        stale after 2+ weeks of server uptime, causing 406 errors on
+        /api/v1/get_job_status_list. With default_factory the value is
+        recalculated fresh for every new instance, so two instances created
+        at different mock times must produce different execution_date_gte values.
+        """
+        time1 = datetime(2026, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+        time2 = datetime(2026, 1, 2, 12, 0, 0, tzinfo=timezone.utc)
+
+        with patch(
+            "aind_data_transfer_service.models.internal.datetime",
+            wraps=datetime,
+        ) as mock_dt:
+            mock_dt.now.return_value = time1
+            params1 = AirflowDagRunsRequestParameters()
+
+        with patch(
+            "aind_data_transfer_service.models.internal.datetime",
+            wraps=datetime,
+        ) as mock_dt:
+            mock_dt.now.return_value = time2
+            params2 = AirflowDagRunsRequestParameters()
 
         self.assertIsNotNone(params1.execution_date_gte)
         self.assertIsNotNone(params2.execution_date_gte)
+        self.assertNotEqual(
+            params1.execution_date_gte,
+            params2.execution_date_gte,
+            "execution_date_gte must be recalculated per instance; "
+            "equal values indicate a stale static default was used instead of "
+            "default_factory.",
+        )
 
     def test_execution_date_gte_default_cached(self):
         """Tests that a cached date from 3 weeks ago would fail validation."""
