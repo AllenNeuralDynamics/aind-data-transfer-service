@@ -3,13 +3,16 @@
 import json
 import os
 import unittest
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
+from unittest.mock import patch
 
 from aind_data_transfer_service.models.internal import (
+    AirflowDagRunsRequestParameters,
     AirflowDagRunsResponse,
     JobStatus,
 )
+from pydantic import ValidationError
 
 TEST_DIRECTORY = Path(os.path.dirname(os.path.realpath(__file__)))
 DAG_RUN_RESPONSE = (
@@ -63,6 +66,52 @@ class TestJobStatus(unittest.TestCase):
         }
 
         self.assertEqual(expected_output, jinja_dict)
+
+
+class TestAirflowDagRunsRequestParameters(unittest.TestCase):
+    """Tests AirflowDagRunsRequestParameters class"""
+
+    def test_execution_date_gte_recalculated_per_instance(self):
+        """
+        Tests that execution_date_gte uses default_factory,
+        not a static default.
+        """
+        time1 = datetime(2026, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+        time2 = datetime(2026, 1, 2, 12, 0, 0, tzinfo=timezone.utc)
+
+        with patch(
+            "aind_data_transfer_service.models.internal.datetime",
+            wraps=datetime,
+        ) as mock_dt:
+            mock_dt.now.return_value = time1
+            params1 = AirflowDagRunsRequestParameters()
+
+        with patch(
+            "aind_data_transfer_service.models.internal.datetime",
+            wraps=datetime,
+        ) as mock_dt:
+            mock_dt.now.return_value = time2
+            params2 = AirflowDagRunsRequestParameters()
+
+        self.assertIsNotNone(params1.execution_date_gte)
+        self.assertIsNotNone(params2.execution_date_gte)
+        self.assertNotEqual(
+            params1.execution_date_gte,
+            params2.execution_date_gte,
+            "execution_date_gte must be recalculated per instance; "
+            "equal values indicate a stale static default was used instead of "
+            "default_factory.",
+        )
+
+    def test_execution_date_gte_default_cached(self):
+        """Tests that a cached date from 3 weeks ago would fail validation."""
+
+        old_cached_date = (
+            datetime.now(timezone.utc) - timedelta(weeks=3)
+        ).isoformat()
+
+        with self.assertRaises(ValidationError):
+            AirflowDagRunsRequestParameters(execution_date_gte=old_cached_date)
 
 
 if __name__ == "__main__":
