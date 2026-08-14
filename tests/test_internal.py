@@ -72,13 +72,9 @@ class TestAirflowDagRunsRequestParameters(unittest.TestCase):
     """Tests AirflowDagRunsRequestParameters class"""
 
     def test_execution_date_gte_recalculated_per_instance(self):
-        """Tests that execution_date_gte uses default_factory, not a static default.
-
-        A static default is computed once at class-definition time and becomes
-        stale after 2+ weeks of server uptime, causing 406 errors on
-        /api/v1/get_job_status_list. With default_factory the value is
-        recalculated fresh for every new instance, so two instances created
-        at different mock times must produce different execution_date_gte values.
+        """
+        Tests that execution_date_gte uses default_factory,
+        not a static default.
         """
         time1 = datetime(2026, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
         time2 = datetime(2026, 1, 2, 12, 0, 0, tzinfo=timezone.utc)
