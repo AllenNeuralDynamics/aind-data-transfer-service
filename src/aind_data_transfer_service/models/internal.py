@@ -44,10 +44,12 @@ class AirflowDagRunsRequestParameters(BaseModel):
     page_limit: int = 250  # Increased from 100 to reduce total requests
     page_offset: int = 0
     states: Optional[list[str]] = []
-    execution_date_gte: Optional[str] = (
-        datetime.now(timezone.utc).replace(second=0, microsecond=0)
-        - timedelta(days=3)
-    ).isoformat()
+    execution_date_gte: Optional[str] = Field(
+        default_factory=lambda: (
+            datetime.now(timezone.utc).replace(second=0, microsecond=0)
+            - timedelta(days=3)
+        ).isoformat()
+    )
     execution_date_lte: Optional[str] = None
     order_by: str = "-execution_date"
 

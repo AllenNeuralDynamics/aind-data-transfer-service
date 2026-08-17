@@ -45,7 +45,7 @@ gather_preliminary_metadata = Task(
 
 upload_job_configs_v2 = UploadJobConfigsV2(
     job_type=job_type,
-    project_name="Ephys Platform",
+    project_name="Dynamic Routing",
     platform=Platform.ECEPHYS,
     modalities=[Modality.ECEPHYS],
     subject_id="655019",
