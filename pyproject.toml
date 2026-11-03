@@ -17,7 +17,7 @@ readme = "README.md"
 dynamic = ["version"]
 
 dependencies = [
-    'aind-data-schema-models>=0.3.2,<6.0',
+    'aind-data-schema-models>=0.3.2',
     'email-validator',
     'pydantic>=2.0',
     'pydantic-settings>=2.0',
@@ -46,7 +46,7 @@ docs = [
 ]
 
 server = [
-    'aind-data-schema==2.0.0',
+    'aind-data-schema==2.9.2',
     'boto3',
     'boto3-stubs[ssm]',
     'fastapi>=0.115.13',
