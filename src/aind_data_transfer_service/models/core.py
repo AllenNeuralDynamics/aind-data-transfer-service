@@ -162,8 +162,10 @@ class UploadJobConfigsV2(BaseSettings):
         title="S3 Bucket",
     )
 
-    project_name: str = Field(
-        ..., description="Name of project", title="Project Name"
+    project_name: Optional[str] = Field(
+        default=None,
+        description="Name of project. Looked up in Dataverse if omitted.",
+        title="Project Name",
     )
     platform: Optional[Platform.ONE_OF] = Field(
         default=None,
@@ -216,6 +218,47 @@ class UploadJobConfigsV2(BaseSettings):
             return v.model_dump()
         else:
             return v
+
+    @model_validator(mode="before")
+    def resolve_project_name(cls, data: Any, info: ValidationInfo) -> Any:
+        """
+        If a mapping of subject_id to Dataverse project name is provided in a
+        context manager (under "dataverse_projects"), then a missing
+        project_name is filled in from it and a provided project_name must
+        match it when Dataverse has one. Otherwise, the input is returned
+        unchanged.
+
+        Parameters
+        ----------
+        data : Any
+          Raw input to the model.
+        info : ValidationInfo
+
+        Returns
+        -------
+        Any
+
+        """
+        dv_projects = (info.context or dict()).get("dataverse_projects")
+        if dv_projects is None or not isinstance(data, dict):
+            return data
+        subject_id = str(data.get("subject_id", "")).strip()
+        dv_project = dv_projects.get(subject_id)
+        project_name = data.get("project_name")
+        if project_name is None:
+            if dv_project is None:
+                raise ValueError(
+                    "project_name was not provided and no project is "
+                    f"assigned to subject {subject_id} in Dataverse"
+                )
+            return {**data, "project_name": dv_project}
+        if dv_project is not None and dv_project != project_name:
+            raise ValueError(
+                f"project_name '{project_name}' does not match the project "
+                f"assigned to subject {subject_id} in Dataverse "
+                f"('{dv_project}')"
+            )
+        return data
 
     @field_validator("job_type", "project_name", mode="before")
     def validate_with_context(cls, v: str, info: ValidationInfo) -> str:

@@ -11,7 +11,7 @@ import pytest
 from authlib.integrations.starlette_client import OAuthError
 from botocore.exceptions import ClientError
 from fastapi.responses import JSONResponse, StreamingResponse
-from requests import Response
+from requests import HTTPError, Response
 
 from aind_data_transfer_service import (
     __version__ as aind_data_transfer_service_version,
@@ -26,6 +26,8 @@ from aind_data_transfer_service.models.internal import (
     JobParamInfo,
 )
 from aind_data_transfer_service.server import (
+    get_dataverse_project_name,
+    get_dataverse_project_names,
     get_job_types,
     get_project_names,
 )
@@ -47,11 +49,40 @@ MALFORMED_SAMPLE_CSV_2 = (
 SAMPLE_CSV_EMPTY_ROWS_2 = (
     TEST_DIRECTORY / "resources" / "sample_empty_rows_2.csv"
 )
+SAMPLE_CSV_NO_PROJECT_NAME = (
+    TEST_DIRECTORY / "resources" / "sample_no_project_name.csv"
+)
+# One of the few mice with a project set in Dataverse as of 2026-11-05.
+DV_SUBJECT_ID = "888085"
+DV_PROJECT_NAME = "Cognitive flexibility in patch foraging"
+DV_PROJECT_KEY = (
+    "_aibs_project_name_value@OData.Community.Display.V1.FormattedValue"
+)
 
 
 @pytest.mark.asyncio
 class TestServer:
     """Tests main server."""
+
+    @pytest.fixture(autouse=True)
+    def no_dataverse_projects(self):
+        """Patch the Dataverse lookup to find no subjects, so requests that
+        pass a project_name behave as before. Tests that need a lookup
+        result patch it again themselves."""
+        with patch(
+            "aind_data_transfer_service.server.get_dataverse_project_names",
+            return_value=dict(),
+        ):
+            yield
+
+    @staticmethod
+    def _request_without_project_name(example_configs_v2) -> dict:
+        """Build a SubmitJobRequestV2 dict for the Dataverse test subject
+        with no project_name key, as rig software would post it."""
+        job = example_configs_v2.model_dump(mode="json", exclude_none=True)
+        job["subject_id"] = DV_SUBJECT_ID
+        job.pop("project_name")
+        return {"user_email": "abc@example.com", "upload_jobs": [job]}
 
     @patch("httpx.AsyncClient.get")
     async def test_get_project_names(self, mock_get: MagicMock):
@@ -1856,6 +1887,153 @@ class TestServer:
         )
         # Expect at least error log for the failure
         assert "500 Server Error" in caplog.text
+
+    @patch("httpx.AsyncClient.get")
+    async def test_get_dataverse_project_name(self, mock_get: MagicMock):
+        """Tests get_dataverse_project_name for a subject with a project, a
+        subject with no project, and a subject not in the mice table."""
+        with_project = Response()
+        with_project.status_code = 200
+        with_project._content = json.dumps(
+            [{"aibs_mouse_id": DV_SUBJECT_ID, DV_PROJECT_KEY: DV_PROJECT_NAME}]
+        ).encode("utf-8")
+        no_project = Response()
+        no_project.status_code = 200
+        no_project._content = b'[{"aibs_mouse_id": "899840"}]'
+        not_found = Response()
+        not_found.status_code = 404
+        mock_get.side_effect = [with_project, no_project, not_found]
+        assert DV_PROJECT_NAME == await get_dataverse_project_name(
+            DV_SUBJECT_ID
+        )
+        assert await get_dataverse_project_name("899840") is None
+        assert await get_dataverse_project_name("000000") is None
+        params = mock_get.call_args_list[0].kwargs["params"]
+        assert f"aibs_mouse_id eq '{DV_SUBJECT_ID}'" == params["filter"]
+        assert "aibs_mouse_id,_aibs_project_name_value" == params["columns"]
+
+    @patch("httpx.AsyncClient.get")
+    async def test_get_dataverse_project_name_error(self, mock_get: MagicMock):
+        """Tests get_dataverse_project_name raises on a server error."""
+        mock_response = Response()
+        mock_response.status_code = 500
+        mock_get.return_value = mock_response
+        with pytest.raises(HTTPError):
+            await get_dataverse_project_name(DV_SUBJECT_ID)
+
+    @patch("aind_data_transfer_service.server.get_dataverse_project_name")
+    async def test_get_dataverse_project_names(self, mock_get_one: MagicMock):
+        """Tests get_dataverse_project_names looks up each distinct subject
+        once and skips malformed jobs."""
+        mock_get_one.side_effect = {DV_SUBJECT_ID: DV_PROJECT_NAME}.get
+        jobs = [
+            {"subject_id": DV_SUBJECT_ID},
+            {"subject_id": " 899840 "},
+            {"subject_id": "899840"},
+            {"subject_id": None},
+            {},
+            "not a job",
+        ]
+        result = await get_dataverse_project_names(jobs)
+        assert {DV_SUBJECT_ID: DV_PROJECT_NAME, "899840": None} == result
+        assert 2 == mock_get_one.call_count
+        assert {} == await get_dataverse_project_names("not a list")
+
+    @patch("aind_data_transfer_service.server.get_dataverse_project_names")
+    @patch("aind_data_transfer_service.server.get_airflow_jobs")
+    @patch("aind_data_transfer_service.server.get_job_types")
+    @patch("aind_data_transfer_service.server.get_project_names")
+    async def test_validate_json_resolves_project_name(
+        self,
+        mock_get_project_names: MagicMock,
+        mock_get_job_types: MagicMock,
+        mock_get_airflow_jobs: MagicMock,
+        mock_get_dv: MagicMock,
+        client,
+        example_configs_v2,
+    ):
+        """Tests validate_json fills a missing project_name from Dataverse
+        and returns 406 when Dataverse has no project for the subject."""
+        mock_get_project_names.return_value = [DV_PROJECT_NAME]
+        mock_get_job_types.return_value = ["ecephys"]
+        mock_get_airflow_jobs.return_value = (0, list())
+        request = self._request_without_project_name(example_configs_v2)
+        mock_get_dv.return_value = {DV_SUBJECT_ID: DV_PROJECT_NAME}
+        response = client.post("/api/v2/validate_json", json=request)
+        assert 200 == response.status_code
+        validated = response.json()["data"]["validated_model_json"]
+        assert DV_PROJECT_NAME == validated["upload_jobs"][0]["project_name"]
+        assert request["upload_jobs"] == mock_get_dv.call_args.args[0]
+        mock_get_dv.return_value = {}
+        response = client.post("/api/v2/validate_json", json=request)
+        assert 406 == response.status_code
+        errors = json.loads(response.json()["data"]["errors"])
+        assert ["upload_jobs", 0] == errors[0]["loc"]
+        assert (
+            "project_name was not provided and no project is assigned to "
+            f"subject {DV_SUBJECT_ID} in Dataverse"
+        ) in errors[0]["msg"]
+
+    @patch("aind_data_transfer_service.server.get_dataverse_project_names")
+    @patch("httpx.AsyncClient.post")
+    @patch("aind_data_transfer_service.server.get_airflow_jobs")
+    @patch("aind_data_transfer_service.server.get_project_names")
+    @patch("aind_data_transfer_service.server.get_job_types")
+    async def test_submit_jobs_fills_project_name(
+        self,
+        mock_get_job_types: MagicMock,
+        mock_get_project_names: MagicMock,
+        mock_get_airflow_jobs: MagicMock,
+        mock_post: MagicMock,
+        mock_get_dv: MagicMock,
+        client,
+        example_configs_v2,
+    ):
+        """Tests submit_jobs sends a project_name filled from Dataverse to
+        airflow."""
+        mock_get_dv.return_value = {DV_SUBJECT_ID: DV_PROJECT_NAME}
+        mock_get_project_names.return_value = [DV_PROJECT_NAME]
+        mock_get_job_types.return_value = ["ecephys"]
+        mock_get_airflow_jobs.return_value = (0, list())
+        mock_response = Response()
+        mock_response.status_code = 200
+        mock_response._content = json.dumps({"message": "sent"}).encode(
+            "utf-8"
+        )
+        mock_post.return_value = mock_response
+        request = self._request_without_project_name(example_configs_v2)
+        response = client.post("/api/v2/submit_jobs", json=request)
+        assert 200 == response.status_code
+        sent = mock_post.call_args.kwargs["json"]["conf"]
+        assert DV_PROJECT_NAME == sent["upload_jobs"][0]["project_name"]
+
+    @patch("aind_data_transfer_service.server.get_dataverse_project_names")
+    @patch("aind_data_transfer_service.server.get_airflow_jobs")
+    @patch("aind_data_transfer_service.server.get_job_types")
+    @patch("aind_data_transfer_service.server.get_project_names")
+    async def test_validate_csv_fills_project_name(
+        self,
+        mock_get_project_names: MagicMock,
+        mock_get_job_types: MagicMock,
+        mock_get_airflow_jobs: MagicMock,
+        mock_get_dv: MagicMock,
+        client,
+    ):
+        """Tests validate_csv fills blank project_name cells from Dataverse
+        using the subject-id column."""
+        mock_get_dv.return_value = {DV_SUBJECT_ID: DV_PROJECT_NAME}
+        mock_get_project_names.return_value = [DV_PROJECT_NAME]
+        mock_get_job_types.return_value = ["ecephys", "custom"]
+        mock_get_airflow_jobs.return_value = (0, list())
+        with open(SAMPLE_CSV_NO_PROJECT_NAME, "rb") as f:
+            response = client.post(
+                url="/api/v2/validate_csv", files={"file": f}
+            )
+        assert 200 == response.status_code
+        jobs = response.json()["data"]["jobs"]
+        assert [DV_PROJECT_NAME] * 2 == [j["project_name"] for j in jobs]
+        rows = mock_get_dv.call_args.args[0]
+        assert [DV_SUBJECT_ID] * 2 == [r["subject_id"] for r in rows]
 
 
 if __name__ == "__main__":
