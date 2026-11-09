@@ -110,14 +110,7 @@ async def validate_csv(request: Request):
                         csv_writer.writerow(r)
                 xlsx_book.close()
                 data = csv_io.getvalue()
-            csv_reader = csv.DictReader(io.StringIO(data))
-            # Clean keys like map_csv_row_to_job does so subject_id can be
-            # read for the Dataverse project_name lookup
-            rows = [
-                {str(k).strip(" ").replace("-", "_"): v for k, v in r.items()}
-                for r in csv_reader
-                if any(r.values())
-            ]
+            rows = read_csv_rows(data)
             params = AirflowDagRunsRequestParameters(
                 dag_ids=["transform_and_upload_v2", "run_list_of_jobs"],
                 states=["running", "queued"],
@@ -161,6 +154,22 @@ async def validate_csv(request: Request):
             content=content,
             status_code=status_code,
         )
+
+
+def read_csv_rows(data: str) -> List[dict]:
+    """Read csv rows into dicts, skipping blank lines. Header keys are
+    normalized the same way map_csv_row_to_job does, so subject_id can be
+    read for the Dataverse lookup whether the header says "subject-id" or
+    "subject_id", with or without stray spaces."""
+    rows = []
+    for row in csv.DictReader(io.StringIO(data)):
+        if not any(row.values()):
+            continue
+        clean_row = dict()
+        for key, value in row.items():
+            clean_row[str(key).strip(" ").replace("-", "_")] = value
+        rows.append(clean_row)
+    return rows
 
 
 async def get_project_names() -> List[str]:
