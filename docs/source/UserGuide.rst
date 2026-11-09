@@ -121,8 +121,6 @@ portal can be accessed at
       settings). This field determines which preset to use when
       running the upload job. A list of job types can be seen by clicking the
       ``Job Parameters`` link.
-   -  project_name: A list of project names can be seen by clicking the
-      ``Project Names`` link
    -  subject_id: The LabTracks ID of the mouse
    -  acq_datetime: The date and time the data was acquired. Should be
       in ISO format, for example, 2024-05-27T16:07:59
@@ -142,6 +140,11 @@ portal can be accessed at
 
 -  Optional fields
 
+   -  project_name: If left blank, the service looks up the project assigned
+      to the subject in the Dataverse mice table and fails the row if there
+      is none. If provided, it must match the Dataverse project when one is
+      assigned. A list of project names can be seen by clicking the
+      ``Project Names`` link
    -  platform: Standardized way of collecting and processing data
       (chosen from drop down menu) Note: This field is deprecated and will be
       removed when aind-data-schema 2.0 is rolled out.

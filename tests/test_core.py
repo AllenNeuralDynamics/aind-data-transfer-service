@@ -197,6 +197,86 @@ class TestUploadJobConfigsV2(unittest.TestCase):
             err_msg,
         )
 
+    def test_project_name_optional(self):
+        """Test project_name can be omitted without a validation context, as
+        rig software builds the model before posting it, but not when the
+        context has a list of project names and no Dataverse lookup."""
+        model = json.loads(self.example_configs.model_dump_json())
+        del model["project_name"]
+        self.assertIsNone(UploadJobConfigsV2(**model).project_name)
+        with self.assertRaises(ValidationError) as err:
+            with validation_context({"project_names": ["Other Platform"]}):
+                UploadJobConfigsV2(**model)
+        err_msg = json.loads(err.exception.json())[0]["msg"]
+        self.assertEqual(
+            "Value error, None must be one of ['Other Platform']", err_msg
+        )
+
+    def test_resolve_project_name_from_dataverse(self):
+        """Test an omitted project_name is filled from the Dataverse lookup
+        provided in a context and then validated against project_names."""
+        model = json.loads(self.example_configs.model_dump_json())
+        del model["project_name"]
+        context = {
+            "project_names": ["Behavior Platform"],
+            "dataverse_projects": {"123456": "Behavior Platform"},
+        }
+        with validation_context(context):
+            configs = UploadJobConfigsV2(**model)
+        self.assertEqual("Behavior Platform", configs.project_name)
+        context["project_names"] = ["Other Platform"]
+        with self.assertRaises(ValidationError) as err:
+            with validation_context(context):
+                UploadJobConfigsV2(**model)
+        self.assertIn(
+            "Behavior Platform must be one of ['Other Platform']",
+            json.loads(err.exception.json())[0]["msg"],
+        )
+
+    def test_resolve_project_name_errors(self):
+        """Test the errors raised when project_name cannot be resolved from
+        or conflicts with the Dataverse lookup provided in a context."""
+        model = json.loads(self.example_configs.model_dump_json())
+        missing = {k: v for k, v in model.items() if k != "project_name"}
+        no_project = "no project is assigned to subject 123456 in Dataverse"
+        cases = [
+            (missing, {}, no_project),
+            (missing, {"123456": None}, no_project),
+            (
+                model,
+                {"123456": "Other Platform"},
+                "does not match the project assigned to subject 123456",
+            ),
+        ]
+        for data, dataverse_projects, expected in cases:
+            with self.subTest(expected=expected):
+                context = {
+                    "project_names": ["Behavior Platform"],
+                    "dataverse_projects": dataverse_projects,
+                }
+                with self.assertRaises(ValidationError) as err:
+                    with validation_context(context):
+                        UploadJobConfigsV2(**data)
+                err_msg = json.loads(err.exception.json())[0]["msg"]
+                self.assertIn(expected, err_msg)
+
+    def test_resolve_project_name_accepts_provided(self):
+        """Test a provided project_name is accepted when Dataverse has the
+        same project, has no project, or does not know the subject."""
+        model = json.loads(self.example_configs.model_dump_json())
+        for dataverse_projects in [
+            {"123456": "Behavior Platform"},
+            {"123456": None},
+            {},
+        ]:
+            context = {
+                "project_names": ["Behavior Platform"],
+                "dataverse_projects": dataverse_projects,
+            }
+            with validation_context(context):
+                configs = UploadJobConfigsV2(**model)
+            self.assertEqual("Behavior Platform", configs.project_name)
+
     def test_s3_bucket(self):
         """Test s3_bucket allowed values"""
         default_configs = UploadJobConfigsV2(**self.base_configs)

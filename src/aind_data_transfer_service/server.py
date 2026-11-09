@@ -9,7 +9,7 @@ import re
 from asyncio import Semaphore, gather
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from typing import Any, List, Optional
+from typing import Any, Dict, List, Optional
 
 import boto3
 from authlib.integrations.starlette_client import OAuth
@@ -68,6 +68,7 @@ templates = Jinja2Templates(directory=template_directory)
 # VALIDATE_AIRFLOW_SEMAPHORE
 # REDIS_URL
 # AIND_METADATA_SERVICE_PROJECT_NAMES_URL
+# AIND_METADATA_SERVICE_URL
 # AIND_AIRFLOW_SERVICE_URL
 # AIND_AIRFLOW_SERVICE_JOBS_URL
 # AIND_AIRFLOW_SERVICE_PASSWORD
@@ -76,6 +77,13 @@ templates = Jinja2Templates(directory=template_directory)
 # LOG_LEVEL
 
 project_names_url = os.getenv("AIND_METADATA_SERVICE_PROJECT_NAMES_URL")
+# Base URL of the metadata service. Falls back to the project names URL with
+# the /project_names suffix removed so existing deployments keep working.
+metadata_service_url = os.getenv("AIND_METADATA_SERVICE_URL") or (
+    project_names_url.rsplit("/project_names", 1)[0]
+    if project_names_url
+    else None
+)
 
 
 async def validate_csv(request: Request):
@@ -102,7 +110,7 @@ async def validate_csv(request: Request):
                         csv_writer.writerow(r)
                 xlsx_book.close()
                 data = csv_io.getvalue()
-            csv_reader = csv.DictReader(io.StringIO(data))
+            rows = read_csv_rows(data)
             params = AirflowDagRunsRequestParameters(
                 dag_ids=["transform_and_upload_v2", "run_list_of_jobs"],
                 states=["running", "queued"],
@@ -116,10 +124,9 @@ async def validate_csv(request: Request):
                 "job_types": get_job_types("v2"),
                 "project_names": await get_project_names(),
                 "current_jobs": current_jobs,
+                "dataverse_projects": await get_dataverse_project_names(rows),
             }
-            for row in csv_reader:
-                if not any(row.values()):
-                    continue
+            for row in rows:
                 try:
                     with validation_context(context):
                         job = map_csv_row_to_job(row=row)
@@ -149,6 +156,22 @@ async def validate_csv(request: Request):
         )
 
 
+def read_csv_rows(data: str) -> List[dict]:
+    """Read csv rows into dicts, skipping blank lines. Header keys are
+    normalized the same way map_csv_row_to_job does, so subject_id can be
+    read for the Dataverse lookup whether the header says "subject-id" or
+    "subject_id", with or without stray spaces."""
+    rows = []
+    for row in csv.DictReader(io.StringIO(data)):
+        if not any(row.values()):
+            continue
+        clean_row = dict()
+        for key, value in row.items():
+            clean_row[str(key).strip(" ").replace("-", "_")] = value
+        rows.append(clean_row)
+    return rows
+
+
 async def get_project_names() -> List[str]:
     """Get a list of project_names"""
     # TODO: Cache response for 5 minutes
@@ -157,6 +180,44 @@ async def get_project_names() -> List[str]:
         response.raise_for_status()
         project_names = response.json()["data"]
     return project_names
+
+
+async def get_dataverse_project_name(subject_id: str) -> Optional[str]:
+    """Get the project assigned to a subject in the Dataverse mice table via
+    the metadata service. Returns None if the subject is not in the table or
+    has no project assigned."""
+    url = f"{metadata_service_url}/api/v2/dataverse/tables/aibs_dim_mices"
+    params = {
+        "filter": f"aibs_mouse_id eq '{subject_id}'",
+        "columns": "aibs_mouse_id,_aibs_project_name_value",
+    }
+    async with AsyncClient(timeout=Timeout(30.0)) as async_client:
+        response = await async_client.get(url, params=params)
+    if response.status_code == 404:
+        return None
+    response.raise_for_status()
+    # aibs_project_name is a lookup column, so Dataverse returns the linked
+    # project's display name under this annotated key
+    return response.json()[0].get(
+        "_aibs_project_name_value@OData.Community.Display.V1.FormattedValue"
+    )
+
+
+async def get_dataverse_project_names(
+    upload_jobs: Any,
+) -> Dict[str, Optional[str]]:
+    """Get the Dataverse project for each distinct subject_id in a list of
+    raw upload job dicts. Anything malformed is left for model validation."""
+    jobs = upload_jobs if isinstance(upload_jobs, list) else []
+    ids = sorted(
+        {
+            str(j["subject_id"]).strip()
+            for j in jobs
+            if isinstance(j, dict) and j.get("subject_id")
+        }
+    )
+    names = await gather(*(get_dataverse_project_name(s) for s in ids))
+    return dict(zip(ids, names))
 
 
 def set_oauth() -> OAuth:
@@ -340,6 +401,9 @@ async def validate_json_v2(request: Request):
             "job_types": get_job_types("v2"),
             "project_names": await get_project_names(),
             "current_jobs": current_jobs,
+            "dataverse_projects": await get_dataverse_project_names(
+                content.get("upload_jobs")
+            ),
         }
         with validation_context(context):
             validated_model = SubmitJobRequestV2.model_validate_json(
@@ -409,6 +473,9 @@ async def submit_jobs_v2(request: Request):
             "job_types": get_job_types("v2"),
             "project_names": await get_project_names(),
             "current_jobs": current_jobs,
+            "dataverse_projects": await get_dataverse_project_names(
+                content.get("upload_jobs")
+            ),
         }
         with validation_context(context):
             model = SubmitJobRequestV2.model_validate_json(json.dumps(content))
