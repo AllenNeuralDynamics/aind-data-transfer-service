@@ -235,8 +235,11 @@ class UploadJobConfigsV2(BaseSettings):
         str
 
         """
+        if v is None:
+            # An omitted optional field has nothing to check
+            return v
         valid_list = (info.context or dict()).get(f"{info.field_name}s")
-        if v is not None and valid_list is not None and v not in valid_list:
+        if valid_list is not None and v not in valid_list:
             raise ValueError(f"{v} must be one of {valid_list}")
         else:
             return v
