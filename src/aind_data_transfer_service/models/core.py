@@ -162,8 +162,8 @@ class UploadJobConfigsV2(BaseSettings):
         title="S3 Bucket",
     )
 
-    project_name: str = Field(
-        ..., description="Name of project", title="Project Name"
+    project_name: Optional[str] = Field(
+        default=None, description="Name of project", title="Project Name"
     )
     platform: Optional[Platform.ONE_OF] = Field(
         default=None,
@@ -236,7 +236,7 @@ class UploadJobConfigsV2(BaseSettings):
 
         """
         valid_list = (info.context or dict()).get(f"{info.field_name}s")
-        if valid_list is not None and v not in valid_list:
+        if v is not None and valid_list is not None and v not in valid_list:
             raise ValueError(f"{v} must be one of {valid_list}")
         else:
             return v
