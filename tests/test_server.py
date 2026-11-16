@@ -1976,7 +1976,9 @@ class TestServer:
             )
         assert 200 == response.status_code
         jobs = response.json()["data"]["jobs"]
-        assert [DV_PROJECT_NAME] * 2 == [j["project_name"] for j in jobs]
+        assert 2 == len(jobs)
+        for job in jobs:
+            assert DV_PROJECT_NAME == job["project_name"]
 
 
 if __name__ == "__main__":
