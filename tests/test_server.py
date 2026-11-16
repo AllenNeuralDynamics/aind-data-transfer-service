@@ -52,9 +52,9 @@ SAMPLE_CSV_EMPTY_ROWS_2 = (
 SAMPLE_CSV_NO_PROJECT_NAME = (
     TEST_DIRECTORY / "resources" / "sample_no_project_name.csv"
 )
-# One of the few mice with a project set in Dataverse as of 2026-11-05.
-DV_SUBJECT_ID = "888085"
-DV_PROJECT_NAME = "Cognitive flexibility in patch foraging"
+# Made-up subject and project for the Dataverse lookup, which is mocked.
+DV_SUBJECT_ID = "mouse-with-project"
+DV_PROJECT_NAME = "Fake Dataverse Project"
 DV_PROJECT_KEY = (
     "_aibs_project_name_value@OData.Community.Display.V1.FormattedValue"
 )
@@ -1899,15 +1899,19 @@ class TestServer:
         ).encode("utf-8")
         no_project = Response()
         no_project.status_code = 200
-        no_project._content = b'[{"aibs_mouse_id": "899840"}]'
+        no_project._content = b'[{"aibs_mouse_id": "mouse-without-project"}]'
         not_found = Response()
         not_found.status_code = 404
         mock_get.side_effect = [with_project, no_project, not_found]
         assert DV_PROJECT_NAME == await get_dataverse_project_name(
             DV_SUBJECT_ID
         )
-        assert await get_dataverse_project_name("899840") is None
-        assert await get_dataverse_project_name("000000") is None
+        assert (
+            await get_dataverse_project_name("mouse-without-project") is None
+        )
+        assert (
+            await get_dataverse_project_name("mouse-not-in-dataverse") is None
+        )
         params = mock_get.call_args_list[0].kwargs["params"]
         assert f"aibs_mouse_id eq '{DV_SUBJECT_ID}'" == params["filter"]
         assert "aibs_mouse_id,_aibs_project_name_value" == params["columns"]
@@ -1928,14 +1932,17 @@ class TestServer:
         mock_get_one.side_effect = {DV_SUBJECT_ID: DV_PROJECT_NAME}.get
         jobs = [
             {"subject_id": DV_SUBJECT_ID},
-            {"subject_id": " 899840 "},
-            {"subject_id": "899840"},
+            {"subject_id": " mouse-without-project "},
+            {"subject_id": "mouse-without-project"},
             {"subject_id": None},
             {},
             "not a job",
         ]
         result = await get_dataverse_project_names(jobs)
-        assert {DV_SUBJECT_ID: DV_PROJECT_NAME, "899840": None} == result
+        assert {
+            DV_SUBJECT_ID: DV_PROJECT_NAME,
+            "mouse-without-project": None,
+        } == result
         assert 2 == mock_get_one.call_count
         assert {} == await get_dataverse_project_names("not a list")
 
