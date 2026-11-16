@@ -55,8 +55,9 @@ SAMPLE_CSV_NO_PROJECT_NAME = (
 # Made-up subject and project for the Dataverse lookup, which is mocked.
 DV_SUBJECT_ID = "mouse-with-project"
 DV_PROJECT_NAME = "Fake Dataverse Project"
-# The metadata service returns a lookup column's display name under this key
-DV_PROJECT_KEY = (
+# The key the metadata service returns the project's display name under.
+# See the comment in get_dataverse_project_name for why it looks like this.
+DV_PROJECT_NAME_KEY = (
     "_aibs_project_name_value@OData.Community.Display.V1.FormattedValue"
 )
 
@@ -1887,7 +1888,12 @@ class TestServer:
         mock_response = Response()
         mock_response.status_code = 200
         mock_response._content = json.dumps(
-            [{"aibs_mouse_id": DV_SUBJECT_ID, DV_PROJECT_KEY: DV_PROJECT_NAME}]
+            [
+                {
+                    "aibs_mouse_id": DV_SUBJECT_ID,
+                    DV_PROJECT_NAME_KEY: DV_PROJECT_NAME,
+                }
+            ]
         ).encode("utf-8")
         mock_get.return_value = mock_response
         project = await get_dataverse_project_name(DV_SUBJECT_ID)

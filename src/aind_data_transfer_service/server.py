@@ -196,11 +196,14 @@ async def get_dataverse_project_name(subject_id: str) -> Optional[str]:
     if response.status_code == 404:
         return None
     response.raise_for_status()
-    # aibs_project_name is a lookup column, so Dataverse returns the linked
-    # project's display name under this annotated key
-    return response.json()[0].get(
+    # aibs_project_name is a lookup column, a link to the projects table.
+    # Dataverse returns a lookup as the linked row's id plus its display name
+    # under this annotated key. The metadata service strips the id and keeps
+    # the display name, so this key is the only place the project name shows.
+    project_name_key = (
         "_aibs_project_name_value@OData.Community.Display.V1.FormattedValue"
     )
+    return response.json()[0].get(project_name_key)
 
 
 async def get_dataverse_project_names(
@@ -357,7 +360,7 @@ async def get_airflow_jobs(
         )
     ) as async_client:
         # Fetch initial jobs
-        (total_entries, jobs_list) = await fetch_jobs(
+        total_entries, jobs_list = await fetch_jobs(
             client=async_client,
             url=airflow_url,
             request_body=params_dict,
