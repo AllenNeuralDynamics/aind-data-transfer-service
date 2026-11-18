@@ -197,6 +197,15 @@ class TestUploadJobConfigsV2(unittest.TestCase):
             err_msg,
         )
 
+    def test_project_name_optional(self):
+        """Test project_name can be omitted, with or without a list of
+        project names in the validation context."""
+        model = json.loads(self.example_configs.model_dump_json())
+        del model["project_name"]
+        self.assertIsNone(UploadJobConfigsV2(**model).project_name)
+        with validation_context({"project_names": ["Other Platform"]}):
+            self.assertIsNone(UploadJobConfigsV2(**model).project_name)
+
     def test_s3_bucket(self):
         """Test s3_bucket allowed values"""
         default_configs = UploadJobConfigsV2(**self.base_configs)
